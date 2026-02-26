@@ -1,0 +1,23 @@
+{
+  "servers": {
+    "bitrise-dev-environments": {
+      "type": "stdio",
+      "command": "go",
+      "args": [
+        "run",
+        "."
+      ],
+      "env": {
+        "BITRISE_TOKEN": "${input:bitrise-token}"
+      }
+    }
+  },
+  "inputs": [
+    {
+      "id": "bitrise-token",
+      "type": "promptString",
+      "description": "Bitrise Personal Access Token",
+      "password": true
+    }
+  ]
+}

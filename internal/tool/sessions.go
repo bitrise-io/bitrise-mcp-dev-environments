@@ -79,6 +79,9 @@ The session will start provisioning immediately after creation.`),
 		mcp.WithObject("enabled_feature_flag_ids",
 			mcp.Description("JSON array of feature flag IDs to enable"),
 		),
+		mcp.WithString("ai_prompt",
+			mcp.Description("Optional AI prompt to pass to Claude Code when the session starts"),
+		),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		body := map[string]any{
@@ -93,6 +96,9 @@ The session will start provisioning immediately after creation.`),
 		}
 		if flags, ok := request.GetArguments()["enabled_feature_flag_ids"]; ok {
 			body["enabled_feature_flag_ids"] = flags
+		}
+		if aiPrompt := request.GetString("ai_prompt", ""); aiPrompt != "" {
+			body["ai_prompt"] = aiPrompt
 		}
 
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{

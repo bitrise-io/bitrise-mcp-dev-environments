@@ -64,7 +64,7 @@ var CreateTemplate = devenv.Tool{
 		mcp.WithString("working_directory", mcp.Description("Working directory for terminal sessions (absolute path)")),
 		mcp.WithObject("shared_inputs", mcp.Description(`JSON array: [{"key": "...", "value": "...", "is_secret": true}]`)),
 		mcp.WithObject("required_user_inputs", mcp.Description(`JSON array: [{"key": "...", "description": "..."}]`)),
-		mcp.WithObject("feature_flags", mcp.Description(`JSON array: [{"name": "..."}]`)),
+		mcp.WithObject("feature_flags", mcp.Description(`JSON array: [{"name": "...", "description": "..."}]`)),
 		mcp.WithObject("workspace_links", mcp.Description(`JSON array: [{"label": "...", "folder_path": "...", "feature_flag_name": "..."}]`)),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {

@@ -45,6 +45,9 @@ func NewBelt() *Belt {
 			ListImages,
 			ListMachineTypes,
 
+			// Session Notifications
+			ListSessionNotifications,
+
 			// Session Interaction
 			Execute,
 			Screenshot,

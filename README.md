@@ -40,6 +40,7 @@ MCP Server for Bitrise Dev Environments, enabling AI assistants to create and ma
 | `bitrise_devenv_stop` | Stop a running session (archives it for later restart) |
 | `bitrise_devenv_delete` | Permanently delete a session |
 | `bitrise_devenv_delete_archived` | Delete all archived (stopped) sessions |
+| `bitrise_devenv_list_session_notifications` | List notifications for a session (e.g., agent stopped, permission prompt). Supports pagination and polling via timestamp cursors. |
 
 ### Templates
 

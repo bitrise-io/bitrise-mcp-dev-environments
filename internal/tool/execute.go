@@ -44,7 +44,7 @@ IMPORTANT:
 
 		res, err := devenv.CallAPILongTimeout(ctx, devenv.CallAPIParams{
 			Method: http.MethodPost,
-			Path:   devenv.WsPath(fmt.Sprintf("/v1/sessions/%s/execute", sessionID)),
+			Path:   fmt.Sprintf("/v1/sessions/%s/execute", sessionID),
 			Body:   map[string]any{"bash_c_command": command},
 		})
 		if err != nil {

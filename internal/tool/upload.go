@@ -54,7 +54,7 @@ Example: Upload a local project directory to the VM:
 		// Step 1: Start upload to get signed PUT URL
 		startRes, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodPost,
-			Path:   devenv.WsPath(fmt.Sprintf("/v1/sessions/%s/start-upload", sessionID)),
+			Path:   fmt.Sprintf("/v1/sessions/%s/start-upload", sessionID),
 			Body:   map[string]any{"destination_folder": destFolder},
 		})
 		if err != nil {
@@ -80,7 +80,7 @@ Example: Upload a local project directory to the VM:
 		// Step 4: Complete upload to trigger extraction on the VM
 		completeRes, err := devenv.CallAPILongTimeout(ctx, devenv.CallAPIParams{
 			Method: http.MethodPost,
-			Path:   devenv.WsPath(fmt.Sprintf("/v1/sessions/%s/complete-upload", sessionID)),
+			Path:   fmt.Sprintf("/v1/sessions/%s/complete-upload", sessionID),
 			Body: map[string]any{
 				"upload_id":          startResp.UploadID,
 				"destination_folder": destFolder,

@@ -62,10 +62,52 @@ var CreateTemplate = devenv.Tool{
 		mcp.WithString("image", mcp.Description("Machine image UUID (use bitrise_devenv_list_images to find the ID). Must be from the same cluster as machine_type."), mcp.Required()),
 		mcp.WithString("machine_type", mcp.Description("Machine type UUID (use bitrise_devenv_list_machine_types to find the ID). Must be from the same cluster as image."), mcp.Required()),
 		mcp.WithString("working_directory", mcp.Description("Working directory for terminal sessions (absolute path)")),
-		mcp.WithObject("shared_inputs", mcp.Description(`JSON array: [{"key": "...", "value": "...", "is_secret": true}]`)),
-		mcp.WithObject("required_user_inputs", mcp.Description(`JSON array: [{"key": "...", "description": "..."}]`)),
-		mcp.WithObject("feature_flags", mcp.Description(`JSON array: [{"name": "...", "description": "..."}]`)),
-		mcp.WithObject("workspace_links", mcp.Description(`JSON array: [{"label": "...", "folder_path": "...", "feature_flag_name": "..."}]`)),
+		mcp.WithArray("shared_inputs",
+			mcp.Description("Shared inputs baked into this template"),
+			mcp.Items(map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"key":       map[string]any{"type": "string", "description": "Key/name of the input (used as env var name)"},
+					"value":     map[string]any{"type": "string", "description": "Value of the input"},
+					"is_secret": map[string]any{"type": "boolean", "description": "Whether this is a secret value (encrypted at rest)"},
+				},
+				"required": []string{"key", "value"},
+			}),
+		),
+		mcp.WithArray("required_user_inputs",
+			mcp.Description("Required user inputs that users must provide when creating sessions from this template"),
+			mcp.Items(map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"key":         map[string]any{"type": "string", "description": "Key/name of the required input"},
+					"description": map[string]any{"type": "string", "description": "Description explaining what this input is for"},
+				},
+				"required": []string{"key"},
+			}),
+		),
+		mcp.WithArray("feature_flags",
+			mcp.Description("Feature flags to toggle optional behaviors"),
+			mcp.Items(map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"name":        map[string]any{"type": "string", "description": "Name of the feature flag"},
+					"description": map[string]any{"type": "string", "description": "Description of what this flag enables"},
+				},
+				"required": []string{"name"},
+			}),
+		),
+		mcp.WithArray("workspace_links",
+			mcp.Description("IDE workspace folder links for quick access"),
+			mcp.Items(map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"label":             map[string]any{"type": "string", "description": "Display label for the button"},
+					"folder_path":       map[string]any{"type": "string", "description": "Remote folder path to open"},
+					"feature_flag_name": map[string]any{"type": "string", "description": "Optional: feature flag name that controls visibility"},
+				},
+				"required": []string{"label", "folder_path"},
+			}),
+		),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		body := map[string]any{
@@ -100,7 +142,7 @@ var CreateTemplate = devenv.Tool{
 // UpdateTemplate updates an existing template.
 var UpdateTemplate = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_update_template",
-		mcp.WithDescription("Update an existing devenv template. Only provided fields are updated. For array fields (shared_inputs, required_user_inputs, feature_flags, workspace_links), set the corresponding update_* flag to true."),
+		mcp.WithDescription("Update an existing devenv template. Only provided fields are updated. For array fields (shared_inputs, required_user_inputs, feature_flags, workspace_links), providing a new array replaces ALL existing entries. Omit an array field to leave it unchanged."),
 		mcp.WithString("template_id", mcp.Description("The unique identifier of the template to update"), mcp.Required()),
 		mcp.WithString("name", mcp.Description("Updated template name")),
 		mcp.WithString("description", mcp.Description("Updated description")),
@@ -109,6 +151,52 @@ var UpdateTemplate = devenv.Tool{
 		mcp.WithString("image", mcp.Description("Updated machine image UUID (use bitrise_devenv_list_images to find the ID). Must be from the same cluster as machine_type.")),
 		mcp.WithString("machine_type", mcp.Description("Updated machine type UUID (use bitrise_devenv_list_machine_types to find the ID). Must be from the same cluster as image.")),
 		mcp.WithString("working_directory", mcp.Description("Updated working directory")),
+		mcp.WithArray("shared_inputs",
+			mcp.Description("Replace ALL shared inputs with this list. Omit to leave unchanged. Pass empty array to clear all."),
+			mcp.Items(map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"key":       map[string]any{"type": "string", "description": "Key/name of the input (used as env var name)"},
+					"value":     map[string]any{"type": "string", "description": "Value of the input"},
+					"is_secret": map[string]any{"type": "boolean", "description": "Whether this is a secret value (encrypted at rest)"},
+				},
+				"required": []string{"key", "value"},
+			}),
+		),
+		mcp.WithArray("required_user_inputs",
+			mcp.Description("Replace ALL required user inputs with this list. Omit to leave unchanged. Pass empty array to clear all."),
+			mcp.Items(map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"key":         map[string]any{"type": "string", "description": "Key/name of the required input"},
+					"description": map[string]any{"type": "string", "description": "Description explaining what this input is for"},
+				},
+				"required": []string{"key"},
+			}),
+		),
+		mcp.WithArray("feature_flags",
+			mcp.Description("Replace ALL feature flags with this list. Omit to leave unchanged. Pass empty array to clear all."),
+			mcp.Items(map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"name":        map[string]any{"type": "string", "description": "Name of the feature flag"},
+					"description": map[string]any{"type": "string", "description": "Description of what this flag enables"},
+				},
+				"required": []string{"name"},
+			}),
+		),
+		mcp.WithArray("workspace_links",
+			mcp.Description("Replace ALL workspace links with this list. Omit to leave unchanged. Pass empty array to clear all."),
+			mcp.Items(map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"label":             map[string]any{"type": "string", "description": "Display label for the button"},
+					"folder_path":       map[string]any{"type": "string", "description": "Remote folder path to open"},
+					"feature_flag_name": map[string]any{"type": "string", "description": "Optional: feature flag name that controls visibility"},
+				},
+				"required": []string{"label", "folder_path"},
+			}),
+		),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		templateID, err := requireUUID(request, "template_id")
@@ -120,6 +208,20 @@ var UpdateTemplate = devenv.Tool{
 		for _, key := range []string{"name", "description", "startup_script", "warmup_script", "image", "machine_type", "working_directory"} {
 			if v := request.GetString(key, ""); v != "" {
 				body[key] = v
+			}
+		}
+		// Array fields: auto-set the corresponding update_* flag when the array is provided.
+		// Backend requires the flag to be true for array changes to take effect.
+		arrayFields := map[string]string{
+			"shared_inputs":        "update_shared_inputs",
+			"required_user_inputs": "update_required_user_inputs",
+			"feature_flags":        "update_feature_flags",
+			"workspace_links":      "update_workspace_links",
+		}
+		for arrayKey, flagKey := range arrayFields {
+			if v, ok := request.GetArguments()[arrayKey]; ok {
+				body[arrayKey] = v
+				body[flagKey] = true
 			}
 		}
 

@@ -17,7 +17,7 @@ var ListTemplates = devenv.Tool{
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodGet,
-			Path:   "/v1/templates",
+			Path:   devenv.WsPath("/v1/templates"),
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("list templates", err), nil
@@ -42,7 +42,7 @@ var GetTemplate = devenv.Tool{
 		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodGet,
-			Path:   fmt.Sprintf("/v1/templates/%s", templateID),
+			Path:   devenv.WsPath(fmt.Sprintf("/v1/templates/%s", templateID)),
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("get template", err), nil
@@ -87,7 +87,7 @@ var CreateTemplate = devenv.Tool{
 
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodPost,
-			Path:   "/v1/templates",
+			Path:   devenv.WsPath("/v1/templates"),
 			Body:   body,
 		})
 		if err != nil {
@@ -125,7 +125,7 @@ var UpdateTemplate = devenv.Tool{
 
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodPatch,
-			Path:   fmt.Sprintf("/v1/templates/%s", templateID),
+			Path:   devenv.WsPath(fmt.Sprintf("/v1/templates/%s", templateID)),
 			Body:   body,
 		})
 		if err != nil {
@@ -148,7 +148,7 @@ var DeleteTemplate = devenv.Tool{
 		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodDelete,
-			Path:   fmt.Sprintf("/v1/templates/%s", templateID),
+			Path:   devenv.WsPath(fmt.Sprintf("/v1/templates/%s", templateID)),
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("delete template", err), nil

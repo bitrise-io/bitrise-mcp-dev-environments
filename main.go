@@ -18,6 +18,8 @@ import (
 type config struct {
 	// BitriseToken is the Bitrise API token used to authenticate requests.
 	BitriseToken string `env:"BITRISE_TOKEN" required:"true"`
+	// BitriseWorkspaceID is the Bitrise workspace ID (slug) used for workspace-scoped API calls.
+	BitriseWorkspaceID string `env:"BITRISE_WORKSPACE_ID" required:"true"`
 	// BitriseAPIBaseURL is the base URL for Bitrise API requests.
 	BitriseAPIBaseURL string `env:"BITRISE_API_BASE_URL" default:"https://codespaces-api.services.bitrise.io"`
 	// LogLevel is the log level for the application.
@@ -42,8 +44,9 @@ func run() error {
 	}
 	defer logger.Sync() //nolint:errcheck
 
-	// Set global base URL for API calls
+	// Set global config for API calls
 	devenv.BaseURL = strings.TrimRight(cfg.BitriseAPIBaseURL, "/")
+	devenv.WorkspaceID = cfg.BitriseWorkspaceID
 
 	// Create tool belt and MCP server
 	belt := tool.NewBelt()

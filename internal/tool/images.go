@@ -16,7 +16,7 @@ var ListImages = devenv.Tool{
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodGet,
-			Path:   "/v1/images",
+			Path:   devenv.WsPath("/v1/images"),
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("list images", err), nil
@@ -33,7 +33,7 @@ var ListMachineTypes = devenv.Tool{
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodGet,
-			Path:   "/v1/machine-types",
+			Path:   devenv.WsPath("/v1/machine-types"),
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("list machine types", err), nil

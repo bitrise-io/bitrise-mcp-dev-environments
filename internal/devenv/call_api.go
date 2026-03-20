@@ -8,11 +8,21 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
 // BaseURL is set at init from config.
 var BaseURL string
+
+// WorkspaceID is set at init from config.
+var WorkspaceID string
+
+// WsPath prepends the workspace scope to a /v1 API path.
+// "/v1/sessions" → "/v1/workspaces/{id}/sessions"
+func WsPath(path string) string {
+	return "/v1/workspaces/" + WorkspaceID + strings.TrimPrefix(path, "/v1")
+}
 
 // CallAPIParams configures an API call.
 type CallAPIParams struct {

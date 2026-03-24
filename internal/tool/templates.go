@@ -29,7 +29,7 @@ var ListTemplates = devenv.Tool{
 // GetTemplate retrieves a template by ID.
 var GetTemplate = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_get_template",
-		mcp.WithDescription("Get details of a specific template including startup/warmup scripts, machine image, required inputs, shared inputs, and feature flags."),
+		mcp.WithDescription("Get details of a specific template including startup/warmup scripts, machine image, template variables, session inputs, and feature flags."),
 		mcp.WithString("template_id",
 			mcp.Description("The unique identifier (UUID) of the template"),
 			mcp.Required(),
@@ -146,7 +146,7 @@ var CreateTemplate = devenv.Tool{
 // UpdateTemplate updates an existing template.
 var UpdateTemplate = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_update_template",
-		mcp.WithDescription("Update an existing devenv template. Only provided fields are updated. For array fields (shared_inputs, required_user_inputs, feature_flags, workspace_links), providing a new array replaces ALL existing entries. Omit an array field to leave it unchanged."),
+		mcp.WithDescription("Update an existing devenv template. Only provided fields are updated. For array fields (template_variables, session_inputs, feature_flags, workspace_links), providing a new array replaces ALL existing entries. Omit an array field to leave it unchanged."),
 		mcp.WithString("template_id", mcp.Description("The unique identifier of the template to update"), mcp.Required()),
 		mcp.WithString("name", mcp.Description("Updated template name")),
 		mcp.WithString("description", mcp.Description("Updated description")),

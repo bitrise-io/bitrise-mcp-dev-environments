@@ -61,15 +61,15 @@ MCP Server for Bitrise Dev Environments, enabling AI assistants to create and ma
 | `bitrise_devenv_update_template` | Update an existing template |
 | `bitrise_devenv_delete_template` | Delete a template |
 
-### User Inputs
+### Saved Inputs
 
 | Tool | Description |
 |------|-------------|
-| `bitrise_devenv_list_user_inputs` | List all saved user inputs (credentials/values) |
-| `bitrise_devenv_get_user_input` | Get details of a specific user input |
-| `bitrise_devenv_create_user_input` | Create a new saved user input (key/value, optionally secret) |
-| `bitrise_devenv_update_user_input` | Update an existing user input value |
-| `bitrise_devenv_delete_user_input` | Delete a saved user input |
+| `bitrise_devenv_list_saved_inputs` | List all saved saved inputs (credentials/values) |
+| `bitrise_devenv_get_saved_input` | Get details of a specific user input |
+| `bitrise_devenv_create_saved_input` | Create a new saved user input (key/value, optionally secret) |
+| `bitrise_devenv_update_saved_input` | Update an existing user input value |
+| `bitrise_devenv_delete_saved_input` | Delete a saved user input |
 
 ### Images & Machine Types
 
@@ -107,7 +107,7 @@ MCP Server for Bitrise Dev Environments, enabling AI assistants to create and ma
 ### Sessions & Templates
 
 - **Template-based**: Sessions are always created from a template that defines the machine image, startup scripts, and required inputs
-- **Input mappings**: When creating a session, map template-required inputs to saved user inputs
+- **Input mappings**: When creating a session, map template-required inputs to saved saved inputs
 - **Stopped sessions**: Stopped (archived) sessions can be restarted later
 - **Always check first**: Call `bitrise_devenv_list` before creating to reuse existing sessions
 

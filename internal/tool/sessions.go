@@ -57,9 +57,9 @@ var CreateSession = devenv.Tool{
 		mcp.WithDescription(`Create a new devenv session from a template.
 
 Before creating a session:
-1. List templates with bitrise_devenv_list_templates to find available templates
-2. List user inputs with bitrise_devenv_list_user_inputs to find saved credentials
-3. Map required template inputs to user inputs via input_mappings
+1. List templates with bitrise_devenv_list_templates to find available templates and their session inputs
+2. Optionally list saved inputs with bitrise_devenv_list_saved_inputs to find saved credentials
+3. Provide values for session inputs (either direct values or references to saved inputs)
 
 The session will start provisioning immediately after creation.`),
 		mcp.WithString("name",
@@ -73,19 +73,21 @@ The session will start provisioning immediately after creation.`),
 			mcp.Description("ID of the template to use"),
 			mcp.Required(),
 		),
-		mcp.WithArray("input_mappings",
-			mcp.Description("Map required template inputs to saved user inputs"),
+		mcp.WithArray("session_inputs",
+			mcp.Description("Values for the template's session inputs. Provide either a direct value or a saved_input_id for each required input."),
 			mcp.Items(map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"required_user_input_id": map[string]any{"type": "string", "description": "ID of the required user input to fulfill"},
-					"user_input_id":          map[string]any{"type": "string", "description": "ID of the saved user input to use"},
+					"key":            map[string]any{"type": "string", "description": "Key name matching a session input on the template"},
+					"value":          map[string]any{"type": "string", "description": "Direct value (ignored if saved_input_id is set)"},
+					"is_secret":      map[string]any{"type": "boolean", "description": "Whether the value is secret (ignored if saved_input_id is set)"},
+					"saved_input_id": map[string]any{"type": "string", "description": "Optional: ID of a saved input to use instead of a direct value"},
 				},
-				"required": []string{"required_user_input_id", "user_input_id"},
+				"required": []string{"key"},
 			}),
 		),
-		mcp.WithArray("enabled_feature_flag_ids",
-			mcp.Description("IDs of feature flags to enable for this session"),
+		mcp.WithArray("enabled_feature_flag_names",
+			mcp.Description("Names of feature flags to enable for this session"),
 			mcp.WithStringItems(),
 		),
 		mcp.WithString("ai_prompt",
@@ -100,11 +102,11 @@ The session will start provisioning immediately after creation.`),
 		if desc := request.GetString("description", ""); desc != "" {
 			body["description"] = desc
 		}
-		if mappings, ok := request.GetArguments()["input_mappings"]; ok {
-			body["input_mappings"] = mappings
+		if inputs, ok := request.GetArguments()["session_inputs"]; ok {
+			body["session_inputs"] = inputs
 		}
-		if flags, ok := request.GetArguments()["enabled_feature_flag_ids"]; ok {
-			body["enabled_feature_flag_ids"] = flags
+		if flags, ok := request.GetArguments()["enabled_feature_flag_names"]; ok {
+			body["enabled_feature_flag_names"] = flags
 		}
 		if aiPrompt := request.GetString("ai_prompt", ""); aiPrompt != "" {
 			body["ai_prompt"] = aiPrompt

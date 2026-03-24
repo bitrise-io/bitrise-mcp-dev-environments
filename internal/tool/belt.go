@@ -34,12 +34,12 @@ func NewBelt() *Belt {
 			UpdateTemplate,
 			DeleteTemplate,
 
-			// User Inputs
-			ListUserInputs,
-			GetUserInput,
-			CreateUserInput,
-			UpdateUserInput,
-			DeleteUserInput,
+			// Saved Inputs
+			ListSavedInputs,
+			GetSavedInput,
+			CreateSavedInput,
+			UpdateSavedInput,
+			DeleteSavedInput,
 
 			// Instance Manager Proxy
 			ListImages,

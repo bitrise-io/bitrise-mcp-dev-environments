@@ -62,25 +62,29 @@ var CreateTemplate = devenv.Tool{
 		mcp.WithString("image", mcp.Description("Machine image UUID (use bitrise_devenv_list_images to find the ID). Must be from the same cluster as machine_type."), mcp.Required()),
 		mcp.WithString("machine_type", mcp.Description("Machine type UUID (use bitrise_devenv_list_machine_types to find the ID). Must be from the same cluster as image."), mcp.Required()),
 		mcp.WithString("working_directory", mcp.Description("Working directory for terminal sessions (absolute path)")),
-		mcp.WithArray("shared_inputs",
-			mcp.Description("Shared inputs baked into this template"),
+		mcp.WithArray("template_variables",
+			mcp.Description("Template variables baked into this template (available in boot scripts)"),
 			mcp.Items(map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"key":       map[string]any{"type": "string", "description": "Key/name of the input (used as env var name)"},
-					"value":     map[string]any{"type": "string", "description": "Value of the input"},
-					"is_secret": map[string]any{"type": "boolean", "description": "Whether this is a secret value (encrypted at rest)"},
+					"key":               map[string]any{"type": "string", "description": "Key/name of the variable"},
+					"value":             map[string]any{"type": "string", "description": "Value of the variable"},
+					"is_secret":         map[string]any{"type": "boolean", "description": "Whether this is a secret value (encrypted at rest)"},
+					"expose_as_env_var": map[string]any{"type": "boolean", "description": "Whether to expose as environment variable in terminal sessions"},
 				},
 				"required": []string{"key", "value"},
 			}),
 		),
-		mcp.WithArray("required_user_inputs",
-			mcp.Description("Required user inputs that users must provide when creating sessions from this template"),
+		mcp.WithArray("session_inputs",
+			mcp.Description("Session inputs that users provide when creating sessions from this template"),
 			mcp.Items(map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"key":         map[string]any{"type": "string", "description": "Key/name of the required input"},
-					"description": map[string]any{"type": "string", "description": "Description explaining what this input is for"},
+					"key":               map[string]any{"type": "string", "description": "Key/name of the input"},
+					"description":       map[string]any{"type": "string", "description": "Description explaining what this input is for"},
+					"required":          map[string]any{"type": "boolean", "description": "Whether this input is required (default: false)"},
+					"default_value":     map[string]any{"type": "string", "description": "Default value when not provided (used when required is false)"},
+					"expose_as_env_var": map[string]any{"type": "boolean", "description": "Whether to expose as environment variable in terminal sessions"},
 				},
 				"required": []string{"key"},
 			}),
@@ -121,7 +125,7 @@ var CreateTemplate = devenv.Tool{
 				body[key] = v
 			}
 		}
-		for _, key := range []string{"shared_inputs", "required_user_inputs", "feature_flags", "workspace_links"} {
+		for _, key := range []string{"template_variables", "session_inputs", "feature_flags", "workspace_links"} {
 			if v, ok := request.GetArguments()[key]; ok {
 				body[key] = v
 			}
@@ -151,25 +155,29 @@ var UpdateTemplate = devenv.Tool{
 		mcp.WithString("image", mcp.Description("Updated machine image UUID (use bitrise_devenv_list_images to find the ID). Must be from the same cluster as machine_type.")),
 		mcp.WithString("machine_type", mcp.Description("Updated machine type UUID (use bitrise_devenv_list_machine_types to find the ID). Must be from the same cluster as image.")),
 		mcp.WithString("working_directory", mcp.Description("Updated working directory")),
-		mcp.WithArray("shared_inputs",
-			mcp.Description("Replace ALL shared inputs with this list. Omit to leave unchanged. Pass empty array to clear all."),
+		mcp.WithArray("template_variables",
+			mcp.Description("Replace ALL template variables with this list. Omit to leave unchanged. Pass empty array to clear all."),
 			mcp.Items(map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"key":       map[string]any{"type": "string", "description": "Key/name of the input (used as env var name)"},
-					"value":     map[string]any{"type": "string", "description": "Value of the input"},
-					"is_secret": map[string]any{"type": "boolean", "description": "Whether this is a secret value (encrypted at rest)"},
+					"key":               map[string]any{"type": "string", "description": "Key/name of the variable"},
+					"value":             map[string]any{"type": "string", "description": "Value of the variable"},
+					"is_secret":         map[string]any{"type": "boolean", "description": "Whether this is a secret value (encrypted at rest)"},
+					"expose_as_env_var": map[string]any{"type": "boolean", "description": "Whether to expose as environment variable in terminal sessions"},
 				},
 				"required": []string{"key", "value"},
 			}),
 		),
-		mcp.WithArray("required_user_inputs",
-			mcp.Description("Replace ALL required user inputs with this list. Omit to leave unchanged. Pass empty array to clear all."),
+		mcp.WithArray("session_inputs",
+			mcp.Description("Replace ALL session inputs with this list. Omit to leave unchanged. Pass empty array to clear all."),
 			mcp.Items(map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"key":         map[string]any{"type": "string", "description": "Key/name of the required input"},
-					"description": map[string]any{"type": "string", "description": "Description explaining what this input is for"},
+					"key":               map[string]any{"type": "string", "description": "Key/name of the input"},
+					"description":       map[string]any{"type": "string", "description": "Description explaining what this input is for"},
+					"required":          map[string]any{"type": "boolean", "description": "Whether this input is required (default: false)"},
+					"default_value":     map[string]any{"type": "string", "description": "Default value when not provided (used when required is false)"},
+					"expose_as_env_var": map[string]any{"type": "boolean", "description": "Whether to expose as environment variable in terminal sessions"},
 				},
 				"required": []string{"key"},
 			}),
@@ -213,10 +221,10 @@ var UpdateTemplate = devenv.Tool{
 		// Array fields: auto-set the corresponding update_* flag when the array is provided.
 		// Backend requires the flag to be true for array changes to take effect.
 		arrayFields := map[string]string{
-			"shared_inputs":        "update_shared_inputs",
-			"required_user_inputs": "update_required_user_inputs",
-			"feature_flags":        "update_feature_flags",
-			"workspace_links":      "update_workspace_links",
+			"template_variables": "update_template_variables",
+			"session_inputs":    "update_session_inputs",
+			"feature_flags":     "update_feature_flags",
+			"workspace_links":   "update_workspace_links",
 		}
 		for arrayKey, flagKey := range arrayFields {
 			if v, ok := request.GetArguments()[arrayKey]; ok {

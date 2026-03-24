@@ -58,7 +58,7 @@ Results are ordered by creation time (newest first by default). Supports cursor-
 
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodGet,
-			Path:   devenv.WsPath(fmt.Sprintf("/v1/sessions/%s/notifications", sessionID)),
+			Path:   devenv.WsPath(fmt.Sprintf("/sessions/%s/notifications", sessionID)),
 			Params: params,
 		})
 		if err != nil {

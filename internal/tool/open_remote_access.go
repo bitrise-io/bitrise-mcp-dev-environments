@@ -40,7 +40,7 @@ open "vnc://username:password@host:port"`),
 
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodPost,
-			Path:   devenv.WsPath(fmt.Sprintf("/v1/sessions/%s/open-remote-access", sessionID)),
+			Path:   devenv.WsPath(fmt.Sprintf("/sessions/%s/open-remote-access", sessionID)),
 			Body:   map[string]any{},
 		})
 		if err != nil {

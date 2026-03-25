@@ -43,13 +43,14 @@ The server runs in **stdio mode**: `BITRISE_TOKEN` required, injected into conte
 | Variable | Required | Description |
 |---|---|---|
 | `BITRISE_TOKEN` | Yes | PAT or dev token |
+| `BITRISE_WORKSPACE_ID` | Yes | Bitrise workspace ID (slug) for workspace-scoped API calls |
 | `BITRISE_API_BASE_URL` | No | Backend API base URL (default: `https://codespaces-api.services.bitrise.io`) |
 | `LOG_LEVEL` | No | `debug`, `info` (default), `warn`, `error` |
 
 ## Running Locally
 
 ```bash
-BITRISE_API_BASE_URL=http://localhost:8081 BITRISE_TOKEN=<token> go run .
+BITRISE_API_BASE_URL=http://localhost:8081 BITRISE_TOKEN=<token> BITRISE_WORKSPACE_ID=<workspace-id> go run .
 ```
 
 ## Tool Pattern

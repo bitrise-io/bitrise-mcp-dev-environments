@@ -12,7 +12,11 @@ import (
 // ListSessions lists all sessions for the current user.
 var ListSessions = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_list",
-		mcp.WithDescription("List all devenv sessions for the currently authenticated user. Returns session IDs, names, statuses, and template info."),
+		mcp.WithDescription(`List all devenv sessions for the currently authenticated user.
+
+Returns a lightweight view of each session: ID, name, description, status, template_id, template_deleted flag, SSH/VNC connection details, AI config, and a template_snapshot containing only the template_name.
+
+To get the full template snapshot (session inputs, feature flags, workspace links, working directory), use bitrise_devenv_get on a specific session.`),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
@@ -29,7 +33,16 @@ var ListSessions = devenv.Tool{
 // GetSession retrieves a single session by ID.
 var GetSession = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_get",
-		mcp.WithDescription("Get details of a specific devenv session including status, machine info, SSH/VNC credentials, and feature flags."),
+		mcp.WithDescription(`Get full details of a specific devenv session.
+
+Returns status, SSH/VNC connection details, AI config, and the complete template_snapshot which contains:
+- template_name: name of the template at creation time
+- session_inputs: input values (key, value, is_secret, expose_as_env_var) snapshotted at creation
+- feature_flags: flag states (name, enabled) snapshotted at creation
+- workspace_links: IDE folder links (label, folder_path) filtered by enabled flags
+- working_directory: terminal working directory
+
+Also includes template_deleted (true if the template was deleted after session creation — session still works from its snapshot).`),
 		mcp.WithString("session_id",
 			mcp.Description("The unique identifier (UUID) of the session"),
 			mcp.Required(),
@@ -74,7 +87,7 @@ The session will start provisioning immediately after creation.`),
 			mcp.Required(),
 		),
 		mcp.WithArray("session_inputs",
-			mcp.Description("Values for the template's session inputs. Provide either a direct value or a saved_input_id for each required input."),
+			mcp.Description("Values for the template's session inputs. Required inputs must have a value (direct or saved_input_id). Optional inputs use their default_value when omitted."),
 			mcp.Items(map[string]any{
 				"type": "object",
 				"properties": map[string]any{

@@ -4,7 +4,7 @@ MCP Server for Bitrise Dev Environments, enabling AI assistants to create and ma
 
 ## Features
 
-- **Template-Based Sessions**: Create sessions from templates that define machine images, startup scripts, and required inputs. Manage templates and user input credentials.
+- **Template-Based Sessions**: Create sessions from templates that define machine images, startup scripts, template variables, and session inputs. Manage templates and saved input credentials.
 - **Session Lifecycle**: Create, list, start, stop, update, and delete sessions. Bulk-delete archived sessions.
 - **Command Execution**: Run shell commands on running sessions via `bash -c`.
 - **File Transfer**: Upload local files/folders to sessions and download artifacts back.
@@ -43,7 +43,7 @@ MCP Server for Bitrise Dev Environments, enabling AI assistants to create and ma
 |------|-------------|
 | `bitrise_devenv_list` | List all sessions with their status, name, and template info |
 | `bitrise_devenv_get` | Get details of a specific session including status, machine info, and SSH/VNC credentials |
-| `bitrise_devenv_create` | Create a new session from a template (with name, template ID, and input mappings) |
+| `bitrise_devenv_create` | Create a new session from a template (with name, template ID, session inputs, and feature flags) |
 | `bitrise_devenv_update` | Update a session's name or description |
 | `bitrise_devenv_start` | Start a stopped (archived) session |
 | `bitrise_devenv_stop` | Stop a running session (archives it for later restart) |
@@ -56,7 +56,7 @@ MCP Server for Bitrise Dev Environments, enabling AI assistants to create and ma
 | Tool | Description |
 |------|-------------|
 | `bitrise_devenv_list_templates` | List all available templates |
-| `bitrise_devenv_get_template` | Get template details including scripts, image, required inputs, and feature flags |
+| `bitrise_devenv_get_template` | Get template details including scripts, image, template variables, session inputs, and feature flags |
 | `bitrise_devenv_create_template` | Create a new template with image, machine type, scripts, and inputs |
 | `bitrise_devenv_update_template` | Update an existing template |
 | `bitrise_devenv_delete_template` | Delete a template |
@@ -65,11 +65,11 @@ MCP Server for Bitrise Dev Environments, enabling AI assistants to create and ma
 
 | Tool | Description |
 |------|-------------|
-| `bitrise_devenv_list_saved_inputs` | List all saved saved inputs (credentials/values) |
-| `bitrise_devenv_get_saved_input` | Get details of a specific user input |
-| `bitrise_devenv_create_saved_input` | Create a new saved user input (key/value, optionally secret) |
-| `bitrise_devenv_update_saved_input` | Update an existing user input value |
-| `bitrise_devenv_delete_saved_input` | Delete a saved user input |
+| `bitrise_devenv_list_saved_inputs` | List all saved inputs (credentials/values) |
+| `bitrise_devenv_get_saved_input` | Get details of a specific saved input |
+| `bitrise_devenv_create_saved_input` | Create a new saved input (key/value, optionally secret) |
+| `bitrise_devenv_update_saved_input` | Update an existing saved input value |
+| `bitrise_devenv_delete_saved_input` | Delete a saved input |
 
 ### Images & Machine Types
 
@@ -106,8 +106,8 @@ MCP Server for Bitrise Dev Environments, enabling AI assistants to create and ma
 
 ### Sessions & Templates
 
-- **Template-based**: Sessions are always created from a template that defines the machine image, startup scripts, and required inputs
-- **Input mappings**: When creating a session, map template-required inputs to saved saved inputs
+- **Template-based**: Sessions are always created from a template that defines the machine image, startup scripts, template variables, and session inputs
+- **Session inputs**: When creating a session, provide values for session inputs (either direct values or references to saved inputs for secrets)
 - **Stopped sessions**: Stopped (archived) sessions can be restarted later
 - **Always check first**: Call `bitrise_devenv_list` before creating to reuse existing sessions
 

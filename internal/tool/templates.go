@@ -12,7 +12,7 @@ import (
 // ListTemplates lists all available templates.
 var ListTemplates = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_list_templates",
-		mcp.WithDescription("List all available devenv templates. Templates define the machine image, scripts, and required inputs for creating sessions."),
+		mcp.WithDescription("List all available devenv templates. Each template defines the machine image, startup/warmup scripts, template variables, session inputs (required and optional), feature flags, and workspace links."),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
@@ -29,7 +29,7 @@ var ListTemplates = devenv.Tool{
 // GetTemplate retrieves a template by ID.
 var GetTemplate = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_get_template",
-		mcp.WithDescription("Get details of a specific template including startup/warmup scripts, machine image, template variables, session inputs, and feature flags."),
+		mcp.WithDescription("Get details of a specific template including startup/warmup scripts, machine image, working directory, template variables, session inputs (with required/default_value/expose_as_env_var fields), feature flags, and workspace links."),
 		mcp.WithString("template_id",
 			mcp.Description("The unique identifier (UUID) of the template"),
 			mcp.Required(),
@@ -248,7 +248,7 @@ var UpdateTemplate = devenv.Tool{
 // DeleteTemplate soft-deletes a template.
 var DeleteTemplate = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_delete_template",
-		mcp.WithDescription("Delete a devenv template. Existing sessions based on this template are not affected."),
+		mcp.WithDescription("Delete a devenv template. Existing sessions continue to work from their snapshotted template configuration, but will be marked with template_deleted=true."),
 		mcp.WithString("template_id", mcp.Description("The unique identifier of the template to delete"), mcp.Required()),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {

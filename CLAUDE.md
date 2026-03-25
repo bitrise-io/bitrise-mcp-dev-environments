@@ -16,7 +16,7 @@ bitrise-mcp-dev-environments/
         ├── validate.go        # UUID validation helper
         ├── sessions.go        # Session CRUD + lifecycle
         ├── templates.go       # Template CRUD
-        ├── saved_inputs.go     # User input/credential CRUD
+        ├── saved_inputs.go     # Saved input/credential CRUD
         ├── images.go          # List images + machine types
         ├── execute.go         # Remote command execution
         ├── screenshot.go      # Session screenshot capture

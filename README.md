@@ -20,6 +20,15 @@ MCP Server for Bitrise Dev Environments, enabling AI assistants to create and ma
 - **[Windsurf](/docs/install-windsurf.md)** - Installation guide for Windsurf IDE
 - **[Gemini CLI](/docs/install-gemini-cli.md)** - Installation guide for Gemini CLI
 
+## Configuration
+
+| Variable | Required | Description |
+|---|---|---|
+| `BITRISE_TOKEN` | Yes | Personal access token or dev token |
+| `BITRISE_WORKSPACE_ID` | Yes | Bitrise workspace ID (slug) for workspace-scoped API calls |
+| `BITRISE_API_BASE_URL` | No | Backend API base URL (default: `https://codespaces-api.services.bitrise.io`) |
+| `LOG_LEVEL` | No | `debug`, `info` (default), `warn`, `error` |
+
 ## Available Tools
 
 ### User

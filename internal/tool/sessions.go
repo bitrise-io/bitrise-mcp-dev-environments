@@ -17,7 +17,7 @@ var ListSessions = devenv.Tool{
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodGet,
-			Path:   "/v1/sessions",
+			Path:   devenv.WsPath("/sessions"),
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("list sessions", err), nil
@@ -42,7 +42,7 @@ var GetSession = devenv.Tool{
 		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodGet,
-			Path:   fmt.Sprintf("/v1/sessions/%s", sessionID),
+			Path:   devenv.WsPath(fmt.Sprintf("/sessions/%s", sessionID)),
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("get session", err), nil
@@ -112,7 +112,7 @@ The session will start provisioning immediately after creation.`),
 
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodPost,
-			Path:   "/v1/sessions",
+			Path:   devenv.WsPath("/sessions"),
 			Body:   body,
 		})
 		if err != nil {
@@ -138,7 +138,7 @@ var StartSession = devenv.Tool{
 		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodPost,
-			Path:   fmt.Sprintf("/v1/sessions/%s/start", sessionID),
+			Path:   devenv.WsPath(fmt.Sprintf("/sessions/%s/start", sessionID)),
 			Body:   map[string]any{},
 		})
 		if err != nil {
@@ -164,7 +164,7 @@ var StopSession = devenv.Tool{
 		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodPost,
-			Path:   fmt.Sprintf("/v1/sessions/%s/stop", sessionID),
+			Path:   devenv.WsPath(fmt.Sprintf("/sessions/%s/stop", sessionID)),
 			Body:   map[string]any{},
 		})
 		if err != nil {
@@ -190,7 +190,7 @@ var DeleteSession = devenv.Tool{
 		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodDelete,
-			Path:   fmt.Sprintf("/v1/sessions/%s", sessionID),
+			Path:   devenv.WsPath(fmt.Sprintf("/sessions/%s", sessionID)),
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("delete session", err), nil
@@ -230,7 +230,7 @@ var UpdateSession = devenv.Tool{
 
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodPatch,
-			Path:   fmt.Sprintf("/v1/sessions/%s", sessionID),
+			Path:   devenv.WsPath(fmt.Sprintf("/sessions/%s", sessionID)),
 			Body:   body,
 		})
 		if err != nil {
@@ -248,7 +248,7 @@ var DeleteArchivedSessions = devenv.Tool{
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodPost,
-			Path:   "/v1/sessions:delete-archived",
+			Path:   devenv.WsPath("/sessions:delete-archived"),
 			Body:   map[string]any{},
 		})
 		if err != nil {

@@ -14,6 +14,15 @@ import (
 // BaseURL is set at init from config.
 var BaseURL string
 
+// WorkspaceID is set at init from config.
+var WorkspaceID string
+
+// WsPath prepends the workspace-scoped /v1 base to a resource path.
+// "/sessions" → "/v1/workspaces/{id}/sessions"
+func WsPath(path string) string {
+	return "/v1/workspaces/" + WorkspaceID + path
+}
+
 // CallAPIParams configures an API call.
 type CallAPIParams struct {
 	Method string

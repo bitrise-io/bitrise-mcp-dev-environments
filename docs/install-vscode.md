@@ -24,7 +24,8 @@ Follow [VS Code | Add an MCP server](https://code.visualstudio.com/docs/copilot/
         "github.com/bitrise-io/bitrise-mcp-dev-environments@latest"
       ],
       "env": {
-        "BITRISE_TOKEN": "${input:bitrise-token}"
+        "BITRISE_TOKEN": "${input:bitrise-token}",
+        "BITRISE_WORKSPACE_ID": "${input:bitrise-workspace-id}"
       }
     }
   },
@@ -34,6 +35,11 @@ Follow [VS Code | Add an MCP server](https://code.visualstudio.com/docs/copilot/
       "type": "promptString",
       "description": "Bitrise Personal Access Token",
       "password": true
+    },
+    {
+      "id": "bitrise-workspace-id",
+      "type": "promptString",
+      "description": "Bitrise Workspace ID (slug)"
     }
   ]
 }

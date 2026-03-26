@@ -29,7 +29,8 @@ Requires Visual Studio 2022 version 17.14.9 or later.
       "command": "go",
       "args": ["run", "github.com/bitrise-io/bitrise-mcp-dev-environments@latest"],
       "env": {
-        "BITRISE_TOKEN": "YOUR_BITRISE_PAT"
+        "BITRISE_TOKEN": "YOUR_BITRISE_PAT",
+        "BITRISE_WORKSPACE_ID": "YOUR_WORKSPACE_ID"
       }
     }
   }
@@ -60,7 +61,8 @@ Agent mode and MCP support available in public preview across IntelliJ IDEA, PyC
         "github.com/bitrise-io/bitrise-mcp-dev-environments@latest"
       ],
       "env": {
-        "BITRISE_TOKEN": "YOUR_BITRISE_PAT"
+        "BITRISE_TOKEN": "YOUR_BITRISE_PAT",
+        "BITRISE_WORKSPACE_ID": "YOUR_WORKSPACE_ID"
       }
     }
   }
@@ -89,7 +91,8 @@ Agent mode and MCP support now available in public preview for Xcode.
         "github.com/bitrise-io/bitrise-mcp-dev-environments@latest"
       ],
       "env": {
-        "BITRISE_TOKEN": "YOUR_BITRISE_PAT"
+        "BITRISE_TOKEN": "YOUR_BITRISE_PAT",
+        "BITRISE_WORKSPACE_ID": "YOUR_WORKSPACE_ID"
       }
     }
   }
@@ -118,6 +121,7 @@ MCP support available with Eclipse 2024-03+ and latest version of the GitHub Cop
       ],
       "env": {
         "BITRISE_TOKEN": "YOUR_BITRISE_PAT",
+        "BITRISE_WORKSPACE_ID": "YOUR_WORKSPACE_ID",
         "PATH": "PATH to bin directory of go:PATH to directory of git"
       }
     }

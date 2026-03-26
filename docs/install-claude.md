@@ -21,6 +21,7 @@ For security, avoid hardcoding your token. One common approach:
 1. Store your token in `.env` file
 ```
 BITRISE_PAT=your_token_here
+BITRISE_WORKSPACE_ID=your_workspace_id_here
 ```
 
 2. Add to .gitignore
@@ -34,12 +35,12 @@ echo -e ".env\n.mcp.json" >> .gitignore
 
 1. Run the following command in the Claude Code CLI:
 ```bash
-claude mcp add bitrise-dev-environments -e BITRISE_TOKEN=YOUR_BITRISE_PAT -- go run github.com/bitrise-io/bitrise-mcp-dev-environments@latest
+claude mcp add bitrise-dev-environments -e BITRISE_TOKEN=YOUR_BITRISE_PAT -e BITRISE_WORKSPACE_ID=YOUR_WORKSPACE_ID -- go run github.com/bitrise-io/bitrise-mcp-dev-environments@latest
 ```
 
 With an environment variable:
 ```bash
-claude mcp add bitrise-dev-environments -e BITRISE_TOKEN=$(grep BITRISE_PAT .env | cut -d '=' -f2) -- go run github.com/bitrise-io/bitrise-mcp-dev-environments@latest
+claude mcp add bitrise-dev-environments -e BITRISE_TOKEN=$(grep BITRISE_PAT .env | cut -d '=' -f2) -e BITRISE_WORKSPACE_ID=$(grep BITRISE_WORKSPACE_ID .env | cut -d '=' -f2) -- go run github.com/bitrise-io/bitrise-mcp-dev-environments@latest
 ```
 
 2. Restart Claude Code
@@ -84,6 +85,7 @@ Add this codeblock to your `claude_desktop_config.json`:
       ],
       "env": {
         "BITRISE_TOKEN": "YOUR_BITRISE_PAT",
+        "BITRISE_WORKSPACE_ID": "YOUR_WORKSPACE_ID",
         "PATH": "PATH to bin directory of go:PATH to directory of git",
         "GOPATH": "your GOPATH",
         "GOCACHE": "your GOCACHE"

@@ -12,7 +12,11 @@ import (
 // ListSessions lists all sessions for the current user.
 var ListSessions = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_list",
-		mcp.WithDescription("List all devenv sessions for the currently authenticated user. Returns session IDs, names, statuses, and template info."),
+		mcp.WithDescription(`List all devenv sessions for the currently authenticated user.
+
+Returns a lightweight view of each session: ID, name, description, status, template_id, template_deleted flag, SSH/VNC connection details, AI config, and a template_snapshot containing only the template_name.
+
+To get the full template snapshot (session inputs, feature flags, workspace links, working directory), use bitrise_devenv_get on a specific session.`),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
@@ -29,7 +33,16 @@ var ListSessions = devenv.Tool{
 // GetSession retrieves a single session by ID.
 var GetSession = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_get",
-		mcp.WithDescription("Get details of a specific devenv session including status, machine info, SSH/VNC credentials, and feature flags."),
+		mcp.WithDescription(`Get full details of a specific devenv session.
+
+Returns status, SSH/VNC connection details, AI config, and the complete template_snapshot which contains:
+- template_name: name of the template at creation time
+- session_inputs: input values (key, value, is_secret, expose_as_env_var) snapshotted at creation
+- feature_flags: flag states (name, enabled) snapshotted at creation
+- workspace_links: IDE folder links (label, folder_path) filtered by enabled flags
+- working_directory: terminal working directory
+
+Also includes template_deleted (true if the template was deleted after session creation — session still works from its snapshot).`),
 		mcp.WithString("session_id",
 			mcp.Description("The unique identifier (UUID) of the session"),
 			mcp.Required(),
@@ -57,9 +70,9 @@ var CreateSession = devenv.Tool{
 		mcp.WithDescription(`Create a new devenv session from a template.
 
 Before creating a session:
-1. List templates with bitrise_devenv_list_templates to find available templates
-2. List user inputs with bitrise_devenv_list_user_inputs to find saved credentials
-3. Map required template inputs to user inputs via input_mappings
+1. List templates with bitrise_devenv_list_templates to find available templates and their session inputs
+2. Optionally list saved inputs with bitrise_devenv_list_saved_inputs to find saved credentials
+3. Provide values for session inputs (either direct values or references to saved inputs)
 
 The session will start provisioning immediately after creation.`),
 		mcp.WithString("name",
@@ -73,19 +86,21 @@ The session will start provisioning immediately after creation.`),
 			mcp.Description("ID of the template to use"),
 			mcp.Required(),
 		),
-		mcp.WithArray("input_mappings",
-			mcp.Description("Map required template inputs to saved user inputs"),
+		mcp.WithArray("session_inputs",
+			mcp.Description("Values for the template's session inputs. Required inputs must have a value (direct or saved_input_id). Optional inputs use their default_value when omitted."),
 			mcp.Items(map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"required_user_input_id": map[string]any{"type": "string", "description": "ID of the required user input to fulfill"},
-					"user_input_id":          map[string]any{"type": "string", "description": "ID of the saved user input to use"},
+					"key":            map[string]any{"type": "string", "description": "Key name matching a session input on the template"},
+					"value":          map[string]any{"type": "string", "description": "Direct value (ignored if saved_input_id is set)"},
+					"is_secret":      map[string]any{"type": "boolean", "description": "Whether the value is secret (ignored if saved_input_id is set)"},
+					"saved_input_id": map[string]any{"type": "string", "description": "Optional: ID of a saved input to use instead of a direct value"},
 				},
-				"required": []string{"required_user_input_id", "user_input_id"},
+				"required": []string{"key"},
 			}),
 		),
-		mcp.WithArray("enabled_feature_flag_ids",
-			mcp.Description("IDs of feature flags to enable for this session"),
+		mcp.WithArray("enabled_feature_flag_names",
+			mcp.Description("Names of feature flags to enable for this session"),
 			mcp.WithStringItems(),
 		),
 		mcp.WithString("ai_prompt",
@@ -100,11 +115,11 @@ The session will start provisioning immediately after creation.`),
 		if desc := request.GetString("description", ""); desc != "" {
 			body["description"] = desc
 		}
-		if mappings, ok := request.GetArguments()["input_mappings"]; ok {
-			body["input_mappings"] = mappings
+		if inputs, ok := request.GetArguments()["session_inputs"]; ok {
+			body["session_inputs"] = inputs
 		}
-		if flags, ok := request.GetArguments()["enabled_feature_flag_ids"]; ok {
-			body["enabled_feature_flag_ids"] = flags
+		if flags, ok := request.GetArguments()["enabled_feature_flag_names"]; ok {
+			body["enabled_feature_flag_names"] = flags
 		}
 		if aiPrompt := request.GetString("ai_prompt", ""); aiPrompt != "" {
 			body["ai_prompt"] = aiPrompt

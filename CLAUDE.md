@@ -16,7 +16,7 @@ bitrise-mcp-dev-environments/
         ├── validate.go        # UUID validation helper
         ├── sessions.go        # Session CRUD + lifecycle
         ├── templates.go       # Template CRUD
-        ├── user_inputs.go     # User input/credential CRUD
+        ├── saved_inputs.go     # Saved input/credential CRUD
         ├── images.go          # List images + machine types
         ├── execute.go         # Remote command execution
         ├── screenshot.go      # Session screenshot capture
@@ -99,7 +99,7 @@ The following GUI interaction tools only work on **macOS sessions** (Linux sessi
 - `scroll` — scroll at cursor position
 - `mouse_drag` — drag between two points
 
-All other tools (execute, upload, download, open_remote_access, session/template/user-input CRUD) work on both macOS and Linux sessions.
+All other tools (execute, upload, download, open_remote_access, session/template/saved-input CRUD) work on both macOS and Linux sessions.
 
 ## Adding a New Tool
 

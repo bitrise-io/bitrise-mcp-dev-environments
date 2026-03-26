@@ -33,7 +33,8 @@ The Bitrise Dev Environments MCP server runs locally via Go.
         "github.com/bitrise-io/bitrise-mcp-dev-environments@latest"
       ],
       "env": {
-        "BITRISE_TOKEN": "YOUR_BITRISE_PAT"
+        "BITRISE_TOKEN": "YOUR_BITRISE_PAT",
+        "BITRISE_WORKSPACE_ID": "YOUR_WORKSPACE_ID"
       }
     }
   }

@@ -18,6 +18,7 @@ For security, avoid hardcoding your token. Create or update `~/.gemini/.env` (wh
 ```bash
 # ~/.gemini/.env
 BITRISE_PAT=your_token_here
+BITRISE_WORKSPACE_ID=your_workspace_id_here
 ```
 
 </details>
@@ -45,7 +46,8 @@ Add this to `~/.gemini/settings.json`:
                 "github.com/bitrise-io/bitrise-mcp-dev-environments@latest"
             ],
             "env": {
-                "BITRISE_TOKEN": "$BITRISE_PAT"
+                "BITRISE_TOKEN": "$BITRISE_PAT",
+                "BITRISE_WORKSPACE_ID": "$BITRISE_WORKSPACE_ID"
             }
         }
     }

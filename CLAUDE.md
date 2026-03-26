@@ -99,7 +99,7 @@ The following GUI interaction tools only work on **macOS sessions** (Linux sessi
 - `scroll` — scroll at cursor position
 - `mouse_drag` — drag between two points
 
-All other tools (execute, upload, download, open_remote_access, session/template/user-input CRUD) work on both macOS and Linux sessions.
+All other tools (execute, upload, download, open_remote_access, session/template/saved-input CRUD) work on both macOS and Linux sessions.
 
 ## Adding a New Tool
 

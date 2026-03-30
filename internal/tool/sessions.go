@@ -103,6 +103,9 @@ The session will start provisioning immediately after creation.`),
 			mcp.Description("Names of feature flags to enable for this session"),
 			mcp.WithStringItems(),
 		),
+		mcp.WithString("cluster",
+			mcp.Description("Target cluster name. Required when the template's image + machine type are available in multiple clusters. Use bitrise_devenv_resolve_clusters to find available clusters. Omit when only one cluster matches."),
+		),
 		mcp.WithString("ai_prompt",
 			mcp.Description("Optional AI prompt to pass to Claude Code when the session starts"),
 		),
@@ -120,6 +123,9 @@ The session will start provisioning immediately after creation.`),
 		}
 		if flags, ok := request.GetArguments()["enabled_feature_flag_names"]; ok {
 			body["enabled_feature_flag_names"] = flags
+		}
+		if cluster := request.GetString("cluster", ""); cluster != "" {
+			body["cluster"] = cluster
 		}
 		if aiPrompt := request.GetString("ai_prompt", ""); aiPrompt != "" {
 			body["ai_prompt"] = aiPrompt

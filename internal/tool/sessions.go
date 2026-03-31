@@ -14,9 +14,9 @@ var ListSessions = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_list",
 		mcp.WithDescription(`List all devenv sessions for the currently authenticated user.
 
-Returns a lightweight view of each session: ID, name, description, status, template_id, template_deleted flag, SSH/VNC connection details, AI config, and a template_snapshot containing only the template_name.
+Returns a lightweight view of each session: ID, name, description, status, template_id, template_deleted flag, SSH/VNC connection details, AI config, and a template_snapshot containing the template_name, image, and machine_type.
 
-To get the full template snapshot (session inputs, feature flags, workspace links, working directory), use bitrise_devenv_get on a specific session.`),
+To get the full template snapshot (session inputs, feature flags, workspace links, working directory, script flags), use bitrise_devenv_get on a specific session.`),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
@@ -37,10 +37,13 @@ var GetSession = devenv.Tool{
 
 Returns status, SSH/VNC connection details, AI config, and the complete template_snapshot which contains:
 - template_name: name of the template at creation time
+- image: machine image name
+- machine_type: machine type name
 - session_inputs: input values (key, value, is_secret, expose_as_env_var) snapshotted at creation
 - feature_flags: flag states (name, enabled) snapshotted at creation
 - workspace_links: IDE folder links (label, folder_path) filtered by enabled flags
 - working_directory: terminal working directory
+- has_warmup_script / has_startup_script: whether scripts were configured
 
 Also includes template_deleted (true if the template was deleted after session creation — session still works from its snapshot).`),
 		mcp.WithString("session_id",
@@ -103,6 +106,9 @@ The session will start provisioning immediately after creation.`),
 			mcp.Description("Names of feature flags to enable for this session"),
 			mcp.WithStringItems(),
 		),
+		mcp.WithString("cluster",
+			mcp.Description("Target cluster name. Required when the template's image + machine type are available in multiple clusters. Use bitrise_devenv_resolve_clusters to find available clusters. Omit when only one cluster matches."),
+		),
 		mcp.WithString("ai_prompt",
 			mcp.Description("Optional AI prompt to pass to Claude Code when the session starts"),
 		),
@@ -120,6 +126,9 @@ The session will start provisioning immediately after creation.`),
 		}
 		if flags, ok := request.GetArguments()["enabled_feature_flag_names"]; ok {
 			body["enabled_feature_flag_names"] = flags
+		}
+		if cluster := request.GetString("cluster", ""); cluster != "" {
+			body["cluster"] = cluster
 		}
 		if aiPrompt := request.GetString("ai_prompt", ""); aiPrompt != "" {
 			body["ai_prompt"] = aiPrompt

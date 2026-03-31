@@ -8,7 +8,8 @@
         "."
       ],
       "env": {
-        "BITRISE_TOKEN": "${input:bitrise-token}"
+        "BITRISE_TOKEN": "${input:bitrise-token}",
+        "BITRISE_WORKSPACE_ID": "${input:bitrise-workspace-id}"
       }
     }
   },
@@ -18,6 +19,11 @@
       "type": "promptString",
       "description": "Bitrise Personal Access Token",
       "password": true
+    },
+    {
+      "id": "bitrise-workspace-id",
+      "type": "promptString",
+      "description": "Bitrise Workspace ID"
     }
   ]
 }

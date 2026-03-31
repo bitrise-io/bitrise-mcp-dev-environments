@@ -44,6 +44,7 @@ func NewBelt() *Belt {
 			// Instance Manager Proxy
 			ListImages,
 			ListMachineTypes,
+			ResolveClusters,
 
 			// Session Notifications
 			ListSessionNotifications,

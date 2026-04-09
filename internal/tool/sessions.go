@@ -16,7 +16,8 @@ var ListSessions = devenv.Tool{
 
 Returns a lightweight view of each session: ID, name, description, status, template_id, template_deleted flag, SSH/VNC connection details, AI config, and a template_snapshot containing the template_name, image, and machine_type.
 
-To get the full template snapshot (session inputs, feature flags, workspace links, working directory, script flags), use bitrise_devenv_get on a specific session.`),
+To get the full template snapshot (session inputs, feature flags, workspace links, working directory, script flags), use bitrise_devenv_get on a specific session.
+To check if a session's template has been updated, look at the template_outdated field on bitrise_devenv_get and use bitrise_devenv_compare_template for details.`),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
@@ -45,7 +46,9 @@ Returns status, SSH/VNC connection details, AI config, and the complete template
 - working_directory: terminal working directory
 - has_warmup_script / has_startup_script: whether scripts were configured
 
-Also includes template_deleted (true if the template was deleted after session creation — session still works from its snapshot).`),
+Also includes:
+- template_deleted: true if the template was deleted after session creation (session still works from its snapshot)
+- template_outdated: true if the template has been updated since this session was created (use bitrise_devenv_compare_template to see what changed)`),
 		mcp.WithString("session_id",
 			mcp.Description("The unique identifier (UUID) of the session"),
 			mcp.Required(),
@@ -259,6 +262,42 @@ var UpdateSession = devenv.Tool{
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("update session", err), nil
+		}
+		return mcp.NewToolResultText(res), nil
+	},
+}
+
+// CompareSessionTemplate compares a session's template snapshot with the current template.
+var CompareSessionTemplate = devenv.Tool{
+	Definition: mcp.NewTool("bitrise_devenv_compare_template",
+		mcp.WithDescription(`Compare a session's template snapshot with the current template configuration.
+
+Returns both the snapshot (template config at session creation time) and the current template config side-by-side, including:
+- template_name, image, machine_type, working_directory
+- startup_script, warmup_script (full text)
+- feature_flags (name, description, enabled)
+- session_inputs (key, description, required, default_value)
+- template_variables (key, is_secret — values never exposed)
+- changed_variable_keys: list of variable keys whose values differ (computed server-side)
+
+Use this when template_outdated is true on a session to see exactly what changed.
+If the current template was deleted, the current field will be null.`),
+		mcp.WithString("session_id",
+			mcp.Description("The unique identifier (UUID) of the session to compare"),
+			mcp.Required(),
+		),
+	),
+	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		sessionID, err := requireUUID(request, "session_id")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
+			Method: http.MethodGet,
+			Path:   devenv.WsPath(fmt.Sprintf("/sessions/%s/template-diff", sessionID)),
+		})
+		if err != nil {
+			return mcp.NewToolResultErrorFromErr("compare session template", err), nil
 		}
 		return mcp.NewToolResultText(res), nil
 	},

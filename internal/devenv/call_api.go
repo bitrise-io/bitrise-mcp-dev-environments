@@ -69,6 +69,7 @@ func CallAPI(ctx context.Context, p CallAPIParams) (string, error) {
 	req.Header.Set(authHeader, authValue)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "bitrise-mcp-dev-environments/1.0")
+	req.Header.Set("X-Request-Source", "mcp")
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
@@ -113,6 +114,7 @@ func CallAPILongTimeout(ctx context.Context, p CallAPIParams) (string, error) {
 	req.Header.Set(authHeader, authValue)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "bitrise-mcp-dev-environments/1.0")
+	req.Header.Set("X-Request-Source", "mcp")
 
 	longClient := &http.Client{Timeout: 10 * time.Minute}
 	resp, err := longClient.Do(req)

@@ -18,3 +18,22 @@ func requireUUID(request mcp.CallToolRequest, name string) (string, error) {
 	}
 	return value, nil
 }
+
+// getOptionalInt extracts an optional numeric parameter as an int.
+// Returns (value, true, nil) if present and valid, (0, false, nil) if absent,
+// or (0, false, error) if the value is not a valid number or is negative.
+func getOptionalInt(request mcp.CallToolRequest, name string) (int, bool, error) {
+	val, ok := request.GetArguments()[name]
+	if !ok {
+		return 0, false, nil
+	}
+	f, ok := val.(float64)
+	if !ok {
+		return 0, false, fmt.Errorf("%s must be a number", name)
+	}
+	n := int(f)
+	if n < 0 {
+		return 0, false, fmt.Errorf("%s must be >= 0", name)
+	}
+	return n, true, nil
+}

@@ -136,8 +136,10 @@ The session will start provisioning immediately after creation.`),
 		if aiPrompt := request.GetString("ai_prompt", ""); aiPrompt != "" {
 			body["ai_prompt"] = aiPrompt
 		}
-		if _, ok := request.GetArguments()["auto_terminate_minutes"]; ok {
-			body["auto_terminate_minutes"] = int(request.GetArguments()["auto_terminate_minutes"].(float64))
+		if minutes, ok, err := getOptionalInt(request, "auto_terminate_minutes"); err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		} else if ok {
+			body["auto_terminate_minutes"] = minutes
 		}
 
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
@@ -260,8 +262,10 @@ var UpdateSession = devenv.Tool{
 		if _, ok := request.GetArguments()["description"]; ok {
 			body["description"] = request.GetString("description", "")
 		}
-		if _, ok := request.GetArguments()["auto_terminate_minutes"]; ok {
-			body["auto_terminate_minutes"] = int(request.GetArguments()["auto_terminate_minutes"].(float64))
+		if minutes, ok, err := getOptionalInt(request, "auto_terminate_minutes"); err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		} else if ok {
+			body["auto_terminate_minutes"] = minutes
 		}
 
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{

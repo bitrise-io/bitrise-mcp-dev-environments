@@ -112,8 +112,8 @@ The session will start provisioning immediately after creation.`),
 		mcp.WithString("ai_prompt",
 			mcp.Description("Optional AI prompt to pass to Claude Code when the session starts"),
 		),
-		mcp.WithNumber("auto_terminate_hours",
-			mcp.Description("Hours before auto-termination. Default: 120 (5 days). Set to 0 to disable."),
+		mcp.WithNumber("auto_terminate_minutes",
+			mcp.Description("Minutes before auto-termination. Default: 7200 (5 days). Set to 0 to disable."),
 		),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -136,8 +136,8 @@ The session will start provisioning immediately after creation.`),
 		if aiPrompt := request.GetString("ai_prompt", ""); aiPrompt != "" {
 			body["ai_prompt"] = aiPrompt
 		}
-		if _, ok := request.GetArguments()["auto_terminate_hours"]; ok {
-			body["auto_terminate_hours"] = int(request.GetArguments()["auto_terminate_hours"].(float64))
+		if _, ok := request.GetArguments()["auto_terminate_minutes"]; ok {
+			body["auto_terminate_minutes"] = int(request.GetArguments()["auto_terminate_minutes"].(float64))
 		}
 
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
@@ -243,8 +243,8 @@ var UpdateSession = devenv.Tool{
 		mcp.WithString("description",
 			mcp.Description("Updated session description"),
 		),
-		mcp.WithNumber("auto_terminate_hours",
-			mcp.Description("Update auto-terminate duration in hours. Resets the deadline to now + hours. Set to 0 to disable."),
+		mcp.WithNumber("auto_terminate_minutes",
+			mcp.Description("Update auto-terminate duration in minutes. Resets the deadline to now + minutes. Set to 0 to disable."),
 		),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -260,8 +260,8 @@ var UpdateSession = devenv.Tool{
 		if _, ok := request.GetArguments()["description"]; ok {
 			body["description"] = request.GetString("description", "")
 		}
-		if _, ok := request.GetArguments()["auto_terminate_hours"]; ok {
-			body["auto_terminate_hours"] = int(request.GetArguments()["auto_terminate_hours"].(float64))
+		if _, ok := request.GetArguments()["auto_terminate_minutes"]; ok {
+			body["auto_terminate_minutes"] = int(request.GetArguments()["auto_terminate_minutes"].(float64))
 		}
 
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{

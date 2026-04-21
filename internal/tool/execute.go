@@ -49,8 +49,9 @@ These are not errors from the user's command — ignore them. The exit_code fiel
 the source of truth for success/failure, not the presence of stderr output.
 
 IMPORTANT:
-- The session must be in "running" status and have SSH remote access open.
-  If SSH is not open, call bitrise_devenv_open_remote_access first, then retry.
+- The session must be in "running" status with SSH remote access available.
+  SSH remote access is provisioned automatically; if credentials aren't populated
+  yet, the session is likely still starting up — wait briefly and retry.
 - Long-running commands may time out (2 minute limit).
 - For background processes, redirect output: "nohup ./server &>/dev/null &"
 - For large outputs, pipe through head: "find / -name '*.log' | head -100"
@@ -96,7 +97,7 @@ IMPORTANT:
 		}
 		if !s.SSHConnectionOpen || s.SSHAddress == "" || s.SSHPassword == "" {
 			return mcp.NewToolResultError(
-				"session does not have SSH remote access open; call bitrise_devenv_open_remote_access first, then retry bitrise_devenv_execute",
+				"session SSH is not ready yet (credentials not populated); remote access opens automatically during provisioning — wait a few seconds for the session to finish starting up, then retry",
 			), nil
 		}
 

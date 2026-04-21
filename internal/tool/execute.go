@@ -21,11 +21,14 @@ type getSessionResponse struct {
 	Session sessionSSHFields `json:"session"`
 }
 
+// Field names are camelCase because grpc-gateway's default protojson marshaler
+// emits proto3 JSON spec names (lowerCamelCase), not the snake_case proto
+// field names. The backend doesn't set UseProtoNames: true.
 type sessionSSHFields struct {
 	Status            string `json:"status"`
-	SSHAddress        string `json:"ssh_address"`
-	SSHPassword       string `json:"ssh_password"`
-	SSHConnectionOpen bool   `json:"ssh_connection_open"`
+	SSHAddress        string `json:"sshAddress"`
+	SSHPassword       string `json:"sshPassword"`
+	SSHConnectionOpen bool   `json:"sshConnectionOpen"`
 }
 
 // Execute runs a bash command on a session's machine over a direct SSH

@@ -13,9 +13,14 @@ import (
 
 const executeTimeout = 2 * time.Minute
 
-// sessionSSHFields is a partial view of the Session JSON returned by
-// GET /sessions/{id}. Only the fields needed to open an SSH connection are
-// deserialized.
+// getSessionResponse mirrors the minimal shape of GetSessionResponse from the
+// codespaces backend: the session object is wrapped under a top-level
+// "session" key (see proto/codespaces/v1/codespaces.proto). Only the fields
+// needed to open an SSH connection are deserialized.
+type getSessionResponse struct {
+	Session sessionSSHFields `json:"session"`
+}
+
 type sessionSSHFields struct {
 	Status            string `json:"status"`
 	SSHAddress        string `json:"ssh_address"`
@@ -90,10 +95,11 @@ IMPORTANT:
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("fetch session for execute", err), nil
 		}
-		var s sessionSSHFields
-		if err := json.Unmarshal([]byte(sessionJSON), &s); err != nil {
+		var resp getSessionResponse
+		if err := json.Unmarshal([]byte(sessionJSON), &resp); err != nil {
 			return mcp.NewToolResultErrorFromErr("parse session response", err), nil
 		}
+		s := resp.Session
 		if s.Status != "SESSION_STATUS_RUNNING" {
 			return mcp.NewToolResultError(fmt.Sprintf(
 				"session is not running (status: %q); start the session before running commands",

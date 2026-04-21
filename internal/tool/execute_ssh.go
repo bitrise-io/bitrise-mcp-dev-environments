@@ -225,19 +225,28 @@ func buildLoginShellCmd(userCmd string) string {
 	return "bash -i -l -c '" + strings.ReplaceAll(userCmd, "'", `'\''`) + "'"
 }
 
-// sshAuthMethods builds the auth-method chain for dialSSH. The agent (if any)
-// is passed in from dialSSH so the same connection can later be reused for
-// agent forwarding.
+// sshAuthMethods builds the auth-method chain for dialSSH.
+//
+// Password is tried FIRST. Session sshd is password-authenticated by default
+// (see backend/internal/api/session_terminal.go:209), so password auth almost
+// always succeeds on the first attempt. Trying publickey methods first would
+// risk exhausting sshd's MaxAuthTries (default 6) when the user's local agent
+// holds many keys that aren't authorized on the session — none of them would
+// authenticate, and we'd fail before reaching the password that works.
+//
+// Agent and default key files remain as fallbacks for the rare case of a
+// session where the user manually installed a key. The agent is passed in
+// from dialSSH so the same connection is reused for agent forwarding.
 func sshAuthMethods(password string, a agent.ExtendedAgent) []ssh.AuthMethod {
 	var methods []ssh.AuthMethod
+	if password != "" {
+		methods = append(methods, ssh.Password(password))
+	}
 	if a != nil {
 		methods = append(methods, ssh.PublicKeysCallback(a.Signers))
 	}
 	if m := defaultKeyFilesAuthMethod(); m != nil {
 		methods = append(methods, m)
-	}
-	if password != "" {
-		methods = append(methods, ssh.Password(password))
 	}
 	return methods
 }

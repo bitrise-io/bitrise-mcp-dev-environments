@@ -38,6 +38,14 @@ type sshResult struct {
 // agent was available at dial time, each session gets agent forwarding so the
 // remote command (e.g. `git push git@github.com:...`) can authenticate with
 // the caller's local SSH keys.
+//
+// The agent-forwarding threat model: a forwarded agent lets the session VM
+// impersonate the caller on any host that trusts the caller's keys for as
+// long as the session is open. This is acceptable here because session VMs
+// are single-tenant, provisioned for and owned by the caller — the VM is a
+// peer the user already trusts with their development environment. Do not
+// copy this pattern into any context where the session VM is shared or
+// third-party-controlled.
 type sshClient struct {
 	client      *ssh.Client
 	localAgent  agent.ExtendedAgent // nil when SSH_AUTH_SOCK was unset/unusable
@@ -306,7 +314,13 @@ var (
 // sessions run as `vagrant` and Linux sessions as `ubuntu`, so a silent
 // fallback would misroute half the platforms.
 func parseSSHAddress(addr string) (sshTarget, error) {
-	if m := userHostRegex.FindStringSubmatch(addr); m != nil {
+	// Use FindAllStringSubmatch and take the LAST match. In OpenSSH command
+	// syntax the target hostname comes after all options, so if the address
+	// ever contains a `user@host` inside an option value (e.g. a hypothetical
+	// -o ProxyCommand="ssh jumper@proxy"), the rightmost match is the
+	// intended target. First-match would silently misroute.
+	if matches := userHostRegex.FindAllStringSubmatch(addr, -1); len(matches) > 0 {
+		m := matches[len(matches)-1]
 		t := sshTarget{User: m[1], Host: m[2], Port: 22}
 		if pm := sshAddrPortRegex.FindStringSubmatch(addr); pm != nil {
 			p, err := strconv.Atoi(pm[1])

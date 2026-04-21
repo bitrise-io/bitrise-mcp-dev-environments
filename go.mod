@@ -7,6 +7,7 @@ require (
 	github.com/jinzhu/configor v1.2.2
 	github.com/mark3labs/mcp-go v0.43.0
 	go.uber.org/zap v1.27.0
+	golang.org/x/crypto v0.50.0
 )
 
 require (
@@ -19,5 +20,6 @@ require (
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
+	golang.org/x/sys v0.43.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

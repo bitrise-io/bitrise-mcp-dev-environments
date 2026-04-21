@@ -32,21 +32,21 @@ var Execute = devenv.Tool{
 The command runs over a direct SSH connection from the MCP server to the session VM,
 inside a forced-interactive login bash shell (bash -i -l -c). This ensures the full
 shell environment is available — PATH, brew-installed binaries, git-lfs, language
-version managers (nvm, pyenv, rbenv, asdf), and anything the template's warmup script
-writes to ~/.bashrc, ~/.bash_profile, ~/.profile, or /etc/profile are all loaded.
+version managers (nvm, pyenv, rbenv, asdf), and anything the template's warmup
+script writes to ~/.bashrc, ~/.bash_profile, ~/.profile, or /etc/profile are all
+loaded.
 
 Output is returned as a JSON object with three fields:
 - exit_code: the command's exit status (0 = success)
 - stdout:    captured stdout as a string
 - stderr:    captured stderr as a string
 
-The remote command runs in a forced-interactive login shell so that .bashrc sources
-fully. If you see any stderr lines mentioning "cannot set terminal process group" or
-"no job control in this shell", these are harmless bash startup diagnostics from the
-interactive-without-TTY shell — ignore them and treat the command as having executed
-normally. The exit_code field is the source of truth for success/failure, not the
-presence of stderr output. (These two lines are normally filtered out before return,
-but future bash versions may phrase them differently.)
+NOTE: Because the remote shell is forced-interactive without a TTY, bash emits two
+harmless startup diagnostic lines to stderr on every invocation:
+  "bash: cannot set terminal process group (-1): Inappropriate ioctl for device"
+  "bash: no job control in this shell"
+These are not errors from the user's command — ignore them. The exit_code field is
+the source of truth for success/failure, not the presence of stderr output.
 
 IMPORTANT:
 - The session must be in "running" status and have SSH remote access open.
@@ -55,9 +55,9 @@ IMPORTANT:
 - For background processes, redirect output: "nohup ./server &>/dev/null &"
 - For large outputs, pipe through head: "find / -name '*.log' | head -100"
 - Commands run as the session user (vagrant on macOS, ubuntu on Linux).
-- IMPORTANT: Do NOT use osascript commands on macOS sessions as they trigger security
-  permission popups that block execution. Use alternative approaches instead (e.g.,
-  swift with CoreGraphics for screen info).`),
+- Do NOT use osascript commands on macOS sessions as they trigger security
+  permission popups that block execution. Use alternative approaches instead
+  (e.g., swift with CoreGraphics for screen info).`),
 		mcp.WithString("session_id",
 			mcp.Description("The unique identifier of the running session"),
 			mcp.Required(),
@@ -100,7 +100,7 @@ IMPORTANT:
 			), nil
 		}
 
-		target, err := devenv.ParseSSHAddress(s.SSHAddress)
+		target, err := parseSSHAddress(s.SSHAddress)
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("parse session ssh address", err), nil
 		}
@@ -109,13 +109,13 @@ IMPORTANT:
 		execCtx, cancel := context.WithTimeout(ctx, executeTimeout)
 		defer cancel()
 
-		client, err := devenv.Dial(execCtx, target)
+		client, err := dialSSH(execCtx, target)
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("ssh dial", err), nil
 		}
 		defer client.Close()
 
-		res, err := client.Run(execCtx, command)
+		res, err := client.run(execCtx, command)
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("execute command", err), nil
 		}

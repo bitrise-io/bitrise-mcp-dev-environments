@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -33,9 +34,14 @@ type sshResult struct {
 }
 
 // sshClient wraps an ssh.Client with a run method that executes commands in a
-// forced-interactive login bash shell over a fresh session.
+// forced-interactive login bash shell over a fresh session. If a local SSH
+// agent was available at dial time, each session gets agent forwarding so the
+// remote command (e.g. `git push git@github.com:...`) can authenticate with
+// the caller's local SSH keys.
 type sshClient struct {
-	client *ssh.Client
+	client      *ssh.Client
+	localAgent  agent.ExtendedAgent // nil when SSH_AUTH_SOCK was unset/unusable
+	agentSocket io.Closer           // underlying unix socket conn; nil when no agent
 }
 
 const sshHandshakeTimeout = 15 * time.Second
@@ -44,6 +50,10 @@ const sshHandshakeTimeout = 15 * time.Second
 // SSH agent (via SSH_AUTH_SOCK) → default key files (~/.ssh/id_ed25519,
 // id_ecdsa, id_rsa, unencrypted only) → password. Host key verification is
 // skipped — sessions are ephemeral, matching the UI terminal's behavior.
+//
+// When a local SSH agent is available, it is wired up for agent forwarding on
+// the returned client so the remote session can authenticate outbound SSH
+// (e.g. git@github.com) with the caller's keys.
 func dialSSH(ctx context.Context, t sshTarget) (*sshClient, error) {
 	if t.Host == "" {
 		return nil, fmt.Errorf("ssh target: host is empty")
@@ -55,8 +65,13 @@ func dialSSH(ctx context.Context, t sshTarget) (*sshClient, error) {
 		t.Port = 22
 	}
 
-	methods := sshAuthMethods(t.Password)
+	localAgent, agentSocket := dialLocalAgent()
+
+	methods := sshAuthMethods(t.Password, localAgent)
 	if len(methods) == 0 {
+		if agentSocket != nil {
+			_ = agentSocket.Close()
+		}
 		return nil, fmt.Errorf("ssh target: no auth methods available (no agent, no default keys, no password)")
 	}
 
@@ -72,6 +87,9 @@ func dialSSH(ctx context.Context, t sshTarget) (*sshClient, error) {
 	d := &net.Dialer{Timeout: sshHandshakeTimeout}
 	conn, err := d.DialContext(ctx, "tcp", addr)
 	if err != nil {
+		if agentSocket != nil {
+			_ = agentSocket.Close()
+		}
 		return nil, fmt.Errorf("ssh dial %s: %w", addr, err)
 	}
 
@@ -86,17 +104,51 @@ func dialSSH(ctx context.Context, t sshTarget) (*sshClient, error) {
 	sshConn, chans, reqs, err := ssh.NewClientConn(conn, addr, cfg)
 	close(handshakeDone)
 	if err != nil {
+		if agentSocket != nil {
+			_ = agentSocket.Close()
+		}
 		return nil, fmt.Errorf("ssh handshake %s: %w", addr, err)
 	}
-	return &sshClient{client: ssh.NewClient(sshConn, chans, reqs)}, nil
+
+	client := ssh.NewClient(sshConn, chans, reqs)
+
+	// Install an agent-forwarding handler on the client. This is a no-op
+	// until a session later calls RequestAgentForwarding. Installing it here
+	// (once per client) is the documented pattern in x/crypto/ssh/agent.
+	if localAgent != nil {
+		if err := agent.ForwardToAgent(client, localAgent); err != nil {
+			_ = client.Close()
+			if agentSocket != nil {
+				_ = agentSocket.Close()
+			}
+			return nil, fmt.Errorf("ssh install agent forwarding: %w", err)
+		}
+	}
+
+	return &sshClient{
+		client:      client,
+		localAgent:  localAgent,
+		agentSocket: agentSocket,
+	}, nil
 }
 
-// Close tears down the SSH connection.
+// Close tears down the SSH connection and the local agent socket (if any).
 func (c *sshClient) Close() error {
-	if c == nil || c.client == nil {
+	if c == nil {
 		return nil
 	}
-	return c.client.Close()
+	var errs []error
+	if c.client != nil {
+		if err := c.client.Close(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if c.agentSocket != nil {
+		if err := c.agentSocket.Close(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // run executes userCmd in a forced-interactive login bash shell on a fresh SSH
@@ -116,6 +168,16 @@ func (c *sshClient) run(ctx context.Context, userCmd string) (sshResult, error) 
 		return sshResult{}, fmt.Errorf("ssh new session: %w", err)
 	}
 	defer session.Close()
+
+	// Best-effort agent forwarding per session. If the remote sshd refuses
+	// (AllowAgentForwarding=no) or the request fails for any other reason,
+	// the user's command proceeds without a forwarded agent — any git-over-
+	// SSH step will then fail with an auth error, which surfaces clearly
+	// through stderr/exit_code. We intentionally don't fail the whole
+	// execute call here.
+	if c.localAgent != nil {
+		_ = agent.RequestAgentForwarding(session)
+	}
 
 	var stdout, stderr bytes.Buffer
 	session.Stdout = &stdout
@@ -163,11 +225,13 @@ func buildLoginShellCmd(userCmd string) string {
 	return "bash -i -l -c '" + strings.ReplaceAll(userCmd, "'", `'\''`) + "'"
 }
 
-// sshAuthMethods builds the auth-method chain for dialSSH.
-func sshAuthMethods(password string) []ssh.AuthMethod {
+// sshAuthMethods builds the auth-method chain for dialSSH. The agent (if any)
+// is passed in from dialSSH so the same connection can later be reused for
+// agent forwarding.
+func sshAuthMethods(password string, a agent.ExtendedAgent) []ssh.AuthMethod {
 	var methods []ssh.AuthMethod
-	if m := agentAuthMethod(); m != nil {
-		methods = append(methods, m)
+	if a != nil {
+		methods = append(methods, ssh.PublicKeysCallback(a.Signers))
 	}
 	if m := defaultKeyFilesAuthMethod(); m != nil {
 		methods = append(methods, m)
@@ -178,16 +242,19 @@ func sshAuthMethods(password string) []ssh.AuthMethod {
 	return methods
 }
 
-func agentAuthMethod() ssh.AuthMethod {
+// dialLocalAgent connects to the local SSH agent via SSH_AUTH_SOCK. Returns
+// (nil, nil) if the env var is unset or the socket is not dialable — the
+// caller treats that as "no agent available" and skips forwarding.
+func dialLocalAgent() (agent.ExtendedAgent, io.Closer) {
 	sock := os.Getenv("SSH_AUTH_SOCK")
 	if sock == "" {
-		return nil
+		return nil, nil
 	}
 	conn, err := net.Dial("unix", sock)
 	if err != nil {
-		return nil
+		return nil, nil
 	}
-	return ssh.PublicKeysCallback(agent.NewClient(conn).Signers)
+	return agent.NewClient(conn), conn
 }
 
 func defaultKeyFilesAuthMethod() ssh.AuthMethod {

@@ -41,6 +41,11 @@ Output is returned as a JSON object with three fields:
 - stdout:    captured stdout as a string
 - stderr:    captured stderr as a string
 
+If the MCP server's host has a local SSH agent (SSH_AUTH_SOCK set), the agent is
+forwarded into the remote session. This means remote commands that authenticate
+over SSH — e.g. "git push", "git clone git@github.com:...", "ssh some-other-host"
+— can use the caller's local SSH keys without any per-session credential setup.
+
 NOTE: Because the remote shell is forced-interactive without a TTY, bash emits two
 harmless startup diagnostic lines to stderr on every invocation:
   "bash: cannot set terminal process group (-1): Inappropriate ioctl for device"

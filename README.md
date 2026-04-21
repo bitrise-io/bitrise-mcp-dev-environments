@@ -6,7 +6,7 @@ MCP Server for Bitrise Dev Environments, enabling AI assistants to create and ma
 
 - **Template-Based Sessions**: Create sessions from templates that define machine images, startup scripts, template variables, and session inputs. Manage templates and saved input credentials.
 - **Session Lifecycle**: Create, list, start, stop, update, and delete sessions. Bulk-delete archived sessions.
-- **Command Execution**: Run shell commands on running sessions via `bash -c`.
+- **Command Execution**: Run shell commands on running sessions over SSH in a forced-interactive login shell (`bash -i -l -c`), so the template's PATH, brew tools, git-lfs, and language version managers are all visible. Local SSH agent is forwarded so git-over-SSH uses the caller's keys.
 - **File Transfer**: Upload local files/folders to sessions and download artifacts back.
 - **GUI Automation** (macOS only): Interact with the session's graphical display via screenshots, mouse clicks, keyboard input, scrolling, and drag operations.
 - **Remote Access**: Open SSH and VNC connections to running sessions.
@@ -82,7 +82,7 @@ MCP Server for Bitrise Dev Environments, enabling AI assistants to create and ma
 
 | Tool | Description |
 |------|-------------|
-| `bitrise_devenv_execute` | Run shell commands on a running session via `bash -c` |
+| `bitrise_devenv_execute` | Run shell commands on a running session over SSH (`bash -i -l -c`, full login shell, local SSH agent forwarded). Returns `{exit_code, stdout, stderr}` JSON. |
 | `bitrise_devenv_upload` | Upload local files/folders to a session |
 | `bitrise_devenv_download` | Download files/folders from a session |
 
@@ -113,10 +113,14 @@ MCP Server for Bitrise Dev Environments, enabling AI assistants to create and ma
 
 ### Command Execution
 
-- **Bash commands**: Commands run via `bash -c`, supporting pipes, redirects, and command chaining
-- **Timeout**: Commands have a 2-minute execution limit
-- **No osascript**: Do not use `osascript` on macOS sessions as it triggers permission popups
-- **No file transfers via execute**: Use the dedicated upload/download tools instead
+- **Execution path**: Commands run over a direct SSH connection from the MCP server to the session VM, invoked as `bash -i -l -c <cmd>`. Both login (`-l`) and interactive (`-i`) modes are forced so `/etc/profile`, `~/.bash_profile`/`~/.profile`, and `~/.bashrc` are all sourced fully — PATH, brew-installed binaries, git-lfs, and language version managers (nvm, pyenv, rbenv, asdf) are available.
+- **Structured output**: Results come back as a JSON object with `exit_code`, `stdout`, and `stderr` fields. `exit_code` is the source of truth for success/failure.
+- **Bash startup diagnostics**: Because `-i` is used without a TTY, bash emits two harmless lines to stderr on every invocation (`cannot set terminal process group`, `no job control in this shell`). These are not errors from the user's command and can be ignored.
+- **SSH agent forwarding**: If the MCP host has a running local SSH agent (`SSH_AUTH_SOCK` set), it is forwarded into the remote session. Remote commands like `git push git@github.com:...`, `git clone git@...`, and `ssh some-other-host` authenticate with the caller's local keys — no per-session credential setup required.
+- **Timeout**: Commands have a 2-minute execution limit.
+- **Bash features**: Pipes, redirects, command chaining, and subshells all work as expected.
+- **No osascript**: Do not use `osascript` on macOS sessions as it triggers permission popups that can't be dismissed programmatically.
+- **No file transfers via execute**: Use the dedicated upload/download tools instead.
 
 ### File Transfer
 

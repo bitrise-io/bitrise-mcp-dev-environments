@@ -78,7 +78,7 @@ var CreateSession = devenv.Tool{
 Before creating a session:
 1. List templates with bitrise_devenv_list_templates to find available templates and their session inputs
 2. Optionally list saved inputs with bitrise_devenv_list_saved_inputs to find saved credentials
-3. Provide values for session inputs (either direct values or references to saved inputs)
+3. Provide values for session inputs (either direct values or references to saved inputs), or set map_saved_to_session_inputs=true to auto-fill session inputs from the user's saved inputs by key match
 
 The session will start provisioning immediately after creation.`),
 		mcp.WithString("name",
@@ -105,6 +105,16 @@ The session will start provisioning immediately after creation.`),
 				"required": []string{"key"},
 			}),
 		),
+		mcp.WithBoolean("map_saved_to_session_inputs",
+			mcp.Description(`When true, the backend fills unreferenced template session inputs from the current user's saved inputs by matching keys, before required-input validation runs.
+
+Use this as a shortcut instead of calling bitrise_devenv_list_saved_inputs and constructing a session_inputs entry for every saved credential that happens to match a template key.
+
+Rules:
+- Entries in session_inputs always win; auto-mapping only fills keys not already supplied.
+- Required inputs that match neither session_inputs nor any saved input still fail with "missing required input: <key>" — the flag is not a bypass of required-input validation.
+- The response includes an auto_mapped_inputs array listing {session_input_key, saved_input_id} for every key that was auto-filled, so you can report back exactly what the flag resolved.`),
+		),
 		mcp.WithArray("enabled_feature_flag_names",
 			mcp.Description("Names of feature flags to enable for this session"),
 			mcp.WithStringItems(),
@@ -129,6 +139,9 @@ The session will start provisioning immediately after creation.`),
 		}
 		if inputs, ok := request.GetArguments()["session_inputs"]; ok {
 			body["session_inputs"] = inputs
+		}
+		if mapSaved, ok := request.GetArguments()["map_saved_to_session_inputs"]; ok {
+			body["map_saved_to_session_inputs"] = mapSaved
 		}
 		if flags, ok := request.GetArguments()["enabled_feature_flag_names"]; ok {
 			body["enabled_feature_flag_names"] = flags

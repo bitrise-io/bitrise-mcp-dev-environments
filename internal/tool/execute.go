@@ -68,10 +68,7 @@ IMPORTANT:
 - Long-running commands may time out (2 minute limit).
 - For background processes, redirect output: "nohup ./server &>/dev/null &"
 - For large outputs, pipe through head: "find / -name '*.log' | head -100"
-- Commands run as the session user (vagrant on macOS, ubuntu on Linux).
-- Do NOT use osascript commands on macOS sessions as they trigger security
-  permission popups that block execution. Use alternative approaches instead
-  (e.g., swift with CoreGraphics for screen info).`),
+- Commands run as the session user (vagrant on macOS, ubuntu on Linux).`),
 		mcp.WithString("session_id",
 			mcp.Description("The unique identifier of the running session"),
 			mcp.Required(),

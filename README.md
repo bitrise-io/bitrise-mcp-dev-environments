@@ -119,7 +119,6 @@ MCP Server for Bitrise Dev Environments, enabling AI assistants to create and ma
 - **SSH agent forwarding**: If the MCP host has a running local SSH agent (`SSH_AUTH_SOCK` set), it is forwarded into the remote session. Remote commands like `git push git@github.com:...`, `git clone git@...`, and `ssh some-other-host` authenticate with the caller's local keys — no per-session credential setup required.
 - **Timeout**: Commands have a 2-minute execution limit.
 - **Bash features**: Pipes, redirects, command chaining, and subshells all work as expected.
-- **No osascript**: Do not use `osascript` on macOS sessions as it triggers permission popups that can't be dismissed programmatically.
 - **No file transfers via execute**: Use the dedicated upload/download tools instead.
 
 ### File Transfer

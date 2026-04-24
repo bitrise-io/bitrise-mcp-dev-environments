@@ -14,6 +14,15 @@ var Click = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_click",
 		mcp.WithDescription(`Click at specific coordinates on a running devenv session's macOS display.
 
+PREFER SCRIPTED AUTOMATION WHEN POSSIBLE: for scriptable UI actions (opening
+System Settings panes, launching apps, menu navigation, keystrokes, defaults),
+use bitrise_devenv_execute with "open x-apple.systempreferences:<pane-id>",
+"open -a <app>", or "osascript ..." — a single deterministic call vs. a
+screenshot + coordinate-estimation + click chain. Wrap osascript in a short
+"timeout 15s" so an unexpected TCC permission dialog fails fast (common
+scopes are pre-approved, but not all). Reach for click only when no scriptable
+path exists (e.g. inside a third-party app's custom canvas).
+
 Use bitrise_devenv_screenshot first to identify the target coordinates.
 Coordinates must be in the actual screen coordinate space (typically 1920x1080), NOT in screenshot
 image pixel coordinates. The screenshot tool response includes the screen resolution.
@@ -56,6 +65,16 @@ var Type = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_type",
 		mcp.WithDescription(`Type text on a running devenv session's macOS display.
 
+PREFER SCRIPTED AUTOMATION WHEN POSSIBLE: for keystrokes, shortcuts, and text
+input you can drive programmatically, use bitrise_devenv_execute with osascript
+and System Events, e.g.:
+  timeout 15s osascript -e 'tell application "System Events" to keystroke "hello"'
+  timeout 15s osascript -e 'tell application "System Events" to keystroke "t" using {command down}'
+The "timeout 15s" prefix is cheap insurance — common TCC scopes are
+pre-approved on session images, but an unexpected permission prompt would
+otherwise hang the command until the 2-minute execute cap. Reach for this tool
+only when the target app can't be driven via AppleScript / shell commands.
+
 The text is typed character by character as keyboard input. Special characters and
 control sequences are supported.
 NOTE: This tool only works on macOS sessions.`),
@@ -88,6 +107,12 @@ NOTE: This tool only works on macOS sessions.`),
 var Scroll = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_scroll",
 		mcp.WithDescription(`Scroll at the current mouse position on a running devenv session's macOS display.
+
+PREFER SCRIPTED AUTOMATION WHEN POSSIBLE: many "scroll to reveal X" flows can
+be avoided entirely by driving the app directly via bitrise_devenv_execute
+(e.g. "open x-apple.systempreferences:<pane-id>" jumps straight to a pane, or
+AppleScript navigates menus without scrolling). Use this tool only when no
+scriptable path exists.
 NOTE: This tool only works on macOS sessions.`),
 		mcp.WithString("session_id", mcp.Description("The unique identifier of the running session"), mcp.Required()),
 		mcp.WithString("direction", mcp.Description("Scroll direction"), mcp.Enum("up", "down"), mcp.Required()),
@@ -118,6 +143,11 @@ NOTE: This tool only works on macOS sessions.`),
 var MouseDrag = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_mouse_drag",
 		mcp.WithDescription(`Drag the mouse between two points on a running devenv session's macOS display.
+
+PREFER SCRIPTED AUTOMATION WHEN POSSIBLE: most drag-to-move, drag-to-select,
+and drag-to-resize actions can be done via bitrise_devenv_execute — e.g. "mv"
+for files, "osascript" + System Events for window positioning, "defaults
+write" for settings. Use drag only when no scriptable path exists.
 
 Coordinates must be in the actual screen coordinate space (typically 1920x1080), NOT in screenshot
 image pixel coordinates. The screenshot tool response includes the screen resolution.

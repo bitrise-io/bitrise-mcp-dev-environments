@@ -26,6 +26,16 @@ Returns the screenshot as an embedded image along with the actual screen resolut
 Use this to verify the current state of the GUI, identify coordinates for click/drag operations,
 and debug visual issues.
 
+PREFER SCRIPTED STATE CHECKS WHEN POSSIBLE: if you just need to know what app
+or window is frontmost, what's running, or what a setting's value is, it's
+usually faster and more reliable to ask the system via bitrise_devenv_execute
+than to screenshot and visually inspect. Examples:
+  osascript -e 'tell application "System Events" to name of first application process whose frontmost is true'
+  osascript -e 'tell application "System Events" to get the name of every window of (every process whose visible is true)'
+  defaults read com.apple.dock autohide
+Use screenshots when you genuinely need to see pixels (visual regression, a
+third-party app's custom canvas, verifying a click landed).
+
 NOTE: This tool only works on macOS sessions. Linux sessions do not have a graphical display.`),
 		mcp.WithString("session_id",
 			mcp.Description("The unique identifier of the running session"),

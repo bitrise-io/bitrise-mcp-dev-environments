@@ -101,6 +101,23 @@ The following GUI interaction tools only work on **macOS sessions** (Linux sessi
 
 All other tools (execute, upload, download, open_remote_access, session/template/saved-input CRUD) work on both macOS and Linux sessions.
 
+### Prefer `execute` over GUI tools when the action is scriptable
+
+For macOS UI automation, **reach for `bitrise_devenv_execute` first**. It's one deterministic call vs. a screenshot + coordinate-estimation + click chain — faster, cheaper, and doesn't miss on coordinates. Use the GUI tools only when no scriptable path exists (e.g. inside a third-party app's custom canvas).
+
+Common scripted entry points:
+
+- **System Settings panes**: `open "x-apple.systempreferences:<pane-id>"` — e.g. `com.apple.Network-Settings.extension`, `com.apple.Displays-Settings.extension`, `com.apple.Wi-Fi-Settings.extension`.
+- **Launch/focus an app**: `open -a "Safari"` or `osascript -e 'tell application "Safari" to activate'`.
+- **Open URL / file**: `open "https://example.com"`, `open ~/Downloads`.
+- **Menu / button / dialog**: `osascript` with System Events (`click menu item ... of menu bar 1`).
+- **Keystrokes / shortcuts**: `osascript -e 'tell application "System Events" to keystroke "t" using {command down}'`.
+- **State checks**: `defaults read`, or System Events queries for frontmost app / visible windows — often faster than screenshotting and reading pixels.
+
+**osascript timeout safety net**: the common automation scopes (Automation, Accessibility, Screen Recording) are pre-approved on session images, so osascript normally runs without a prompt. An uncommon action could still trigger a TCC permission dialog — and with no human to click "Allow" the command will block until `execute`'s 2-minute cap. Wrap osascript calls in a short `timeout`, e.g. `timeout 15s osascript -e '...'`, so you fail fast and can fall back to the GUI tools.
+
+When adding new docs or tool descriptions that touch the GUI, keep steering clients toward this path.
+
 ## Adding a New Tool
 
 1. Create or extend a file in `internal/tool/` (group by domain)

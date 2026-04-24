@@ -68,7 +68,38 @@ IMPORTANT:
 - Long-running commands may time out (2 minute limit).
 - For background processes, redirect output: "nohup ./server &>/dev/null &"
 - For large outputs, pipe through head: "find / -name '*.log' | head -100"
-- Commands run as the session user (vagrant on macOS, ubuntu on Linux).`),
+- Commands run as the session user (vagrant on macOS, ubuntu on Linux).
+
+macOS UI AUTOMATION (prefer over screenshot+click):
+On macOS sessions, most UI actions are scriptable from the shell and are far faster
+and more reliable than a screenshot + click loop (one deterministic call vs. several
+round-trips plus coordinate estimation). Reach for this first; fall back to the GUI
+tools (click/type/scroll/mouse_drag) only when no scriptable path exists (e.g. a
+third-party app's internal canvas).
+
+- Open a System Settings pane directly:
+    open "x-apple.systempreferences:com.apple.Network-Settings.extension"
+    open "x-apple.systempreferences:com.apple.Displays-Settings.extension"
+    open "x-apple.systempreferences:com.apple.Wi-Fi-Settings.extension"
+    open "x-apple.systempreferences:com.apple.Accessibility-Settings.extension"
+  (Each built-in pane has a bundle id under /System/Library/ExtensionKit/Extensions
+  or /System/Applications/System Settings.app/Contents/Resources.)
+- Launch or focus an app:           open -a "Safari"
+                                    osascript -e 'tell application "Safari" to activate'
+- Open a URL / file:                open "https://example.com"   open ~/Downloads
+- Menu bar, buttons, dialogs:       osascript with System Events, e.g.
+    osascript -e 'tell application "System Events" to tell process "Safari" to click menu item "New Window" of menu 1 of menu bar item "File" of menu bar 1'
+- Simulate keystrokes / shortcuts:  osascript -e 'tell application "System Events" to keystroke "t" using {command down}'
+- Read/write defaults, toggle settings: defaults write / defaults read, e.g.
+    defaults write com.apple.dock autohide -bool true && killall Dock
+
+osascript timeout safety net: the common automation scopes (Automation,
+Accessibility, Screen Recording) are pre-approved on session images, so
+osascript normally runs without any prompt. An uncommon action could still
+trigger a TCC permission dialog — and with no human to click "Allow" the
+command will block until the 2-minute execute cap. Wrap osascript calls in a
+short timeout so you fail fast and can fall back to the GUI tools:
+    timeout 15s osascript -e 'tell application "System Events" to ...'`),
 		mcp.WithString("session_id",
 			mcp.Description("The unique identifier of the running session"),
 			mcp.Required(),

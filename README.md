@@ -96,6 +96,10 @@ MCP Server for Bitrise Dev Environments, enabling AI assistants to create and ma
 | `bitrise_devenv_type` | Type text as keyboard input |
 | `bitrise_devenv_scroll` | Scroll up/down at the current mouse position |
 
+> **Prefer `bitrise_devenv_execute` over GUI tools when the action is scriptable.** Opening a System Settings pane, launching an app, navigating a menu, or checking frontmost window state is one deterministic `execute` call — `open "x-apple.systempreferences:<pane-id>"`, `open -a <app>`, `osascript ...`, or `defaults read/write` — versus a screenshot + coordinate-estimation + click chain. Fall back to the GUI tools only when no scriptable path exists (e.g. a third-party app's custom canvas).
+>
+> **osascript timeout safety net**: common automations (Automation / Accessibility / Screen Recording) are pre-approved on session images, so osascript normally runs without a prompt. But an uncommon action could still trigger a TCC permission dialog, and with no human to click "Allow" the command will hang until the 2-minute execute cap. Wrap osascript calls in a short `timeout`, e.g. `timeout 15s osascript -e '...'`, so you fail fast and can fall back to GUI tools.
+
 ### Remote Access
 
 | Tool | Description |

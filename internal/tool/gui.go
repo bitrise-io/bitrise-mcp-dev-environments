@@ -9,6 +9,24 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
+// rescaleToScreen converts a coordinate from the model's view space (sized
+// max_x × max_y) into the real screen space cached by the last screenshot
+// for this session. When no screenshot has been captured yet, the cache
+// falls back to devenv.DefaultResolution (1920×1080) so calls don't fail.
+//
+// Returns (rescaledX, rescaledY, nil) on success, or (0, 0, errResult) when
+// max_x or max_y are non-positive — the caller should return errResult
+// directly to the MCP client.
+func rescaleToScreen(sessionID string, x, y, maxX, maxY int) (int, int, *mcp.CallToolResult) {
+	if maxX <= 0 || maxY <= 0 {
+		return 0, 0, mcp.NewToolResultError("max_x and max_y must be positive")
+	}
+	res, _ := devenv.GetScreenResolution(sessionID)
+	rx := x * res.Width / maxX
+	ry := y * res.Height / maxY
+	return rx, ry, nil
+}
+
 // Click performs a mouse click at specified coordinates.
 var Click = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_click",
@@ -23,13 +41,20 @@ screenshot + coordinate-estimation + click chain. Wrap osascript in a short
 scopes are pre-approved, but not all). Reach for click only when no scriptable
 path exists (e.g. inside a third-party app's custom canvas).
 
-Use bitrise_devenv_screenshot first to identify the target coordinates.
-Coordinates must be in the actual screen coordinate space (typically 1920x1080), NOT in screenshot
-image pixel coordinates. The screenshot tool response includes the screen resolution.
+Call bitrise_devenv_screenshot first so the server captures the real screen
+resolution. Then provide x, y in the coordinate space of the screenshot you
+are looking at, and pass max_x, max_y — the width and height of that same
+view. The server rescales (x, y) to real screen coordinates using the cached
+resolution. If no screenshot has been taken yet, the server falls back to a
+1920×1080 screen, so passing max_x=1920 and max_y=1080 with raw screen
+coordinates also works.
+
 NOTE: This tool only works on macOS sessions.`),
 		mcp.WithString("session_id", mcp.Description("The unique identifier of the running session"), mcp.Required()),
-		mcp.WithNumber("x", mcp.Description("X coordinate in screen space (0-1920 for a 1920-wide screen)"), mcp.Required()),
-		mcp.WithNumber("y", mcp.Description("Y coordinate in screen space (0-1080 for a 1080-tall screen)"), mcp.Required()),
+		mcp.WithNumber("x", mcp.Description("X coordinate in the screenshot view's coordinate space"), mcp.Required()),
+		mcp.WithNumber("y", mcp.Description("Y coordinate in the screenshot view's coordinate space"), mcp.Required()),
+		mcp.WithNumber("max_x", mcp.Description("Width of the screenshot view you reasoned about when picking x (e.g. the width of the image you're looking at)"), mcp.Required()),
+		mcp.WithNumber("max_y", mcp.Description("Height of the screenshot view you reasoned about when picking y (e.g. the height of the image you're looking at)"), mcp.Required()),
 		mcp.WithString("button", mcp.Description("Mouse button: left (default), right, or middle"), mcp.Enum("left", "right", "middle"), mcp.DefaultString("left")),
 		mcp.WithBoolean("double_click", mcp.Description("Whether to perform a double-click (default: false)")),
 	),
@@ -39,9 +64,19 @@ NOTE: This tool only works on macOS sessions.`),
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 
+		x := request.GetInt("x", 0)
+		y := request.GetInt("y", 0)
+		maxX := request.GetInt("max_x", 0)
+		maxY := request.GetInt("max_y", 0)
+
+		realX, realY, errRes := rescaleToScreen(sessionID, x, y, maxX, maxY)
+		if errRes != nil {
+			return errRes, nil
+		}
+
 		body := map[string]any{
-			"x":      request.GetInt("x", 0),
-			"y":      request.GetInt("y", 0),
+			"x":      realX,
+			"y":      realY,
 			"button": request.GetString("button", "left"),
 		}
 		if dc, ok := request.GetArguments()["double_click"]; ok {
@@ -149,14 +184,22 @@ and drag-to-resize actions can be done via bitrise_devenv_execute — e.g. "mv"
 for files, "osascript" + System Events for window positioning, "defaults
 write" for settings. Use drag only when no scriptable path exists.
 
-Coordinates must be in the actual screen coordinate space (typically 1920x1080), NOT in screenshot
-image pixel coordinates. The screenshot tool response includes the screen resolution.
+Call bitrise_devenv_screenshot first so the server captures the real screen
+resolution. Then provide both endpoints (start_x/start_y, end_x/end_y) in the
+coordinate space of the screenshot you are looking at, and pass max_x, max_y
+— the width and height of that same view. The server rescales both endpoints
+to real screen coordinates using the cached resolution. If no screenshot has
+been taken yet, the server falls back to a 1920×1080 screen, so passing
+max_x=1920 and max_y=1080 with raw screen coordinates also works.
+
 NOTE: This tool only works on macOS sessions.`),
 		mcp.WithString("session_id", mcp.Description("The unique identifier of the running session"), mcp.Required()),
-		mcp.WithNumber("start_x", mcp.Description("Starting X coordinate"), mcp.Required()),
-		mcp.WithNumber("start_y", mcp.Description("Starting Y coordinate"), mcp.Required()),
-		mcp.WithNumber("end_x", mcp.Description("Ending X coordinate"), mcp.Required()),
-		mcp.WithNumber("end_y", mcp.Description("Ending Y coordinate"), mcp.Required()),
+		mcp.WithNumber("start_x", mcp.Description("Starting X coordinate in the screenshot view's coordinate space"), mcp.Required()),
+		mcp.WithNumber("start_y", mcp.Description("Starting Y coordinate in the screenshot view's coordinate space"), mcp.Required()),
+		mcp.WithNumber("end_x", mcp.Description("Ending X coordinate in the screenshot view's coordinate space"), mcp.Required()),
+		mcp.WithNumber("end_y", mcp.Description("Ending Y coordinate in the screenshot view's coordinate space"), mcp.Required()),
+		mcp.WithNumber("max_x", mcp.Description("Width of the screenshot view you reasoned about when picking the coordinates"), mcp.Required()),
+		mcp.WithNumber("max_y", mcp.Description("Height of the screenshot view you reasoned about when picking the coordinates"), mcp.Required()),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		sessionID, err := requireUUID(request, "session_id")
@@ -164,14 +207,30 @@ NOTE: This tool only works on macOS sessions.`),
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 
+		startX := request.GetInt("start_x", 0)
+		startY := request.GetInt("start_y", 0)
+		endX := request.GetInt("end_x", 0)
+		endY := request.GetInt("end_y", 0)
+		maxX := request.GetInt("max_x", 0)
+		maxY := request.GetInt("max_y", 0)
+
+		realStartX, realStartY, errRes := rescaleToScreen(sessionID, startX, startY, maxX, maxY)
+		if errRes != nil {
+			return errRes, nil
+		}
+		realEndX, realEndY, errRes := rescaleToScreen(sessionID, endX, endY, maxX, maxY)
+		if errRes != nil {
+			return errRes, nil
+		}
+
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodPost,
 			Path:   devenv.WsPath(fmt.Sprintf("/sessions/%s/mouse-drag", sessionID)),
 			Body: map[string]any{
-				"start_x": request.GetInt("start_x", 0),
-				"start_y": request.GetInt("start_y", 0),
-				"end_x":   request.GetInt("end_x", 0),
-				"end_y":   request.GetInt("end_y", 0),
+				"start_x": realStartX,
+				"start_y": realStartY,
+				"end_x":   realEndX,
+				"end_y":   realEndY,
 			},
 		})
 		if err != nil {

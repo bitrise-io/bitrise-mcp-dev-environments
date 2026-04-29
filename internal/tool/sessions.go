@@ -14,7 +14,9 @@ var ListSessions = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_list",
 		mcp.WithDescription(`List all devenv sessions for the currently authenticated user.
 
-Returns a lightweight view of each session: ID, name, description, status, template_id, template_deleted flag, SSH/VNC connection details, AI config, and a template_snapshot containing the template_name, image, and machine_type.
+Returns a lightweight view of each session: ID, name, description, status, agent_session_status, template_id, template_deleted flag, SSH/VNC connection details, AI config, and a template_snapshot containing the template_name, image, and machine_type.
+
+agent_session_status reflects the current state of the AI agent running in the session (working, waiting_for_input, idle, or unspecified). It is reset whenever the session is stopped or started.
 
 To get the full template snapshot (session inputs, feature flags, workspace links, working directory, script flags), use bitrise_devenv_get on a specific session.
 To check if a session's template has been updated, look at the template_outdated field on bitrise_devenv_get and use bitrise_devenv_compare_template for details.`),
@@ -48,7 +50,9 @@ Returns status, SSH/VNC connection details, AI config, and the complete template
 
 Also includes:
 - template_deleted: true if the template was deleted after session creation (session still works from its snapshot)
-- template_outdated: true if the template has been updated since this session was created (use bitrise_devenv_compare_template to see what changed)`),
+- template_outdated: true if the template has been updated since this session was created (use bitrise_devenv_compare_template to see what changed)
+- agent_session_status: current state of the AI agent running in the session (working, waiting_for_input, idle, or unspecified). Reset on stop/start.
+- agent_session_status_updated_at: timestamp when agent_session_status was last changed`),
 		mcp.WithString("session_id",
 			mcp.Description("The unique identifier (UUID) of the session"),
 			mcp.Required(),
@@ -173,7 +177,7 @@ Rules:
 // StartSession starts a stopped/archived session.
 var StartSession = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_start",
-		mcp.WithDescription("Start a stopped (archived) devenv session. The session will begin provisioning and transition to running."),
+		mcp.WithDescription("Start a stopped (archived) devenv session. The session will begin provisioning and transition to running. Resets agent_session_status."),
 		mcp.WithString("session_id",
 			mcp.Description("The unique identifier (UUID) of the session to start"),
 			mcp.Required(),
@@ -199,7 +203,7 @@ var StartSession = devenv.Tool{
 // StopSession stops a running session (archives it).
 var StopSession = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_stop",
-		mcp.WithDescription("Stop a running devenv session. The session will be archived and can be started again later."),
+		mcp.WithDescription("Stop a running devenv session. The session will be archived and can be started again later. Resets agent_session_status."),
 		mcp.WithString("session_id",
 			mcp.Description("The unique identifier (UUID) of the session to stop"),
 			mcp.Required(),

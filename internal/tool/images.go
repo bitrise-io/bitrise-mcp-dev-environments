@@ -11,7 +11,11 @@ import (
 // ListImages lists available machine images.
 var ListImages = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_list_images",
-		mcp.WithDescription("List available machine images for devenv templates. Each image has an ID, name, and cluster. Use the name (not ID) when creating or updating templates."),
+		mcp.WithDescription(`List available machine images for devenv templates. Each image has an ID, name, and cluster. Use the name (not ID) when creating or updating templates.
+
+Deprecated: 'osx-tahoe-26-edge' is being deprecated upstream. When creating a new template, prefer 'osx-26-edge' instead. Existing templates and sessions on this image continue to work but should be migrated.
+
+Removed (contact Bitrise support to use): 'osx-tahoe-26', 'osx-sonoma-15', 'osx-sonoma-16', and 'osx-ventura-15' are no longer returned by this tool. If a user asks to create a template or session using one of these images, advise them to contact Bitrise support to have it enabled.`),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{

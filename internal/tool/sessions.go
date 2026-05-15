@@ -177,7 +177,9 @@ Rules:
 // StartSession starts a stopped/archived session.
 var StartSession = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_start",
-		mcp.WithDescription("Start a stopped (archived) devenv session. The session will begin provisioning and transition to running. Resets agent_session_status."),
+		mcp.WithDescription(`Start a devenv session that is not currently running. The session will begin provisioning and transition to running. Resets agent_session_status.
+
+Restartable statuses: SESSION_STATUS_ARCHIVED (user stopped), SESSION_STATUS_DRAINED (node was reclaimed under the session), SESSION_STATUS_FAILED. All three are terminal-and-restartable — starting recreates the VM.`),
 		mcp.WithString("session_id",
 			mcp.Description("The unique identifier (UUID) of the session to start"),
 			mcp.Required(),

@@ -13,6 +13,7 @@ import (
 var ListTemplates = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_list_templates",
 		mcp.WithDescription("List all available devenv templates. Each template defines the machine image, startup/warmup scripts, template variables, session inputs (required and optional), feature flags, and workspace links."),
+		mcp.WithReadOnlyHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
@@ -34,6 +35,7 @@ var GetTemplate = devenv.Tool{
 			mcp.Description("The unique identifier (UUID) of the template"),
 			mcp.Required(),
 		),
+		mcp.WithReadOnlyHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		templateID, err := requireUUID(request, "template_id")
@@ -250,6 +252,7 @@ var DeleteTemplate = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_delete_template",
 		mcp.WithDescription("Delete a devenv template. Existing sessions continue to work from their snapshotted template configuration, but will be marked with template_deleted=true."),
 		mcp.WithString("template_id", mcp.Description("The unique identifier of the template to delete"), mcp.Required()),
+		mcp.WithDestructiveHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		templateID, err := requireUUID(request, "template_id")

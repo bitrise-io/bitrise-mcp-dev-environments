@@ -36,6 +36,7 @@ Example: Download a build artifact:
 		mcp.WithString("source_path", mcp.Description("Absolute path on the remote machine to download"), mcp.Required()),
 		mcp.WithString("local_destination", mcp.Description("Local directory path where files will be extracted"), mcp.Required()),
 		mcp.WithBoolean("only_contents", mcp.Description("If true and source is a directory, extract only its contents (not the directory itself)")),
+		mcp.WithReadOnlyHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		sessionID, err := requireUUID(request, "session_id")

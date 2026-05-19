@@ -25,7 +25,7 @@ func NewBelt() *Belt {
 			StartSession,
 			StopSession,
 			DeleteSession,
-			DeleteArchivedSessions,
+			DeleteTerminatedSessions,
 			CompareSessionTemplate,
 
 			// Templates

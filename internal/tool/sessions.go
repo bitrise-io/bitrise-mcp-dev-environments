@@ -176,12 +176,12 @@ Rules:
 	},
 }
 
-// StartSession starts a stopped/archived session.
+// StartSession starts a stopped/terminated session.
 var StartSession = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_start",
 		mcp.WithDescription(`Start a devenv session that is not currently running. The session will begin provisioning and transition to running. Resets agent_session_status.
 
-Restartable statuses: SESSION_STATUS_ARCHIVED (user stopped), SESSION_STATUS_DRAINED (node was reclaimed under the session), SESSION_STATUS_FAILED. All three are terminal-and-restartable — starting recreates the VM.`),
+Restartable statuses: SESSION_STATUS_TERMINATED (user stopped), SESSION_STATUS_DRAINED (node was reclaimed under the session), SESSION_STATUS_FAILED. All three are terminal-and-restartable — starting recreates the VM.`),
 		mcp.WithString("session_id",
 			mcp.Description("The unique identifier (UUID) of the session to start"),
 			mcp.Required(),
@@ -204,10 +204,10 @@ Restartable statuses: SESSION_STATUS_ARCHIVED (user stopped), SESSION_STATUS_DRA
 	},
 }
 
-// StopSession stops a running session (archives it).
+// StopSession stops a running session (terminates it).
 var StopSession = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_stop",
-		mcp.WithDescription("Stop a running devenv session. The session will be archived and can be started again later. Resets agent_session_status."),
+		mcp.WithDescription("Stop a running devenv session. The session will be terminated and can be started again later. Resets agent_session_status."),
 		mcp.WithString("session_id",
 			mcp.Description("The unique identifier (UUID) of the session to stop"),
 			mcp.Required(),
@@ -342,20 +342,20 @@ If the current template was deleted, the current field will be null.`),
 	},
 }
 
-// DeleteArchivedSessions deletes all archived sessions.
-var DeleteArchivedSessions = devenv.Tool{
-	Definition: mcp.NewTool("bitrise_devenv_delete_archived",
-		mcp.WithDescription("Delete all archived (stopped) devenv sessions for the current user. Returns the number of deleted sessions."),
+// DeleteTerminatedSessions deletes all terminated sessions.
+var DeleteTerminatedSessions = devenv.Tool{
+	Definition: mcp.NewTool("bitrise_devenv_delete_terminated",
+		mcp.WithDescription("Delete all terminated devenv sessions for the current user. Returns the number of deleted sessions."),
 		mcp.WithDestructiveHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodPost,
-			Path:   devenv.WsPath("/sessions:delete-archived"),
+			Path:   devenv.WsPath("/sessions:delete-terminated"),
 			Body:   map[string]any{},
 		})
 		if err != nil {
-			return mcp.NewToolResultErrorFromErr("delete archived sessions", err), nil
+			return mcp.NewToolResultErrorFromErr("delete terminated sessions", err), nil
 		}
 		return mcp.NewToolResultText(res), nil
 	},

@@ -5,7 +5,7 @@ MCP Server for Bitrise Dev Environments, enabling AI assistants to create and ma
 ## Features
 
 - **Template-Based Sessions**: Create sessions from templates that define machine images, startup scripts, template variables, and session inputs. Manage templates and saved input credentials.
-- **Session Lifecycle**: Create, list, start, stop, update, and delete sessions. Bulk-delete archived sessions.
+- **Session Lifecycle**: Create, list, start, stop, update, and delete sessions. Bulk-delete terminated sessions.
 - **Command Execution**: Run shell commands on running sessions over SSH in a forced-interactive login shell (`bash -i -l -c`), so the template's PATH, brew tools, git-lfs, and language version managers are all visible. Local SSH agent is forwarded so git-over-SSH uses the caller's keys.
 - **File Transfer**: Upload local files/folders to sessions and download artifacts back.
 - **GUI Automation** (macOS only): Interact with the session's graphical display via screenshots, mouse clicks, keyboard input, scrolling, and drag operations.
@@ -45,10 +45,10 @@ MCP Server for Bitrise Dev Environments, enabling AI assistants to create and ma
 | `bitrise_devenv_get` | Get details of a specific session including status, machine info, and SSH/VNC credentials |
 | `bitrise_devenv_create` | Create a new session from a template (with name, template ID, session inputs, and feature flags) |
 | `bitrise_devenv_update` | Update a session's name or description |
-| `bitrise_devenv_start` | Start a stopped (archived) session |
-| `bitrise_devenv_stop` | Stop a running session (archives it for later restart) |
+| `bitrise_devenv_start` | Start a stopped (terminated) session |
+| `bitrise_devenv_stop` | Stop a running session (terminates it for later restart) |
 | `bitrise_devenv_delete` | Permanently delete a session |
-| `bitrise_devenv_delete_archived` | Delete all archived (stopped) sessions |
+| `bitrise_devenv_delete_terminated` | Delete all terminated sessions |
 | `bitrise_devenv_list_session_notifications` | List notifications for a session (e.g., agent stopped, permission prompt). Supports pagination and polling via timestamp cursors. |
 
 ### Templates
@@ -112,7 +112,7 @@ MCP Server for Bitrise Dev Environments, enabling AI assistants to create and ma
 
 - **Template-based**: Sessions are always created from a template that defines the machine image, startup scripts, template variables, and session inputs
 - **Session inputs**: When creating a session, provide values for session inputs (either direct values or references to saved inputs for secrets)
-- **Stopped sessions**: Stopped (archived) sessions can be restarted later
+- **Stopped sessions**: Stopped (terminated) sessions can be restarted later
 - **Always check first**: Call `bitrise_devenv_list` before creating to reuse existing sessions
 
 ### Command Execution

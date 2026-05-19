@@ -20,6 +20,7 @@ agent_session_status reflects the current state of the AI agent running in the s
 
 To get the full template snapshot (session inputs, feature flags, workspace links, working directory, script flags), use bitrise_devenv_get on a specific session.
 To check if a session's template has been updated, look at the template_outdated field on bitrise_devenv_get and use bitrise_devenv_compare_template for details.`),
+		mcp.WithReadOnlyHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
@@ -57,6 +58,7 @@ Also includes:
 			mcp.Description("The unique identifier (UUID) of the session"),
 			mcp.Required(),
 		),
+		mcp.WithReadOnlyHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		sessionID, err := requireUUID(request, "session_id")
@@ -236,6 +238,7 @@ var DeleteSession = devenv.Tool{
 			mcp.Description("The unique identifier (UUID) of the session to delete"),
 			mcp.Required(),
 		),
+		mcp.WithDestructiveHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		sessionID, err := requireUUID(request, "session_id")
@@ -321,6 +324,7 @@ If the current template was deleted, the current field will be null.`),
 			mcp.Description("The unique identifier (UUID) of the session to compare"),
 			mcp.Required(),
 		),
+		mcp.WithReadOnlyHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		sessionID, err := requireUUID(request, "session_id")
@@ -342,6 +346,7 @@ If the current template was deleted, the current field will be null.`),
 var DeleteArchivedSessions = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_delete_archived",
 		mcp.WithDescription("Delete all archived (stopped) devenv sessions for the current user. Returns the number of deleted sessions."),
+		mcp.WithDestructiveHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{

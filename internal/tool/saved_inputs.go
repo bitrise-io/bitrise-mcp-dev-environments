@@ -13,6 +13,7 @@ import (
 var ListSavedInputs = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_list_saved_inputs",
 		mcp.WithDescription("List all saved inputs (credentials/values) for the current user. Saved inputs can be referenced when creating sessions to provide values for template session inputs."),
+		mcp.WithReadOnlyHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
@@ -31,6 +32,7 @@ var GetSavedInput = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_get_saved_input",
 		mcp.WithDescription("Get details of a specific saved input."),
 		mcp.WithString("saved_input_id", mcp.Description("The unique identifier of the saved input"), mcp.Required()),
+		mcp.WithReadOnlyHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		id, err := requireUUID(request, "saved_input_id")
@@ -115,6 +117,7 @@ var DeleteSavedInput = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_delete_saved_input",
 		mcp.WithDescription("Delete a saved input. Sessions that used this input are not affected (values are snapshotted at creation time)."),
 		mcp.WithString("saved_input_id", mcp.Description("The unique identifier of the saved input to delete"), mcp.Required()),
+		mcp.WithDestructiveHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		id, err := requireUUID(request, "saved_input_id")

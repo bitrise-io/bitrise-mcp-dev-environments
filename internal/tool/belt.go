@@ -22,7 +22,7 @@ func NewBelt() *Belt {
 			GetSession,
 			CreateSession,
 			UpdateSession,
-			StartSession,
+			RestoreSession,
 			TerminateSession,
 			DeleteSession,
 			DeleteTerminatedSessions,

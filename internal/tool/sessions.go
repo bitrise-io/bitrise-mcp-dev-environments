@@ -52,7 +52,7 @@ Returns status, SSH/VNC connection details, AI config, and the complete template
 Also includes:
 - template_deleted: true if the template was deleted after session creation (session still works from its snapshot)
 - template_outdated: true if the template has been updated since this session was created (use bitrise_devenv_compare_template to see what changed)
-- agent_session_status: current state of the AI agent running in the session (working, waiting_for_input, idle, or unspecified). Reset on stop/start.
+- agent_session_status: current state of the AI agent running in the session (working, waiting_for_input, idle, or unspecified). Reset on terminate/restore.
 - agent_session_status_updated_at: timestamp when agent_session_status was last changed`),
 		mcp.WithString("session_id",
 			mcp.Description("The unique identifier (UUID) of the session"),
@@ -176,14 +176,14 @@ Rules:
 	},
 }
 
-// StartSession starts a stopped/terminated session.
-var StartSession = devenv.Tool{
-	Definition: mcp.NewTool("bitrise_devenv_start",
-		mcp.WithDescription(`Start a devenv session that is not currently running. The session will begin provisioning and transition to running. Resets agent_session_status.
+// RestoreSession restores a terminated (or restarts a failed) session.
+var RestoreSession = devenv.Tool{
+	Definition: mcp.NewTool("bitrise_devenv_restore",
+		mcp.WithDescription(`Restore a devenv session that is not currently running. The session will begin provisioning and transition to running. Resets agent_session_status.
 
-Restartable statuses: SESSION_STATUS_TERMINATED (user stopped), SESSION_STATUS_DRAINED (node was reclaimed under the session), SESSION_STATUS_FAILED. All three are terminal-and-restartable — starting recreates the VM.`),
+Restorable statuses: SESSION_STATUS_TERMINATED (user terminated), SESSION_STATUS_DRAINED (node was reclaimed under the session), SESSION_STATUS_FAILED. All three are terminal-and-restorable — restoring recreates the VM.`),
 		mcp.WithString("session_id",
-			mcp.Description("The unique identifier (UUID) of the session to start"),
+			mcp.Description("The unique identifier (UUID) of the session to restore"),
 			mcp.Required(),
 		),
 	),
@@ -194,22 +194,23 @@ Restartable statuses: SESSION_STATUS_TERMINATED (user stopped), SESSION_STATUS_D
 		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodPost,
-			Path:   devenv.WsPath(fmt.Sprintf("/sessions/%s/start", sessionID)),
+			Path:   devenv.WsPath(fmt.Sprintf("/sessions/%s/restore", sessionID)),
 			Body:   map[string]any{},
 		})
 		if err != nil {
-			return mcp.NewToolResultErrorFromErr("start session", err), nil
+			return mcp.NewToolResultErrorFromErr("restore session", err), nil
 		}
 		return mcp.NewToolResultText(res), nil
 	},
 }
 
-// StopSession stops a running session (terminates it).
-var StopSession = devenv.Tool{
-	Definition: mcp.NewTool("bitrise_devenv_stop",
-		mcp.WithDescription("Stop a running devenv session. The session will be terminated and can be started again later. Resets agent_session_status."),
+// TerminateSession terminates a running session (stops the VM, keeping the
+// session for later restore).
+var TerminateSession = devenv.Tool{
+	Definition: mcp.NewTool("bitrise_devenv_terminate",
+		mcp.WithDescription("Terminate a running devenv session. The VM is stopped and the session can be started again later. Resets agent_session_status."),
 		mcp.WithString("session_id",
-			mcp.Description("The unique identifier (UUID) of the session to stop"),
+			mcp.Description("The unique identifier (UUID) of the session to terminate"),
 			mcp.Required(),
 		),
 	),
@@ -220,11 +221,11 @@ var StopSession = devenv.Tool{
 		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodPost,
-			Path:   devenv.WsPath(fmt.Sprintf("/sessions/%s/stop", sessionID)),
+			Path:   devenv.WsPath(fmt.Sprintf("/sessions/%s/terminate", sessionID)),
 			Body:   map[string]any{},
 		})
 		if err != nil {
-			return mcp.NewToolResultErrorFromErr("stop session", err), nil
+			return mcp.NewToolResultErrorFromErr("terminate session", err), nil
 		}
 		return mcp.NewToolResultText(res), nil
 	},

@@ -23,7 +23,7 @@ func NewBelt() *Belt {
 			CreateSession,
 			UpdateSession,
 			StartSession,
-			StopSession,
+			TerminateSession,
 			DeleteSession,
 			DeleteTerminatedSessions,
 			CompareSessionTemplate,

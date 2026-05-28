@@ -46,7 +46,7 @@ MCP Server for Bitrise Dev Environments, enabling AI assistants to create and ma
 | `bitrise_devenv_create` | Create a new session from a template (with name, template ID, session inputs, and feature flags) |
 | `bitrise_devenv_update` | Update a session's name or description |
 | `bitrise_devenv_start` | Start a stopped (terminated) session |
-| `bitrise_devenv_stop` | Stop a running session (terminates it for later restart) |
+| `bitrise_devenv_terminate` | Terminate a running session (stops the VM, keeping the session for later restart) |
 | `bitrise_devenv_delete` | Permanently delete a session |
 | `bitrise_devenv_delete_terminated` | Delete all terminated sessions |
 | `bitrise_devenv_list_session_notifications` | List notifications for a session (e.g., agent stopped, permission prompt). Supports pagination and polling via timestamp cursors. |

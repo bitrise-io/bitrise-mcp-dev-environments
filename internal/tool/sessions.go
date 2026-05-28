@@ -204,12 +204,13 @@ Restartable statuses: SESSION_STATUS_TERMINATED (user stopped), SESSION_STATUS_D
 	},
 }
 
-// StopSession stops a running session (terminates it).
-var StopSession = devenv.Tool{
-	Definition: mcp.NewTool("bitrise_devenv_stop",
-		mcp.WithDescription("Stop a running devenv session. The session will be terminated and can be started again later. Resets agent_session_status."),
+// TerminateSession terminates a running session (stops the VM, keeping the
+// session for later restore).
+var TerminateSession = devenv.Tool{
+	Definition: mcp.NewTool("bitrise_devenv_terminate",
+		mcp.WithDescription("Terminate a running devenv session. The VM is stopped and the session can be started again later. Resets agent_session_status."),
 		mcp.WithString("session_id",
-			mcp.Description("The unique identifier (UUID) of the session to stop"),
+			mcp.Description("The unique identifier (UUID) of the session to terminate"),
 			mcp.Required(),
 		),
 	),
@@ -220,11 +221,11 @@ var StopSession = devenv.Tool{
 		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodPost,
-			Path:   devenv.WsPath(fmt.Sprintf("/sessions/%s/stop", sessionID)),
+			Path:   devenv.WsPath(fmt.Sprintf("/sessions/%s/terminate", sessionID)),
 			Body:   map[string]any{},
 		})
 		if err != nil {
-			return mcp.NewToolResultErrorFromErr("stop session", err), nil
+			return mcp.NewToolResultErrorFromErr("terminate session", err), nil
 		}
 		return mcp.NewToolResultText(res), nil
 	},

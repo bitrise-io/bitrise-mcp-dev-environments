@@ -59,7 +59,7 @@ var CreateTemplate = devenv.Tool{
 		mcp.WithDescription(`Create a new devenv template. Use bitrise_devenv_list_images and bitrise_devenv_list_machine_types to find valid image and machine_type names. IMPORTANT: Provide the name (not UUID) for image and machine_type.`),
 		mcp.WithString("name", mcp.Description("Template name"), mcp.Required()),
 		mcp.WithString("description", mcp.Description("Template description")),
-		mcp.WithString("startup_script", mcp.Description("Bash script that runs every time a session starts"), mcp.Required()),
+		mcp.WithString("startup_script", mcp.Description("Bash script that runs every time a session starts")),
 		mcp.WithString("warmup_script", mcp.Description("Bash script that runs once during initial session creation")),
 		mcp.WithString("image", mcp.Description(`Machine image name (use bitrise_devenv_list_images to find the name, e.g. 'osx-xcode-edge'). Note: 'osx-tahoe-26-edge' is deprecated — prefer 'osx-26-edge' for new templates. The images 'osx-tahoe-26', 'osx-sonoma-15', 'osx-sonoma-16', and 'osx-ventura-15' are no longer available; if a user requests them, advise contacting Bitrise support.`), mcp.Required()),
 		mcp.WithString("machine_type", mcp.Description("Machine type name (use bitrise_devenv_list_machine_types to find the name, e.g. 'g2.mac.m2pro.4c')"), mcp.Required()),
@@ -117,12 +117,11 @@ var CreateTemplate = devenv.Tool{
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		body := map[string]any{
-			"name":           request.GetString("name", ""),
-			"startup_script": request.GetString("startup_script", ""),
-			"image":          request.GetString("image", ""),
-			"machine_type":   request.GetString("machine_type", ""),
+			"name":         request.GetString("name", ""),
+			"image":        request.GetString("image", ""),
+			"machine_type": request.GetString("machine_type", ""),
 		}
-		for _, key := range []string{"description", "warmup_script", "working_directory"} {
+		for _, key := range []string{"description", "startup_script", "warmup_script", "working_directory"} {
 			if v := request.GetString(key, ""); v != "" {
 				body[key] = v
 			}
@@ -224,9 +223,9 @@ var UpdateTemplate = devenv.Tool{
 		// Backend requires the flag to be true for array changes to take effect.
 		arrayFields := map[string]string{
 			"template_variables": "update_template_variables",
-			"session_inputs":    "update_session_inputs",
-			"feature_flags":     "update_feature_flags",
-			"workspace_links":   "update_workspace_links",
+			"session_inputs":     "update_session_inputs",
+			"feature_flags":      "update_feature_flags",
+			"workspace_links":    "update_workspace_links",
 		}
 		for arrayKey, flagKey := range arrayFields {
 			if v, ok := request.GetArguments()[arrayKey]; ok {

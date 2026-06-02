@@ -53,10 +53,15 @@ Also includes:
 - template_deleted: true if the template was deleted after session creation (session still works from its snapshot)
 - template_outdated: true if the template has been updated since this session was created (use bitrise_devenv_compare_template to see what changed)
 - agent_session_status: current state of the AI agent running in the session (working, waiting_for_input, idle, or unspecified). Reset on terminate/restore.
-- agent_session_status_updated_at: timestamp when agent_session_status was last changed`),
+- agent_session_status_updated_at: timestamp when agent_session_status was last changed
+
+By default, secret session input values are redacted from the snapshot; set include_secrets=true to receive plaintext values.`),
 		mcp.WithString("session_id",
 			mcp.Description("The unique identifier (UUID) of the session"),
 			mcp.Required(),
+		),
+		mcp.WithBoolean("include_secrets",
+			mcp.Description("When true, secret session input values are returned in plaintext. Defaults to false (secret values are redacted)."),
 		),
 		mcp.WithReadOnlyHintAnnotation(true),
 	),
@@ -65,9 +70,14 @@ Also includes:
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
+		params := map[string]string{}
+		if request.GetBool("include_secrets", false) {
+			params["include_secrets"] = "true"
+		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodGet,
 			Path:   devenv.WsPath(fmt.Sprintf("/sessions/%s", sessionID)),
+			Params: params,
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("get session", err), nil

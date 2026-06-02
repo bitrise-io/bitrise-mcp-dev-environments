@@ -12,13 +12,21 @@ import (
 // ListSavedInputs lists all saved inputs for the current user.
 var ListSavedInputs = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_list_saved_inputs",
-		mcp.WithDescription("List all saved inputs (credentials/values) for the current user. Saved inputs can be referenced when creating sessions to provide values for template session inputs."),
+		mcp.WithDescription("List all saved inputs (credentials/values) for the current user. Saved inputs can be referenced when creating sessions to provide values for template session inputs. By default, secret values are redacted from the response; set include_secrets=true to receive plaintext values."),
+		mcp.WithBoolean("include_secrets",
+			mcp.Description("When true, secret values are returned in plaintext. Defaults to false (secret values are redacted)."),
+		),
 		mcp.WithReadOnlyHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		params := map[string]string{}
+		if request.GetBool("include_secrets", false) {
+			params["include_secrets"] = "true"
+		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodGet,
 			Path:   "/v1/saved-inputs",
+			Params: params,
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("list saved inputs", err), nil
@@ -30,8 +38,11 @@ var ListSavedInputs = devenv.Tool{
 // GetSavedInput retrieves a single saved input.
 var GetSavedInput = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_get_saved_input",
-		mcp.WithDescription("Get details of a specific saved input."),
+		mcp.WithDescription("Get details of a specific saved input. By default, the secret value is redacted from the response; set include_secrets=true to receive the plaintext value."),
 		mcp.WithString("saved_input_id", mcp.Description("The unique identifier of the saved input"), mcp.Required()),
+		mcp.WithBoolean("include_secrets",
+			mcp.Description("When true, the secret value is returned in plaintext. Defaults to false (secret value is redacted)."),
+		),
 		mcp.WithReadOnlyHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -39,9 +50,14 @@ var GetSavedInput = devenv.Tool{
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
+		params := map[string]string{}
+		if request.GetBool("include_secrets", false) {
+			params["include_secrets"] = "true"
+		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodGet,
 			Path:   fmt.Sprintf("/v1/saved-inputs/%s", id),
+			Params: params,
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("get saved input", err), nil

@@ -12,13 +12,21 @@ import (
 // ListTemplates lists all available templates.
 var ListTemplates = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_list_templates",
-		mcp.WithDescription("List all available devenv templates. Each template defines the machine image, startup/warmup scripts, template variables, session inputs (required and optional), feature flags, and workspace links."),
+		mcp.WithDescription("List all available devenv templates. Each template defines the machine image, startup/warmup scripts, template variables, session inputs (required and optional), feature flags, and workspace links. By default, secret template variable values are omitted from the response; set include_secrets=true to include them."),
+		mcp.WithBoolean("include_secrets",
+			mcp.Description("When true, secret template variable values are included in the response. Defaults to false (secret values are omitted)."),
+		),
 		mcp.WithReadOnlyHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		params := map[string]string{}
+		if request.GetBool("include_secrets", false) {
+			params["include_secrets"] = "true"
+		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodGet,
 			Path:   devenv.WsPath("/templates"),
+			Params: params,
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("list templates", err), nil
@@ -30,10 +38,13 @@ var ListTemplates = devenv.Tool{
 // GetTemplate retrieves a template by ID.
 var GetTemplate = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_get_template",
-		mcp.WithDescription("Get details of a specific template including startup/warmup scripts, machine image, working directory, template variables, session inputs (with required/default_value/expose_as_env_var fields), feature flags, and workspace links."),
+		mcp.WithDescription("Get details of a specific template including startup/warmup scripts, machine image, working directory, template variables, session inputs (with required/default_value/expose_as_env_var fields), feature flags, and workspace links. By default, secret template variable values are omitted from the response; set include_secrets=true to include them."),
 		mcp.WithString("template_id",
 			mcp.Description("The unique identifier (UUID) of the template"),
 			mcp.Required(),
+		),
+		mcp.WithBoolean("include_secrets",
+			mcp.Description("When true, secret template variable values are included in the response. Defaults to false (secret values are omitted)."),
 		),
 		mcp.WithReadOnlyHintAnnotation(true),
 	),
@@ -42,9 +53,14 @@ var GetTemplate = devenv.Tool{
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
+		params := map[string]string{}
+		if request.GetBool("include_secrets", false) {
+			params["include_secrets"] = "true"
+		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodGet,
 			Path:   devenv.WsPath(fmt.Sprintf("/templates/%s", templateID)),
+			Params: params,
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("get template", err), nil

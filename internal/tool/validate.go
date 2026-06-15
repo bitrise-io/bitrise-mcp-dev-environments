@@ -27,6 +27,8 @@ func getOptionalInt(request mcp.CallToolRequest, name string) (int, bool, error)
 	if !ok {
 		return 0, false, nil
 	}
+	// JSON numbers decode into Go as float64, so the argument arrives as a
+	// float64 even when the client intends an integer.
 	f, ok := val.(float64)
 	if !ok {
 		return 0, false, fmt.Errorf("%s must be a number", name)

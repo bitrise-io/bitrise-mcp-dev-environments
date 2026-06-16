@@ -134,3 +134,5 @@ MCP Server for Bitrise Dev Environments, enabling AI assistants to create and ma
 
 - **1920x1080**: macOS GUI operations use 1920x1080 screen resolution
 - **Coordinate system**: Click and drag coordinates must be in the actual screen coordinate space (1920x1080), not in screenshot image pixel coordinates
+
+<!-- TODO: placeholder -->

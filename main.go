@@ -27,6 +27,7 @@ type config struct {
 }
 
 func main() {
+	// TODO: placeholder
 	if err := run(); err != nil {
 		log.Fatalf("error: %v\n", err)
 	}

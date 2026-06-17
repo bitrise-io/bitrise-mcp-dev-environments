@@ -1,3 +1,4 @@
+<!-- Test change: harmless comment added to exercise the PR workflow. -->
 # Bitrise Dev Environments MCP Server
 
 MCP Server for Bitrise Dev Environments, enabling AI assistants to create and manage remote development sessions from templates, execute commands, transfer files, and interact with macOS GUIs.

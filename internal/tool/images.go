@@ -21,7 +21,7 @@ Removed (contact Bitrise support to use): 'osx-tahoe-26', 'osx-sonoma-15', 'osx-
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodGet,
-			Path:   devenv.WsPath("/images"),
+			Path:   devenv.WsPath(ctx, "/images"),
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("list images", err), nil
@@ -45,7 +45,7 @@ var ResolveClusters = devenv.Tool{
 		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodPost,
-			Path:   devenv.WsPath("/resolve-clusters"),
+			Path:   devenv.WsPath(ctx, "/resolve-clusters"),
 			Body:   body,
 		})
 		if err != nil {
@@ -64,7 +64,7 @@ var ListMachineTypes = devenv.Tool{
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodGet,
-			Path:   devenv.WsPath("/machine-types"),
+			Path:   devenv.WsPath(ctx, "/machine-types"),
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("list machine types", err), nil

@@ -121,7 +121,7 @@ short timeout so you fail fast and can fall back to the GUI tools:
 
 		sessionJSON, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodGet,
-			Path:   devenv.WsPath(fmt.Sprintf("/sessions/%s", sessionID)),
+			Path:   devenv.WsPath(ctx, fmt.Sprintf("/sessions/%s", sessionID)),
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("fetch session for execute", err), nil

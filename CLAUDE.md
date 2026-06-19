@@ -34,23 +34,46 @@ bitrise-mcp-dev-environments/
 - `go.uber.org/zap` — Structured logging (stderr only, stdout reserved for MCP stdio)
 - `github.com/google/uuid` — UUID validation
 
-## Server Mode
+## Server Modes
 
-The server runs in **stdio mode**: `BITRISE_TOKEN` required, injected into context via middleware. Used by Claude Code and other MCP clients.
+The transport is selected by the `ADDR` env var:
+
+- **stdio** (`ADDR` unset): `BITRISE_TOKEN` required, injected into context via a tool-handler middleware. Used by Claude Code and other local MCP clients. This is the default and the only mode that exposes the local-only file-transfer tools.
+- **HTTP** (`ADDR` set, e.g. `0.0.0.0:8000`): for a hosted, multi-tenant deployment. `BITRISE_TOKEN` must be empty. Each request authenticates via a bearer token resolved in `extractPAT` (`auth.go`): an external OAuth JWT is exchanged for a Bitrise PAT (RFC 8693) at `OIDC_TOKEN_ENDPOINT`; a raw PAT is passed through. When `EXTERNAL_OAUTH_ISSUER` is set, the server publishes RFC 9728 protected-resource metadata at `/.well-known/oauth-protected-resource` and `requireAuthMiddleware` (`middleware.go`) returns `401 + WWW-Authenticate` on credential-less POSTs so reactive OAuth clients start the flow.
+
+### Workspace resolution
+
+`WsPath(ctx, path)` reads the workspace from context. Resolution ladder (`belt.GateAndResolveWorkspace`): per-connection default (`BITRISE_WORKSPACE_ID` env in stdio / `x-bitrise-workspace-id` header in HTTP) → auto-detect the sole workspace via the main Bitrise API `GET /organizations` (`devenv.ListOrganizations` — codespaces-api has no list-workspaces endpoint). User-scoped tools (`me`, `list_workspaces`, saved-inputs) skip resolution; classification lives in `belt.go` (`userScoped`), default is workspace-scoped.
+
+### Hosted tool filtering
+
+`localOnly` tools in `belt.go` (`upload`/`download`) read/write the user's local filesystem, so they are hidden (via `server.WithToolFilter`) and rejected on the HTTP transport. `execute` works hosted but loses local SSH-agent forwarding.
 
 ## Configuration (env vars)
 
 | Variable | Required | Description |
 |---|---|---|
-| `BITRISE_TOKEN` | Yes | PAT or dev token |
-| `BITRISE_WORKSPACE_ID` | Yes | Bitrise workspace ID (slug) for workspace-scoped API calls |
+| `ADDR` | No | `host:port` for HTTP transport. Unset → stdio. |
+| `BITRISE_TOKEN` | stdio only | PAT or dev token. Required in stdio mode; must be empty in HTTP mode. |
+| `BITRISE_WORKSPACE_ID` | Recommended | Default workspace ID (slug). Optional when the user has exactly one workspace (auto-detected). |
 | `BITRISE_API_BASE_URL` | No | Backend API base URL (default: `https://codespaces-api.services.bitrise.io`) |
+| `BITRISE_MAIN_API_BASE_URL` | No | Main Bitrise API for workspace discovery (default: `https://api.bitrise.io/v0.1`) |
+| `EXTERNAL_OAUTH_ISSUER` | No | External OAuth issuer URL. Enables OAuth (HTTP mode); requires the next two. |
+| `OIDC_TOKEN_ENDPOINT` | No | RFC 8693 JWT→PAT token-exchange endpoint. |
+| `SERVER_BASE_URL` | No | Public base URL of this server (used in metadata + `WWW-Authenticate`). |
 | `LOG_LEVEL` | No | `debug`, `info` (default), `warn`, `error` |
 
 ## Running Locally
 
 ```bash
+# stdio (local)
 BITRISE_API_BASE_URL=http://localhost:8081 BITRISE_TOKEN=<token> BITRISE_WORKSPACE_ID=<workspace-id> go run .
+
+# HTTP + OAuth (hosted-style)
+ADDR=127.0.0.1:8000 \
+  EXTERNAL_OAUTH_ISSUER=https://issuer.example.com \
+  OIDC_TOKEN_ENDPOINT=<jwt-to-pat-exchange-url> \
+  SERVER_BASE_URL=http://127.0.0.1:8000 go run .
 ```
 
 ## Tool Pattern

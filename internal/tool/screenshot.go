@@ -56,7 +56,7 @@ NOTE: This tool only works on macOS sessions. Linux sessions do not have a graph
 
 		res, err := devenv.CallAPILongTimeout(ctx, devenv.CallAPIParams{
 			Method: http.MethodPost,
-			Path:   devenv.WsPath(fmt.Sprintf("/sessions/%s/screenshot", sessionID)),
+			Path:   devenv.WsPath(ctx, fmt.Sprintf("/sessions/%s/screenshot", sessionID)),
 			Body:   map[string]any{},
 		})
 		if err != nil {

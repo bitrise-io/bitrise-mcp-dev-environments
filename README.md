@@ -25,9 +25,13 @@ MCP Server for Bitrise Dev Environments, enabling AI assistants to create and ma
 | Variable | Required | Description |
 |---|---|---|
 | `BITRISE_TOKEN` | Yes | Personal access token or dev token |
-| `BITRISE_WORKSPACE_ID` | Yes | Bitrise workspace ID (slug) for workspace-scoped API calls |
+| `BITRISE_WORKSPACE_ID` | Recommended | Bitrise workspace ID (slug) for workspace-scoped API calls. If omitted and you belong to exactly one workspace, it is auto-detected; with multiple workspaces it is required. |
 | `BITRISE_API_BASE_URL` | No | Backend API base URL (default: `https://codespaces-api.services.bitrise.io`) |
 | `LOG_LEVEL` | No | `debug`, `info` (default), `warn`, `error` |
+
+### Transports
+
+The server runs over **stdio** (above) for local use. It can also run over **HTTP with OAuth** for a hosted deployment — set `ADDR` (e.g. `0.0.0.0:8000`) to switch transports. In HTTP mode `BITRISE_TOKEN` must not be set; clients authenticate per-request via OAuth (or an `Authorization` bearer header), and the workspace comes from the `x-bitrise-workspace-id` header (or auto-detection). OAuth is enabled by setting `EXTERNAL_OAUTH_ISSUER`, `OIDC_TOKEN_ENDPOINT`, and `SERVER_BASE_URL`. The file-transfer tools (`upload`/`download`) are local-only and are hidden on the hosted server.
 
 ## Available Tools
 

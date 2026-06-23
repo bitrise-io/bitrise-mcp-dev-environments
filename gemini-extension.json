@@ -1,0 +1,10 @@
+{
+  "name": "bitrise-dev-environments",
+  "version": "1.0.0",
+  "mcpServers": {
+    "bitrise-dev-environments": {
+      "description": "Bitrise Dev Environments (RDE): create and manage remote dev sessions, run commands, transfer files, and drive macOS GUIs.",
+      "httpUrl": "https://mcp-rde.bitrise.io"
+    }
+  }
+}

@@ -62,7 +62,7 @@ Example: Download a build artifact:
 		// Step 1: Request download archive from the VM
 		res, err := devenv.CallAPILongTimeout(ctx, devenv.CallAPIParams{
 			Method: http.MethodPost,
-			Path:   devenv.WsPath(fmt.Sprintf("/sessions/%s/download-file", sessionID)),
+			Path:   devenv.WsPath(ctx, fmt.Sprintf("/sessions/%s/download-file", sessionID)),
 			Body:   body,
 		})
 		if err != nil {

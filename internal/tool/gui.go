@@ -85,7 +85,7 @@ NOTE: This tool only works on macOS sessions.`),
 
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodPost,
-			Path:   devenv.WsPath(fmt.Sprintf("/sessions/%s/click", sessionID)),
+			Path:   devenv.WsPath(ctx, fmt.Sprintf("/sessions/%s/click", sessionID)),
 			Body:   body,
 		})
 		if err != nil {
@@ -128,7 +128,7 @@ NOTE: This tool only works on macOS sessions.`),
 
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodPost,
-			Path:   devenv.WsPath(fmt.Sprintf("/sessions/%s/type", sessionID)),
+			Path:   devenv.WsPath(ctx, fmt.Sprintf("/sessions/%s/type", sessionID)),
 			Body:   map[string]any{"text": text},
 		})
 		if err != nil {
@@ -161,7 +161,7 @@ NOTE: This tool only works on macOS sessions.`),
 
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodPost,
-			Path:   devenv.WsPath(fmt.Sprintf("/sessions/%s/scroll", sessionID)),
+			Path:   devenv.WsPath(ctx, fmt.Sprintf("/sessions/%s/scroll", sessionID)),
 			Body: map[string]any{
 				"direction": request.GetString("direction", "down"),
 				"amount":    request.GetInt("amount", 3),
@@ -225,7 +225,7 @@ NOTE: This tool only works on macOS sessions.`),
 
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodPost,
-			Path:   devenv.WsPath(fmt.Sprintf("/sessions/%s/mouse-drag", sessionID)),
+			Path:   devenv.WsPath(ctx, fmt.Sprintf("/sessions/%s/mouse-drag", sessionID)),
 			Body: map[string]any{
 				"start_x": realStartX,
 				"start_y": realStartY,

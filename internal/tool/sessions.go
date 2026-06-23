@@ -25,7 +25,7 @@ To check if a session's template has been updated, look at the template_outdated
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodGet,
-			Path:   devenv.WsPath("/sessions"),
+			Path:   devenv.WsPath(ctx, "/sessions"),
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("list sessions", err), nil
@@ -76,7 +76,7 @@ By default, secret session input values are redacted from the snapshot; set incl
 		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodGet,
-			Path:   devenv.WsPath(fmt.Sprintf("/sessions/%s", sessionID)),
+			Path:   devenv.WsPath(ctx, fmt.Sprintf("/sessions/%s", sessionID)),
 			Params: params,
 		})
 		if err != nil {
@@ -176,7 +176,7 @@ Rules:
 
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodPost,
-			Path:   devenv.WsPath("/sessions"),
+			Path:   devenv.WsPath(ctx, "/sessions"),
 			Body:   body,
 		})
 		if err != nil {
@@ -204,7 +204,7 @@ Restorable statuses: SESSION_STATUS_TERMINATED (user terminated), SESSION_STATUS
 		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodPost,
-			Path:   devenv.WsPath(fmt.Sprintf("/sessions/%s/restore", sessionID)),
+			Path:   devenv.WsPath(ctx, fmt.Sprintf("/sessions/%s/restore", sessionID)),
 			Body:   map[string]any{},
 		})
 		if err != nil {
@@ -231,7 +231,7 @@ var TerminateSession = devenv.Tool{
 		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodPost,
-			Path:   devenv.WsPath(fmt.Sprintf("/sessions/%s/terminate", sessionID)),
+			Path:   devenv.WsPath(ctx, fmt.Sprintf("/sessions/%s/terminate", sessionID)),
 			Body:   map[string]any{},
 		})
 		if err != nil {
@@ -258,7 +258,7 @@ var DeleteSession = devenv.Tool{
 		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodDelete,
-			Path:   devenv.WsPath(fmt.Sprintf("/sessions/%s", sessionID)),
+			Path:   devenv.WsPath(ctx, fmt.Sprintf("/sessions/%s", sessionID)),
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("delete session", err), nil
@@ -306,7 +306,7 @@ var UpdateSession = devenv.Tool{
 
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodPatch,
-			Path:   devenv.WsPath(fmt.Sprintf("/sessions/%s", sessionID)),
+			Path:   devenv.WsPath(ctx, fmt.Sprintf("/sessions/%s", sessionID)),
 			Body:   body,
 		})
 		if err != nil {
@@ -344,7 +344,7 @@ If the current template was deleted, the current field will be null.`),
 		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodGet,
-			Path:   devenv.WsPath(fmt.Sprintf("/sessions/%s/template-diff", sessionID)),
+			Path:   devenv.WsPath(ctx, fmt.Sprintf("/sessions/%s/template-diff", sessionID)),
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("compare session template", err), nil
@@ -362,7 +362,7 @@ var DeleteTerminatedSessions = devenv.Tool{
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodPost,
-			Path:   devenv.WsPath("/sessions:delete-terminated"),
+			Path:   devenv.WsPath(ctx, "/sessions:delete-terminated"),
 			Body:   map[string]any{},
 		})
 		if err != nil {

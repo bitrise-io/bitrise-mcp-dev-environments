@@ -14,13 +14,11 @@ import (
 // BaseURL is set at init from config.
 var BaseURL string
 
-// WorkspaceID is set at init from config.
-var WorkspaceID string
-
-// WsPath prepends the workspace-scoped /v1 base to a resource path.
-// "/sessions" → "/v1/workspaces/{id}/sessions"
-func WsPath(path string) string {
-	return "/v1/workspaces/" + WorkspaceID + path
+// WsPath prepends the workspace-scoped /v1 base to a resource path, using the
+// workspace resolved into the request context (see ContextWithWorkspace and the
+// workspace-resolution middleware). "/sessions" → "/v1/workspaces/{id}/sessions"
+func WsPath(ctx context.Context, path string) string {
+	return "/v1/workspaces/" + url.PathEscape(WorkspaceFromCtx(ctx)) + path
 }
 
 // CallAPIParams configures an API call.

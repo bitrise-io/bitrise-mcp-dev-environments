@@ -103,3 +103,34 @@ func TestGateAndResolveWorkspace(t *testing.T) {
 		assert.True(t, errRes.IsError)
 	})
 }
+
+func newReqWithArgs(name string, args map[string]any) mcp.CallToolRequest {
+	r := newReq(name)
+	r.Params.Arguments = args
+	return r
+}
+
+// TestWorkspaceIDParamInjection asserts every workspace-scoped tool exposes the
+// optional workspace_id parameter and user-scoped tools do not.
+func TestWorkspaceIDParamInjection(t *testing.T) {
+	b := NewBelt()
+	for _, tl := range b.tools {
+		name := tl.Definition.Name
+		_, has := tl.Definition.InputSchema.Properties["workspace_id"]
+		if b.userScoped[name] {
+			assert.Falsef(t, has, "%s is user-scoped and must NOT expose workspace_id", name)
+		} else {
+			assert.Truef(t, has, "%s is workspace-scoped and must expose workspace_id", name)
+		}
+	}
+}
+
+func TestGateAndResolveWorkspace_ParamWins(t *testing.T) {
+	b := NewBelt()
+	// An explicit workspace_id param beats the per-connection default in ctx.
+	ctx := devenv.ContextWithWorkspace(context.Background(), "default-ws")
+	req := newReqWithArgs("bitrise_devenv_list", map[string]any{"workspace_id": "param-ws"})
+	gotCtx, errRes := b.GateAndResolveWorkspace(ctx, req)
+	assert.Nil(t, errRes)
+	assert.Equal(t, "param-ws", devenv.WorkspaceFromCtx(gotCtx))
+}

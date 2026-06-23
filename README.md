@@ -20,6 +20,33 @@ MCP Server for Bitrise Dev Environments, enabling AI assistants to create and ma
 - **[Windsurf](/docs/install-windsurf.md)** - Installation guide for Windsurf IDE
 - **[Gemini CLI](/docs/install-gemini-cli.md)** - Installation guide for Gemini CLI
 
+## Hosted server (OAuth)
+
+A hosted version of this server runs over HTTP with OAuth, so you can connect without managing a Bitrise token yourself:
+
+```bash
+claude mcp add --transport http bitrise-dev-environments https://mcp-rde.bitrise.io
+```
+
+Then run `/mcp` and authenticate — your client handles the OAuth flow. (Add `--scope user` to make it available across projects.) Any client that supports remote MCP servers with OAuth can point at the same URL.
+
+### Choosing a workspace
+
+Session, template, and machine tools operate within a single workspace, resolved in this order:
+
+1. a `workspace_id` argument on the tool call (e.g. ask the assistant to "use workspace `<id>`");
+2. an `x-bitrise-workspace-id` header on the connection — useful for automation when the workspace is known up front: `claude mcp add --transport http --header "x-bitrise-workspace-id: <slug>" bitrise-dev-environments https://mcp-rde.bitrise.io`;
+3. auto-detected when you belong to exactly one workspace.
+
+Use `bitrise_devenv_list_workspaces` to discover your workspace IDs.
+
+### Tool availability on the hosted server
+
+The hosted server manages and drives sessions (create/list/terminate, run commands, GUI automation, screenshots, remote-access details). A few tools are **local-only** — they bridge your own machine, so they are **not available on the hosted server**. Run the server locally over stdio (see [Installation](#installation)) to use them:
+
+- `bitrise_devenv_upload` / `bitrise_devenv_download` — read and write your local filesystem.
+- `bitrise_devenv_execute` works on the hosted server, but SSH-agent forwarding (using your local SSH keys on the remote session) only applies when running locally.
+
 ## Configuration
 
 | Variable | Required | Description |

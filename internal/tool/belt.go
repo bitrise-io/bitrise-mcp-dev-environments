@@ -22,9 +22,13 @@ type Belt struct {
 	localOnly map[string]bool
 }
 
+// workspaceIDParamDesc documents the optional workspace_id parameter injected
+// onto every workspace-scoped tool.
+const workspaceIDParamDesc = "Workspace ID (slug) to operate in. Optional. If omitted, the server uses BITRISE_WORKSPACE_ID (local stdio) or the x-bitrise-workspace-id header (hosted), then auto-detects when you belong to a single workspace. If you belong to multiple workspaces, pass the chosen workspace's ID (from bitrise_devenv_list_workspaces) and keep passing the same value on subsequent calls."
+
 // NewBelt creates a new tool belt with all tools registered.
 func NewBelt() *Belt {
-	return &Belt{
+	b := &Belt{
 		tools: []devenv.Tool{
 			// User / account
 			Me,
@@ -97,6 +101,24 @@ func NewBelt() *Belt {
 			"bitrise_devenv_download": true,
 		},
 	}
+
+	// Inject an optional workspace_id parameter on every workspace-scoped tool
+	// (centralised so it isn't repeated across ~27 tool definitions). It is the
+	// top rung of the workspace-resolution ladder in GateAndResolveWorkspace.
+	for i := range b.tools {
+		if b.userScoped[b.tools[i].Definition.Name] {
+			continue
+		}
+		if b.tools[i].Definition.InputSchema.Properties == nil {
+			b.tools[i].Definition.InputSchema.Properties = map[string]any{}
+		}
+		b.tools[i].Definition.InputSchema.Properties["workspace_id"] = map[string]any{
+			"type":        "string",
+			"description": workspaceIDParamDesc,
+		}
+	}
+
+	return b
 }
 
 // RegisterAll registers all tools with the MCP server.
@@ -139,15 +161,23 @@ func (b *Belt) GateAndResolveWorkspace(ctx context.Context, request mcp.CallTool
 		return ctx, mcp.NewToolResultError("this tool needs a locally-run MCP server (it reads or writes your machine's filesystem) and is unavailable on the hosted server; run the MCP server locally to use it")
 	}
 
-	// Workspace-scoped tools need a workspace. If none was configured, try to
-	// auto-detect the user's sole workspace. The result is cached per PAT so
-	// this doesn't issue a discovery request on every call.
-	if !b.userScoped[name] && devenv.WorkspaceFromCtx(ctx) == "" {
-		slug, err := devenv.ResolveSoleWorkspace(ctx)
-		if err != nil {
-			return ctx, mcp.NewToolResultError(err.Error())
+	// Resolve the workspace for workspace-scoped tools. Ladder (highest first):
+	//   1. an explicit workspace_id tool parameter
+	//   2. the per-connection default (BITRISE_WORKSPACE_ID env / x-bitrise-workspace-id header)
+	//   3. auto-detection of the user's sole workspace (cached per PAT)
+	if !b.userScoped[name] {
+		ws := request.GetString("workspace_id", "")
+		if ws == "" {
+			ws = devenv.WorkspaceFromCtx(ctx)
 		}
-		ctx = devenv.ContextWithWorkspace(ctx, slug)
+		if ws == "" {
+			detected, err := devenv.ResolveSoleWorkspace(ctx)
+			if err != nil {
+				return ctx, mcp.NewToolResultError(err.Error())
+			}
+			ws = detected
+		}
+		ctx = devenv.ContextWithWorkspace(ctx, ws)
 	}
 
 	return ctx, nil

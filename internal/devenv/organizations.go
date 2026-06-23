@@ -90,7 +90,7 @@ func SoleWorkspace(orgs []Organization) (Organization, error) {
 				fmt.Fprintf(&b, "\n  %s", o.Slug)
 			}
 		}
-		return Organization{}, fmt.Errorf("multiple workspaces available — pass workspace_id (or set BITRISE_WORKSPACE_ID / the x-bitrise-workspace-id header). Available:%s", b.String())
+		return Organization{}, fmt.Errorf("you belong to multiple Bitrise workspaces, so one can't be chosen automatically. ASK THE USER which workspace to use, then pass its slug as the workspace_id argument and reuse that same value on every following call this session. Do NOT retry across workspaces or list them one by one, and do NOT guess. Available workspaces:%s", b.String())
 	}
 }
 

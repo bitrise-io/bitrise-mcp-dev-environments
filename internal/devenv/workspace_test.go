@@ -64,7 +64,8 @@ func TestSoleWorkspace(t *testing.T) {
 	t.Run("multiple errors and lists them", func(t *testing.T) {
 		_, err := SoleWorkspace([]Organization{{Slug: "a", Name: "Alpha"}, {Slug: "b", Name: "Beta"}})
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "multiple workspaces")
+		assert.Contains(t, err.Error(), "ASK THE USER") // steer the model to ask, not enumerate
+		assert.Contains(t, err.Error(), "workspace_id")
 		assert.Contains(t, err.Error(), "Alpha")
 		assert.Contains(t, err.Error(), "b")
 	})

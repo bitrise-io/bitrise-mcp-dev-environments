@@ -11,24 +11,17 @@ MCP Server for Bitrise Dev Environments, enabling AI assistants to create and ma
 - **GUI Automation** (macOS only): Interact with the session's graphical display via screenshots, mouse clicks, keyboard input, scrolling, and drag operations.
 - **Remote Access**: Open SSH and VNC connections to running sessions.
 
-## Installation
+## Quickstart (hosted, OAuth)
 
-- **[VS Code](/docs/install-vscode.md)** - Installation for VS Code IDE
-- **[GitHub Copilot in other IDEs](/docs/install-other-copilot-ides.md)** - Installation for JetBrains, Visual Studio, Eclipse, and Xcode with GitHub Copilot
-- **[Claude Applications](/docs/install-claude.md)** - Installation guide for Claude Desktop and Claude Code CLI
-- **[Cursor](/docs/install-cursor.md)** - Installation guide for Cursor IDE
-- **[Windsurf](/docs/install-windsurf.md)** - Installation guide for Windsurf IDE
-- **[Gemini CLI](/docs/install-gemini-cli.md)** - Installation guide for Gemini CLI
-
-## Hosted server (OAuth)
-
-A hosted version of this server runs over HTTP with OAuth, so you can connect without managing a Bitrise token yourself:
+The fastest way to start — no install, no token. A hosted version runs over HTTP with OAuth; you sign in with your Bitrise account in the browser on first use. In Claude Code:
 
 ```bash
 claude mcp add --transport http bitrise-dev-environments https://mcp-rde.bitrise.io
 ```
 
-Then run `/mcp` and authenticate — your client handles the OAuth flow. (Add `--scope user` to make it available across projects.) Any client that supports remote MCP servers with OAuth can point at the same URL.
+Run `/mcp` and authenticate. (Add `--scope user` to make it available across projects.) Any client that supports remote MCP servers with OAuth can point at the same URL — see the per-client guides under [Installation](#installation).
+
+> **The hosted server covers most tools, but not all.** File transfer (`bitrise_devenv_upload` / `bitrise_devenv_download`) is **local-only** — it bridges your own machine's filesystem — and `bitrise_devenv_execute` works but without local SSH-agent forwarding. For the **full toolset**, use the local install (the "Local" setup in each guide below).
 
 ### Choosing a workspace
 
@@ -40,14 +33,18 @@ Session, template, and machine tools operate within a single workspace, resolved
 
 Use `bitrise_devenv_list_workspaces` to discover your workspace IDs.
 
-### Tool availability on the hosted server
+## Installation
 
-The hosted server manages and drives sessions (create/list/terminate, run commands, GUI automation, screenshots, remote-access details). A few tools are **local-only** — they bridge your own machine, so they are **not available on the hosted server**. Run the server locally over stdio (see [Installation](#installation)) to use them:
+Each guide covers the **hosted (OAuth)** setup first — recommended and fastest — and the **local (Go)** setup for the full toolset:
 
-- `bitrise_devenv_upload` / `bitrise_devenv_download` — read and write your local filesystem.
-- `bitrise_devenv_execute` works on the hosted server, but SSH-agent forwarding (using your local SSH keys on the remote session) only applies when running locally.
+- **[VS Code](/docs/install-vscode.md)** - VS Code IDE
+- **[GitHub Copilot in other IDEs](/docs/install-other-copilot-ides.md)** - JetBrains, Visual Studio, Eclipse, and Xcode with GitHub Copilot
+- **[Claude Applications](/docs/install-claude.md)** - Claude Desktop and Claude Code CLI
+- **[Cursor](/docs/install-cursor.md)** - Cursor IDE
+- **[Windsurf](/docs/install-windsurf.md)** - Windsurf IDE
+- **[Gemini CLI](/docs/install-gemini-cli.md)** - Gemini CLI
 
-## Configuration
+## Configuration (local install)
 
 | Variable | Required | Description |
 |---|---|---|

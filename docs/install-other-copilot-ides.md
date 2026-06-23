@@ -2,6 +2,201 @@
 
 Quick setup guide for the Bitrise Dev Environments MCP server in GitHub Copilot across different IDEs. For VS Code instructions, refer to the [Install Bitrise Dev Environments MCP Server in VS Code](/docs/install-vscode.md)
 
+## Hosted Server (OAuth) — Recommended
+
+The hosted server is the fastest way to get started: there is no binary to install and no token to copy. It uses OAuth — the first time a tool runs, your IDE opens a browser asking you to sign in to Bitrise, and that's it.
+
+Each IDE below uses the same hosted endpoint (`https://mcp-rde.bitrise.io`) but exposes a slightly different config UI. Pick your IDE.
+
+### Visual Studio
+
+Requires Visual Studio 2022 version 17.14.9 or later.
+
+1. Create an `.mcp.json` file in your solution or %USERPROFILE% directory.
+2. Add this configuration:
+   ```json
+   {
+     "servers": {
+       "bitrise-dev-environments": {
+         "url": "https://mcp-rde.bitrise.io"
+       }
+     }
+   }
+   ```
+3. Save the file.
+4. In the GitHub Copilot Chat window, switch to Agent mode.
+5. Activate the tool picker in the Chat window and enable one or more tools from the "bitrise-dev-environments" MCP server.
+
+**Authentication:** On first tool use, Visual Studio opens a browser to sign in to Bitrise. Complete the sign-in and you're done — no token to copy.
+
+#### Fallback: PAT-based authentication
+
+For clients or older builds without MCP OAuth support, you can authenticate with a Personal Access Token by adding an `Authorization` header. Visual Studio uses a flat `headers` object inside the server object:
+
+```json
+{
+  "servers": {
+    "bitrise-dev-environments": {
+      "url": "https://mcp-rde.bitrise.io",
+      "headers": {
+        "Authorization": "Bearer YOUR_BITRISE_PAT"
+      }
+    }
+  }
+}
+```
+
+Create a PAT at [Bitrise Account Settings → Security](https://app.bitrise.io/me/account/security).
+
+**Documentation:** [Visual Studio MCP Guide](https://learn.microsoft.com/visualstudio/ide/mcp-servers)
+
+### JetBrains IDEs
+
+Agent mode and MCP support available in public preview across IntelliJ IDEA, PyCharm, WebStorm, and other JetBrains IDEs.
+
+1. Install/update the GitHub Copilot plugin
+2. Click **GitHub Copilot icon in the status bar** → **Edit Settings** → **Model Context Protocol** → **Configure**
+3. Add configuration:
+   ```json
+   {
+     "servers": {
+       "bitrise-dev-environments": {
+         "url": "https://mcp-rde.bitrise.io"
+       }
+     }
+   }
+   ```
+4. Press `Ctrl + S` or `Command + S` to save, or close the `mcp.json` file. The configuration should take effect immediately and restart all the MCP servers defined. You can restart the IDE if needed.
+
+**Authentication:** On first tool use, the IDE opens a browser to sign in to Bitrise. Complete the sign-in and you're done — no token to copy.
+
+#### Fallback: PAT-based authentication
+
+For clients or older builds without MCP OAuth support, you can authenticate with a Personal Access Token by adding an `Authorization` header. JetBrains IDEs nest headers under `requestInit`:
+
+```json
+{
+  "servers": {
+    "bitrise-dev-environments": {
+      "url": "https://mcp-rde.bitrise.io",
+      "requestInit": {
+        "headers": { "Authorization": "Bearer YOUR_BITRISE_PAT" }
+      }
+    }
+  }
+}
+```
+
+Create a PAT at [Bitrise Account Settings → Security](https://app.bitrise.io/me/account/security).
+
+**Documentation:** [JetBrains Copilot Guide](https://plugins.jetbrains.com/plugin/17718-github-copilot)
+
+### Xcode
+
+Agent mode and MCP support now available in public preview for Xcode.
+
+1. Install/update [GitHub Copilot for Xcode](https://github.com/github/CopilotForXcode)
+2. Open **GitHub Copilot for Xcode app** → **Agent Mode** → **Tool Picker** → **Edit Config**
+3. Configure your MCP servers:
+   ```json
+   {
+     "servers": {
+       "bitrise-dev-environments": {
+         "url": "https://mcp-rde.bitrise.io"
+       }
+     }
+   }
+   ```
+
+**Authentication:** On first tool use, the IDE opens a browser to sign in to Bitrise. Complete the sign-in and you're done — no token to copy.
+
+#### Fallback: PAT-based authentication
+
+For clients or older builds without MCP OAuth support, you can authenticate with a Personal Access Token by adding an `Authorization` header. Xcode nests headers under `requestInit`:
+
+```json
+{
+  "servers": {
+    "bitrise-dev-environments": {
+      "url": "https://mcp-rde.bitrise.io",
+      "requestInit": {
+        "headers": { "Authorization": "Bearer YOUR_BITRISE_PAT" }
+      }
+    }
+  }
+}
+```
+
+Create a PAT at [Bitrise Account Settings → Security](https://app.bitrise.io/me/account/security).
+
+**Documentation:** [Xcode Copilot Guide](https://devblogs.microsoft.com/xcode/github-copilot-exploring-agent-mode-and-mcp-support-in-public-preview-for-xcode/)
+
+### Eclipse
+
+MCP support available with Eclipse 2024-03+ and latest version of the GitHub Copilot plugin.
+
+1. Install GitHub Copilot extension from Eclipse Marketplace
+2. Click the **GitHub Copilot icon** → **Edit Preferences** → **MCP** (under **GitHub Copilot**)
+3. Add Bitrise Dev Environments MCP server configuration:
+   ```json
+   {
+     "servers": {
+       "bitrise-dev-environments": {
+         "url": "https://mcp-rde.bitrise.io"
+       }
+     }
+   }
+   ```
+4. Click the "Apply and Close" button in the preference dialog and the configuration will take effect automatically.
+
+**Authentication:** On first tool use, the IDE opens a browser to sign in to Bitrise. Complete the sign-in and you're done — no token to copy.
+
+#### Fallback: PAT-based authentication
+
+For clients or older builds without MCP OAuth support, you can authenticate with a Personal Access Token by adding an `Authorization` header. Eclipse nests headers under `requestInit`:
+
+```json
+{
+  "servers": {
+    "bitrise-dev-environments": {
+      "url": "https://mcp-rde.bitrise.io",
+      "requestInit": {
+        "headers": { "Authorization": "Bearer YOUR_BITRISE_PAT" }
+      }
+    }
+  }
+}
+```
+
+Create a PAT at [Bitrise Account Settings → Security](https://app.bitrise.io/me/account/security).
+
+**Documentation:** [Eclipse Copilot plugin](https://marketplace.eclipse.org/content/github-copilot)
+
+### Choosing a workspace
+
+Session, template, and machine-type tools run in the context of a single workspace. The workspace is resolved in this order:
+
+1. A `workspace_id` argument passed on the tool call.
+2. An `x-bitrise-workspace-id` header on the connection (handy for automation where you always target the same workspace).
+3. Auto-detected when you belong to exactly one workspace.
+
+Use the `bitrise_devenv_list_workspaces` tool to find workspace IDs.
+
+### Tool availability
+
+The hosted server can manage and drive sessions: create, list, and terminate sessions, run commands, perform GUI automation, capture screenshots, and fetch remote-access details.
+
+A few tools are **local-only** and are **not** available on the hosted server, because they bridge your own machine:
+
+- `bitrise_devenv_upload` and `bitrise_devenv_download` — these read and write your local filesystem.
+- `bitrise_devenv_execute` works on the hosted server, but **SSH-agent forwarding** (using your local SSH keys on the remote session) only applies when running locally.
+
+For those capabilities, use the Local setup below.
+
+## Local Server (Go) — full toolset
+
+The local Go binary includes **every** tool, including file upload/download and local SSH-agent forwarding. Use it when you need those local-bridging capabilities.
+
 ### Requirements
 
 1. GitHub Copilot License: Any Copilot plan (Free, Pro, Pro+, Business, Enterprise) for Copilot access
@@ -13,126 +208,118 @@ Quick setup guide for the Bitrise Dev Environments MCP server in GitHub Copilot 
    - Copy the generated token.
 5. [Go](https://go.dev/) (>=1.25) installed
 
-## Visual Studio
+### Visual Studio
 
 Requires Visual Studio 2022 version 17.14.9 or later.
 
-### Configuration
-
 1. Create an `.mcp.json` file in your solution or %USERPROFILE% directory.
 2. Add this configuration:
-```json
-{
-  "servers": {
-    "bitrise-dev-environments": {
-      "type": "stdio",
-      "command": "go",
-      "args": ["run", "github.com/bitrise-io/bitrise-mcp-dev-environments@latest"],
-      "env": {
-        "BITRISE_TOKEN": "YOUR_BITRISE_PAT",
-        "BITRISE_WORKSPACE_ID": "YOUR_WORKSPACE_ID"
-      }
-    }
-  }
-}
-```
+   ```json
+   {
+     "servers": {
+       "bitrise-dev-environments": {
+         "type": "stdio",
+         "command": "go",
+         "args": ["run", "github.com/bitrise-io/bitrise-mcp-dev-environments@latest"],
+         "env": {
+           "BITRISE_TOKEN": "YOUR_BITRISE_PAT",
+           "BITRISE_WORKSPACE_ID": "YOUR_WORKSPACE_ID"
+         }
+       }
+     }
+   }
+   ```
 3. Save the file. Wait for CodeLens to update to offer a way to provide user inputs, activate that and paste in a PAT you generate from your [Bitrise Account Settings/Security](https://app.bitrise.io/me/account/security).
 4. In the GitHub Copilot Chat window, switch to Agent mode.
 5. Activate the tool picker in the Chat window and enable one or more tools from the "bitrise-dev-environments" MCP server.
 
 **Documentation:** [Visual Studio MCP Guide](https://learn.microsoft.com/visualstudio/ide/mcp-servers)
 
-## JetBrains IDEs
+### JetBrains IDEs
 
 Agent mode and MCP support available in public preview across IntelliJ IDEA, PyCharm, WebStorm, and other JetBrains IDEs.
-
-### Configuration Steps
 
 1. Install/update the GitHub Copilot plugin
 2. Click **GitHub Copilot icon in the status bar** → **Edit Settings** → **Model Context Protocol** → **Configure**
 3. Add configuration:
-```json
-{
-  "servers": {
-    "bitrise-dev-environments": {
-      "command": "go",
-      "args": [
-        "run",
-        "github.com/bitrise-io/bitrise-mcp-dev-environments@latest"
-      ],
-      "env": {
-        "BITRISE_TOKEN": "YOUR_BITRISE_PAT",
-        "BITRISE_WORKSPACE_ID": "YOUR_WORKSPACE_ID"
-      }
-    }
-  }
-}
-```
+   ```json
+   {
+     "servers": {
+       "bitrise-dev-environments": {
+         "command": "go",
+         "args": [
+           "run",
+           "github.com/bitrise-io/bitrise-mcp-dev-environments@latest"
+         ],
+         "env": {
+           "BITRISE_TOKEN": "YOUR_BITRISE_PAT",
+           "BITRISE_WORKSPACE_ID": "YOUR_WORKSPACE_ID"
+         }
+       }
+     }
+   }
+   ```
 4. Press `Ctrl + S` or `Command + S` to save, or close the `mcp.json` file. The configuration should take effect immediately and restart all the MCP servers defined. You can restart the IDE if needed.
 
 **Documentation:** [JetBrains Copilot Guide](https://plugins.jetbrains.com/plugin/17718-github-copilot)
 
-## Xcode
+### Xcode
 
 Agent mode and MCP support now available in public preview for Xcode.
-
-### Configuration Steps
 
 1. Install/update [GitHub Copilot for Xcode](https://github.com/github/CopilotForXcode)
 2. Open **GitHub Copilot for Xcode app** → **Agent Mode** → **Tool Picker** → **Edit Config**
 3. Configure your MCP servers:
-```json
-{
-  "servers": {
-    "bitrise-dev-environments": {
-      "command": "go",
-      "args": [
-        "run",
-        "github.com/bitrise-io/bitrise-mcp-dev-environments@latest"
-      ],
-      "env": {
-        "BITRISE_TOKEN": "YOUR_BITRISE_PAT",
-        "BITRISE_WORKSPACE_ID": "YOUR_WORKSPACE_ID"
-      }
-    }
-  }
-}
-```
+   ```json
+   {
+     "servers": {
+       "bitrise-dev-environments": {
+         "command": "go",
+         "args": [
+           "run",
+           "github.com/bitrise-io/bitrise-mcp-dev-environments@latest"
+         ],
+         "env": {
+           "BITRISE_TOKEN": "YOUR_BITRISE_PAT",
+           "BITRISE_WORKSPACE_ID": "YOUR_WORKSPACE_ID"
+         }
+       }
+     }
+   }
+   ```
 
 **Documentation:** [Xcode Copilot Guide](https://devblogs.microsoft.com/xcode/github-copilot-exploring-agent-mode-and-mcp-support-in-public-preview-for-xcode/)
 
-## Eclipse
+### Eclipse
 
 MCP support available with Eclipse 2024-03+ and latest version of the GitHub Copilot plugin.
-
-### Configuration Steps
 
 1. Install GitHub Copilot extension from Eclipse Marketplace
 2. Click the **GitHub Copilot icon** → **Edit Preferences** → **MCP** (under **GitHub Copilot**)
 3. Add Bitrise Dev Environments MCP server configuration:
-```json
-{
-  "servers": {
-    "bitrise-dev-environments": {
-      "command": "go",
-      "args": [
-        "run",
-        "github.com/bitrise-io/bitrise-mcp-dev-environments@latest"
-      ],
-      "env": {
-        "BITRISE_TOKEN": "YOUR_BITRISE_PAT",
-        "BITRISE_WORKSPACE_ID": "YOUR_WORKSPACE_ID",
-        "PATH": "PATH to bin directory of go:PATH to directory of git"
-      }
-    }
-  }
-}
-```
+   ```json
+   {
+     "servers": {
+       "bitrise-dev-environments": {
+         "command": "go",
+         "args": [
+           "run",
+           "github.com/bitrise-io/bitrise-mcp-dev-environments@latest"
+         ],
+         "env": {
+           "BITRISE_TOKEN": "YOUR_BITRISE_PAT",
+           "BITRISE_WORKSPACE_ID": "YOUR_WORKSPACE_ID",
+           "PATH": "PATH to bin directory of go:PATH to directory of git"
+         }
+       }
+     }
+   }
+   ```
 4. Click the "Apply and Close" button in the preference dialog and the configuration will take effect automatically.
 
 **Documentation:** [Eclipse Copilot plugin](https://marketplace.eclipse.org/content/github-copilot)
 
-## Usage
+## Verification
 
 After setup:
 
@@ -143,7 +330,13 @@ After setup:
 
 ## Troubleshooting
 
+- **OAuth**: If sign-in gets stuck or you need to switch accounts, re-authenticate via the client's MCP UI (e.g. `/mcp`), or remove and re-add the server.
 - **Connection issues**: Verify IDE version compatibility
 - **Authentication errors**: Check if your organization has enabled the MCP policy for Copilot
 - **Tools not appearing**: Restart IDE after configuration changes and check error logs
-- **Go not found**: Ensure Go is installed and in your PATH
+- **Go not found** (local setup): Ensure Go is installed and in your PATH
+
+## Important Notes
+
+- The hosted server (OAuth) is the recommended quickstart. Use the local Go setup when you need file upload/download or local SSH-agent forwarding.
+- On the hosted server, choose a workspace via a `workspace_id` argument, an `x-bitrise-workspace-id` header, or automatic detection when you belong to a single workspace.

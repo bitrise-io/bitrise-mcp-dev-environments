@@ -2,7 +2,67 @@
 
 ## Claude Code CLI
 
-### Prerequisites
+### Hosted Server (OAuth) — Recommended
+
+The hosted server runs at `https://mcp-rde.bitrise.io` and authenticates with OAuth: on first tool use, Claude Code opens your browser to sign in to Bitrise. There is no token to copy.
+
+```bash
+claude mcp add --transport http bitrise-dev-environments https://mcp-rde.bitrise.io
+```
+
+Add `--scope user` to make it available across projects.
+
+**Authenticate:**
+
+1. Add the server with the command above.
+2. On first tool use, Claude Code opens your browser to sign in to Bitrise; approve the consent screen.
+3. Done — you're connected.
+
+<details>
+<summary><b>Fallback: PAT-based authentication</b></summary>
+<br>
+
+For clients or older builds without MCP OAuth support, pass your [Personal Access Token](https://app.bitrise.io/me/account/security) as a header:
+
+```bash
+claude mcp add --transport http bitrise-dev-environments https://mcp-rde.bitrise.io --header "Authorization: Bearer YOUR_BITRISE_PAT"
+```
+
+To pin a workspace for automation, also pass `--header "x-bitrise-workspace-id: YOUR_WORKSPACE_ID"`.
+
+</details>
+
+#### Choosing a workspace
+
+Session, template, and machine tools run in one workspace. The workspace is resolved in this order:
+
+1. A `workspace_id` argument on the tool call.
+2. An `x-bitrise-workspace-id` header on the connection (good for automation).
+3. Auto-detected when you belong to a single workspace.
+
+Use the `bitrise_devenv_list_workspaces` tool to find workspace IDs.
+
+#### Tool availability
+
+The hosted server can manage and drive sessions: create/list/terminate, run commands, GUI automation, screenshots, and remote-access details. A few tools are **local-only** and are **not** available on the hosted server because they bridge your own machine:
+
+- `bitrise_devenv_upload` and `bitrise_devenv_download` — read/write your local filesystem.
+- `bitrise_devenv_execute` works on the hosted server, but SSH-agent forwarding (using your local SSH keys on the remote session) only applies when running locally.
+
+For those, use the Local setup below.
+
+### Verification
+
+```bash
+claude mcp list
+claude mcp get bitrise-dev-environments
+```
+
+### Local Server (Go) — full toolset
+
+This build runs the MCP server as a local Go binary over stdio and includes **every** tool — file upload/download and local SSH-agent forwarding included.
+
+#### Prerequisites
 
 - Claude Code CLI installed
 - [Create a Bitrise API Token](https://devcenter.bitrise.io/api/authentication):
@@ -31,7 +91,7 @@ echo -e ".env\n.mcp.json" >> .gitignore
 
 </details>
 
-### Setup
+#### Setup
 
 1. Run the following command in the Claude Code CLI:
 ```bash
@@ -46,16 +106,81 @@ claude mcp add bitrise-dev-environments -e BITRISE_TOKEN=$(grep BITRISE_PAT .env
 2. Restart Claude Code
 3. Run `claude mcp list` to see if the Bitrise Dev Environments server is configured
 
-### Verification
-
-```bash
-claude mcp list
-claude mcp get bitrise-dev-environments
-```
-
 ## Claude Desktop
 
-### Prerequisites
+### Hosted Server (OAuth) — Recommended
+
+The hosted server runs at `https://mcp-rde.bitrise.io` and authenticates with OAuth: on first tool use, sign in to Bitrise in your browser. There is no token to copy. Claude Desktop connects through the `mcp-remote` adapter; recent versions also support MCP OAuth natively.
+
+Add this codeblock to your `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "bitrise-dev-environments": {
+      "command": "npx",
+      "args": ["mcp-remote", "https://mcp-rde.bitrise.io"]
+    }
+  }
+}
+```
+
+**Authenticate:**
+
+1. Add the server with the config above and restart Claude Desktop.
+2. On first tool use, a browser opens to sign in to Bitrise; approve the consent screen.
+3. Done — you're connected.
+
+<details>
+<summary><b>Fallback: PAT-based authentication</b></summary>
+<br>
+
+For clients or older builds without MCP OAuth support, pass your [Personal Access Token](https://app.bitrise.io/me/account/security) as a header by adding it to the `args` array:
+
+```json
+{
+  "mcpServers": {
+    "bitrise-dev-environments": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://mcp-rde.bitrise.io",
+        "--header",
+        "Authorization: Bearer YOUR_BITRISE_PAT"
+      ]
+    }
+  }
+}
+```
+
+To pin a workspace for automation, also add `"--header", "x-bitrise-workspace-id: YOUR_WORKSPACE_ID"` to the args array.
+
+</details>
+
+#### Choosing a workspace
+
+Session, template, and machine tools run in one workspace. The workspace is resolved in this order:
+
+1. A `workspace_id` argument on the tool call.
+2. An `x-bitrise-workspace-id` header on the connection (good for automation).
+3. Auto-detected when you belong to a single workspace.
+
+Use the `bitrise_devenv_list_workspaces` tool to find workspace IDs.
+
+#### Tool availability
+
+The hosted server can manage and drive sessions: create/list/terminate, run commands, GUI automation, screenshots, and remote-access details. A few tools are **local-only** and are **not** available on the hosted server because they bridge your own machine:
+
+- `bitrise_devenv_upload` and `bitrise_devenv_download` — read/write your local filesystem.
+- `bitrise_devenv_execute` works on the hosted server, but SSH-agent forwarding (using your local SSH keys on the remote session) only applies when running locally.
+
+For those, use the Local setup below.
+
+### Local Server (Go) — full toolset
+
+This build runs the MCP server as a local Go binary over stdio and includes **every** tool — file upload/download and local SSH-agent forwarding included.
+
+#### Prerequisites
 
 - Claude Desktop installed (latest version)
 - [Create a Bitrise API Token](https://devcenter.bitrise.io/api/authentication):
@@ -64,13 +189,13 @@ claude mcp get bitrise-dev-environments
    - Copy the generated token.
 - [Go](https://go.dev/) (>=1.25) installed
 
-### Configuration File Location
+#### Configuration File Location
 
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 - **Linux**: `~/.config/Claude/claude_desktop_config.json`
 
-### Setup
+#### Setup
 
 Add this codeblock to your `claude_desktop_config.json`:
 
@@ -95,7 +220,7 @@ Add this codeblock to your `claude_desktop_config.json`:
 }
 ```
 
-### Manual Setup Steps
+#### Manual Setup Steps
 
 1. Open Claude Desktop
 2. Go to Settings → Developer → Edit Config
@@ -113,6 +238,7 @@ Add this codeblock to your `claude_desktop_config.json`:
 
 **Authentication Failed:**
 - Check token hasn't expired
+- OAuth: re-authenticate via the client's MCP UI (e.g. `/mcp`), or remove and re-add the server.
 
 **Server Not Starting / Tools Not Showing:**
 - Run `claude mcp list` to view currently configured MCP servers

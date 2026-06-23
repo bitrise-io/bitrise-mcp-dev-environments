@@ -28,9 +28,9 @@ type Organization struct {
 // ListOrganizations returns the workspaces (organizations) the authenticated
 // user can access via GET {MainAPIBaseURL}/organizations.
 func ListOrganizations(ctx context.Context) ([]Organization, error) {
-	authHeader, authValue, err := AuthFromCtx(ctx)
-	if err != nil {
-		return nil, err
+	pat, _ := ctx.Value(keyPAT).(string)
+	if pat == "" {
+		return nil, fmt.Errorf("missing authentication - complete the OAuth flow, or set the BITRISE_TOKEN env var (stdio) / Authorization header (http)")
 	}
 	if MainAPIBaseURL == "" {
 		return nil, fmt.Errorf("workspace discovery is unavailable: main Bitrise API base URL is not configured")
@@ -40,7 +40,10 @@ func ListOrganizations(ctx context.Context) ([]Organization, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
-	req.Header.Set(authHeader, authValue)
+	// The main Bitrise API (v0.1) authenticates with the RAW PAT in the
+	// Authorization header — no "Bearer " prefix. (The codespaces backend used
+	// by CallAPI is the opposite: it expects "Bearer <pat>".)
+	req.Header.Set("Authorization", pat)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "bitrise-mcp-dev-environments/1.0")
 	req.Header.Set("X-Request-Source", "mcp")

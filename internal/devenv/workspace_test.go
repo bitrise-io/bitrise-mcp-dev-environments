@@ -73,7 +73,7 @@ func TestSoleWorkspace(t *testing.T) {
 func TestListOrganizations(t *testing.T) {
 	t.Run("parses the data array", func(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			assert.Equal(t, "Bearer pat", r.Header.Get("Authorization"))
+			assert.Equal(t, "pat", r.Header.Get("Authorization")) // main API: raw PAT, no "Bearer "
 			assert.Equal(t, "/organizations", r.URL.Path)
 			_, _ = w.Write([]byte(`{"data":[{"slug":"ws-1","name":"One"},{"slug":"ws-2","name":"Two"}]}`))
 		}))

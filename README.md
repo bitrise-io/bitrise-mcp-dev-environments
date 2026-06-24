@@ -4,7 +4,7 @@ MCP Server for Bitrise Dev Environments, enabling AI assistants to create and ma
 
 ## Features
 
-- **Template-Based Sessions**: Create sessions from templates that define machine images, startup scripts, template variables, and session inputs. Manage templates and saved input credentials.
+- **Template-Based or Template-less Sessions**: Create sessions from templates that define machine images, startup scripts, template variables, and session inputs, or create them without a template by supplying an image and machine type directly. Manage templates and saved input credentials.
 - **Session Lifecycle**: Create, list, start, stop, update, and delete sessions. Bulk-delete terminated sessions.
 - **Command Execution**: Run shell commands on running sessions over SSH in a forced-interactive login shell (`bash -i -l -c`), so the template's PATH, brew tools, git-lfs, and language version managers are all visible. Local SSH agent is forwarded so git-over-SSH uses the caller's keys.
 - **File Transfer**: Upload local files/folders to sessions and download artifacts back.
@@ -71,7 +71,7 @@ The server runs over **stdio** (above) for local use. It can also run over **HTT
 |------|-------------|
 | `bitrise_devenv_list` | List all sessions with their status, name, and template info |
 | `bitrise_devenv_get` | Get details of a specific session including status, machine info, and SSH/VNC credentials |
-| `bitrise_devenv_create` | Create a new session from a template (with name, template ID, session inputs, and feature flags) |
+| `bitrise_devenv_create` | Create a new session, either from a template (with template ID, session inputs, and feature flags) or without one by supplying an image and machine type directly |
 | `bitrise_devenv_update` | Update a session's name or description |
 | `bitrise_devenv_restore` | Restore a terminated (or failed/drained) session |
 | `bitrise_devenv_terminate` | Terminate a running session (stops the VM, keeping the session for later restart) |
@@ -138,7 +138,7 @@ The server runs over **stdio** (above) for local use. It can also run over **HTT
 
 ### Sessions & Templates
 
-- **Template-based**: Sessions are always created from a template that defines the machine image, startup scripts, template variables, and session inputs
+- **Template-based or template-less**: Sessions can be created from a template that defines the machine image, startup scripts, template variables, and session inputs, or without a template by supplying an image and machine type directly (a base environment with no warmup/startup scripts)
 - **Session inputs**: When creating a session, provide values for session inputs (either direct values or references to saved inputs for secrets)
 - **Stopped sessions**: Stopped (terminated) sessions can be restarted later
 - **Always check first**: Call `bitrise_devenv_list` before creating to reuse existing sessions

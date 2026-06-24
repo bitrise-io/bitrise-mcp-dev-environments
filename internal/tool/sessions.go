@@ -18,6 +18,8 @@ Returns a lightweight view of each session: ID, name, description, status, agent
 
 agent_session_status reflects the current state of the AI agent running in the session (working, waiting_for_input, idle, or unspecified). It is reset whenever the session is stopped or started.
 
+Sessions created without a template have an empty template_id and a template_snapshot with image and machine_type but no template_name.
+
 To get the full template snapshot (session inputs, feature flags, workspace links, working directory, script flags), use bitrise_devenv_get on a specific session.
 To check if a session's template has been updated, look at the template_outdated field on bitrise_devenv_get and use bitrise_devenv_compare_template for details.`),
 		mcp.WithReadOnlyHintAnnotation(true),
@@ -55,6 +57,8 @@ Also includes:
 - agent_session_status: current state of the AI agent running in the session (working, waiting_for_input, idle, or unspecified). Reset on terminate/restore.
 - agent_session_status_updated_at: timestamp when agent_session_status was last changed
 
+For sessions created without a template, template_id is empty and the snapshot is minimal: only image and machine_type are populated, has_warmup_script/has_startup_script are false, and there is no template_name, session_inputs, feature_flags, or workspace_links. template_outdated is always false for such sessions.
+
 By default, secret session input values are redacted from the snapshot; set include_secrets=true to receive plaintext values.`),
 		mcp.WithString("session_id",
 			mcp.Description("The unique identifier (UUID) of the session"),
@@ -86,15 +90,20 @@ By default, secret session input values are redacted from the snapshot; set incl
 	},
 }
 
-// CreateSession creates a new session from a template.
+// CreateSession creates a new session, either from a template or directly from
+// an image + machine type (template-less).
 var CreateSession = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_create",
-		mcp.WithDescription(`Create a new devenv session from a template.
+		mcp.WithDescription(`Create a new devenv session. There are two ways to create one:
 
-Before creating a session:
+A) From a template (template_id set):
 1. List templates with bitrise_devenv_list_templates to find available templates and their session inputs
 2. Optionally list saved inputs with bitrise_devenv_list_saved_inputs to find saved credentials
 3. Provide values for session inputs (either direct values or references to saved inputs), or set map_saved_to_session_inputs=true to auto-fill session inputs from the user's saved inputs by key match
+The session inherits the template's image, machine type, scripts, feature flags, and workspace links. You may optionally pass image and/or machine_type to override the template's values for this session only.
+
+B) Without a template (template_id omitted):
+Supply image and machine_type directly to get a base environment with no warmup/startup scripts and no template configuration (no session inputs, feature flags, or workspace links). Use bitrise_devenv_list_images and bitrise_devenv_list_machine_types to discover valid values. This is the quickest way to spin up an environment for a repo when no template is needed.
 
 The session will start provisioning immediately after creation.`),
 		mcp.WithString("name",
@@ -105,8 +114,13 @@ The session will start provisioning immediately after creation.`),
 			mcp.Description("Description of the session"),
 		),
 		mcp.WithString("template_id",
-			mcp.Description("ID of the template to use"),
-			mcp.Required(),
+			mcp.Description("ID of the template to use. Optional: omit to create a session without a template, in which case image and machine_type are required and no warmup/startup scripts run."),
+		),
+		mcp.WithString("image",
+			mcp.Description("Machine image name (e.g. 'osx-xcode-edge'). Required when template_id is omitted. When a template is given, optionally overrides the template's image for this session. Use bitrise_devenv_list_images to find valid names."),
+		),
+		mcp.WithString("machine_type",
+			mcp.Description("Machine type name (e.g. 'g2.mac.m2pro.4c'). Required when template_id is omitted. When a template is given, optionally overrides the template's machine type for this session. Use bitrise_devenv_list_machine_types to find valid names."),
 		),
 		mcp.WithArray("session_inputs",
 			mcp.Description("Values for the template's session inputs. Required inputs must have a value (direct or saved_input_id). Optional inputs use their default_value when omitted."),
@@ -136,7 +150,7 @@ Rules:
 			mcp.WithStringItems(),
 		),
 		mcp.WithString("cluster",
-			mcp.Description("Target cluster name. Required when the template's image + machine type are available in multiple clusters. Use bitrise_devenv_resolve_clusters to find available clusters. Omit when only one cluster matches."),
+			mcp.Description("Target cluster name. Required when the chosen image + machine type are available in multiple clusters — whether they come from the template or, for a template-less session, from the image and machine_type supplied directly. Use bitrise_devenv_resolve_clusters to find available clusters. Omit when only one cluster matches."),
 		),
 		mcp.WithString("ai_prompt",
 			mcp.Description("Optional AI prompt to pass to Claude Code when the session starts"),
@@ -146,9 +160,27 @@ Rules:
 		),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		templateID := request.GetString("template_id", "")
+		image := request.GetString("image", "")
+		machineType := request.GetString("machine_type", "")
+
+		// Without a template the session is built directly from an image and
+		// machine type, so both must be supplied.
+		if templateID == "" && (image == "" || machineType == "") {
+			return mcp.NewToolResultError("either template_id, or both image and machine_type (to create a session without a template), must be provided"), nil
+		}
+
 		body := map[string]any{
-			"name":        request.GetString("name", ""),
-			"template_id": request.GetString("template_id", ""),
+			"name": request.GetString("name", ""),
+		}
+		if templateID != "" {
+			body["template_id"] = templateID
+		}
+		if image != "" {
+			body["image"] = image
+		}
+		if machineType != "" {
+			body["machine_type"] = machineType
 		}
 		if desc := request.GetString("description", ""); desc != "" {
 			body["description"] = desc
@@ -330,7 +362,8 @@ Returns both the snapshot (template config at session creation time) and the cur
 - changed_variable_keys: list of variable keys whose values differ (computed server-side)
 
 Use this when template_outdated is true on a session to see exactly what changed.
-If the current template was deleted, the current field will be null.`),
+If the current template was deleted, the current field will be null.
+Sessions created without a template have nothing to compare against, so the current field is null for them.`),
 		mcp.WithString("session_id",
 			mcp.Description("The unique identifier (UUID) of the session to compare"),
 			mcp.Required(),

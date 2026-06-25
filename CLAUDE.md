@@ -17,7 +17,7 @@ bitrise-mcp-dev-environments/
         ├── sessions.go        # Session CRUD + lifecycle
         ├── templates.go       # Template CRUD
         ├── saved_inputs.go     # Saved input/credential CRUD
-        ├── images.go          # List images + machine types
+        ├── stacks.go          # List stacks + machine types
         ├── execute.go         # Remote command execution
         ├── screenshot.go      # Session screenshot capture
         ├── gui.go             # Click, type, scroll, drag

@@ -13,7 +13,7 @@ var ListWorkspaces = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_list_workspaces",
 		mcp.WithDescription(`List the Bitrise workspaces (organizations) the authenticated user can access. Each workspace has a slug (ID) and a name.
 
-Use this to discover workspace IDs. Session, template, image, and machine-type tools all operate within a single workspace, resolved in this order:
+Use this to discover workspace IDs. Session, template, stack, and machine-type tools all operate within a single workspace, resolved in this order:
 1. the BITRISE_WORKSPACE_ID env var (local stdio) or the x-bitrise-workspace-id request header (hosted server), if set;
 2. otherwise, if the user has exactly one workspace, it is used automatically.
 

@@ -4,7 +4,7 @@ MCP Server for Bitrise Dev Environments, enabling AI assistants to create and ma
 
 ## Features
 
-- **Template-Based or Template-less Sessions**: Create sessions from templates that define machine images, startup scripts, template variables, and session inputs, or create them without a template by supplying an image and machine type directly. Manage templates and saved input credentials.
+- **Template-Based or Template-less Sessions**: Create sessions from templates that define a stack, startup scripts, template variables, and session inputs, or create them without a template by supplying a stack and machine type directly. Manage templates and saved input credentials.
 - **Session Lifecycle**: Create, list, start, stop, update, and delete sessions. Bulk-delete terminated sessions.
 - **Command Execution**: Run shell commands on running sessions over SSH in a forced-interactive login shell (`bash -i -l -c`), so the template's PATH, brew tools, git-lfs, and language version managers are all visible. Local SSH agent is forwarded so git-over-SSH uses the caller's keys.
 - **File Transfer**: Upload local files/folders to sessions and download artifacts back.
@@ -71,7 +71,7 @@ The server runs over **stdio** (above) for local use. It can also run over **HTT
 |------|-------------|
 | `bitrise_devenv_list` | List all sessions with their status, name, and template info |
 | `bitrise_devenv_get` | Get details of a specific session including status, machine info, and SSH/VNC credentials |
-| `bitrise_devenv_create` | Create a new session, either from a template (with template ID, session inputs, and feature flags) or without one by supplying an image and machine type directly |
+| `bitrise_devenv_create` | Create a new session, either from a template (with template ID, session inputs, and feature flags) or without one by supplying a stack and machine type directly |
 | `bitrise_devenv_update` | Update a session's name or description |
 | `bitrise_devenv_restore` | Restore a terminated (or failed/drained) session |
 | `bitrise_devenv_terminate` | Terminate a running session (stops the VM, keeping the session for later restart) |
@@ -84,8 +84,8 @@ The server runs over **stdio** (above) for local use. It can also run over **HTT
 | Tool | Description |
 |------|-------------|
 | `bitrise_devenv_list_templates` | List all available templates |
-| `bitrise_devenv_get_template` | Get template details including scripts, image, template variables, session inputs, and feature flags |
-| `bitrise_devenv_create_template` | Create a new template with image, machine type, scripts, and inputs |
+| `bitrise_devenv_get_template` | Get template details including scripts, stack, template variables, session inputs, and feature flags |
+| `bitrise_devenv_create_template` | Create a new template with stack, machine type, scripts, and inputs |
 | `bitrise_devenv_update_template` | Update an existing template |
 | `bitrise_devenv_delete_template` | Delete a template |
 
@@ -99,11 +99,11 @@ The server runs over **stdio** (above) for local use. It can also run over **HTT
 | `bitrise_devenv_update_saved_input` | Update an existing saved input value |
 | `bitrise_devenv_delete_saved_input` | Delete a saved input |
 
-### Images & Machine Types
+### Stacks & Machine Types
 
 | Tool | Description |
 |------|-------------|
-| `bitrise_devenv_list_images` | List available machine images for templates |
+| `bitrise_devenv_list_stacks` | List available stacks (with title, OS, and status) for templates and sessions |
 | `bitrise_devenv_list_machine_types` | List available machine types for templates |
 
 ### Command & File Operations
@@ -138,7 +138,7 @@ The server runs over **stdio** (above) for local use. It can also run over **HTT
 
 ### Sessions & Templates
 
-- **Template-based or template-less**: Sessions can be created from a template that defines the machine image, startup scripts, template variables, and session inputs, or without a template by supplying an image and machine type directly (a base environment with no warmup/startup scripts)
+- **Template-based or template-less**: Sessions can be created from a template that defines the stack, startup scripts, template variables, and session inputs, or without a template by supplying a stack and machine type directly (a base environment with no warmup/startup scripts)
 - **Session inputs**: When creating a session, provide values for session inputs (either direct values or references to saved inputs for secrets)
 - **Stopped sessions**: Stopped (terminated) sessions can be restarted later
 - **Always check first**: Call `bitrise_devenv_list` before creating to reuse existing sessions

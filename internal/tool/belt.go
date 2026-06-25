@@ -59,10 +59,9 @@ func NewBelt() *Belt {
 			UpdateSavedInput,
 			DeleteSavedInput,
 
-			// Instance Manager Proxy
-			ListImages,
+			// Stacks & Machine Types
+			ListStacks,
 			ListMachineTypes,
-			ResolveClusters,
 
 			// Session Notifications
 			ListSessionNotifications,

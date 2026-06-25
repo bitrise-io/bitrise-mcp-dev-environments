@@ -12,7 +12,7 @@ import (
 // ListTemplates lists all available templates.
 var ListTemplates = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_list_templates",
-		mcp.WithDescription("List all available devenv templates. Each template defines the machine image, startup/warmup scripts, template variables, session inputs (required and optional), feature flags, and workspace links. By default, secret template variable values are omitted from the response; set include_secrets=true to include them."),
+		mcp.WithDescription("List all available devenv templates. Each template defines the stack, startup/warmup scripts, template variables, session inputs (required and optional), feature flags, and workspace links. By default, secret template variable values are omitted from the response; set include_secrets=true to include them."),
 		mcp.WithBoolean("include_secrets",
 			mcp.Description("When true, secret template variable values are included in the response. Defaults to false (secret values are omitted)."),
 		),
@@ -38,7 +38,7 @@ var ListTemplates = devenv.Tool{
 // GetTemplate retrieves a template by ID.
 var GetTemplate = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_get_template",
-		mcp.WithDescription("Get details of a specific template including startup/warmup scripts, machine image, working directory, template variables, session inputs (with required/default_value/expose_as_env_var fields), feature flags, and workspace links. By default, secret template variable values are omitted from the response; set include_secrets=true to include them."),
+		mcp.WithDescription("Get details of a specific template including startup/warmup scripts, stack, working directory, template variables, session inputs (with required/default_value/expose_as_env_var fields), feature flags, and workspace links. By default, secret template variable values are omitted from the response; set include_secrets=true to include them."),
 		mcp.WithString("template_id",
 			mcp.Description("The unique identifier (UUID) of the template"),
 			mcp.Required(),
@@ -72,12 +72,12 @@ var GetTemplate = devenv.Tool{
 // CreateTemplate creates a new template.
 var CreateTemplate = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_create_template",
-		mcp.WithDescription(`Create a new devenv template. Use bitrise_devenv_list_images and bitrise_devenv_list_machine_types to find valid image and machine_type names. IMPORTANT: Provide the name (not UUID) for image and machine_type.`),
+		mcp.WithDescription(`Create a new devenv template. Use bitrise_devenv_list_stacks to find a valid stack_id and bitrise_devenv_list_machine_types to find a valid machine_type name. IMPORTANT: Provide the stack id (the 'id' field from bitrise_devenv_list_stacks) for stack_id, and the machine type name (not UUID) for machine_type.`),
 		mcp.WithString("name", mcp.Description("Template name"), mcp.Required()),
 		mcp.WithString("description", mcp.Description("Template description")),
 		mcp.WithString("startup_script", mcp.Description("Bash script that runs every time a session starts")),
 		mcp.WithString("warmup_script", mcp.Description("Bash script that runs once during initial session creation")),
-		mcp.WithString("image", mcp.Description(`Machine image name (use bitrise_devenv_list_images to find the name, e.g. 'osx-xcode-edge'). Note: 'osx-tahoe-26-edge' is deprecated — prefer 'osx-26-edge' for new templates. The images 'osx-tahoe-26', 'osx-sonoma-15', 'osx-sonoma-16', and 'osx-ventura-15' are no longer available; if a user requests them, advise contacting Bitrise support.`), mcp.Required()),
+		mcp.WithString("stack_id", mcp.Description(`Stack ID (use bitrise_devenv_list_stacks to find the id, e.g. 'osx-xcode-16.0.x-edge').`), mcp.Required()),
 		mcp.WithString("machine_type", mcp.Description("Machine type name (use bitrise_devenv_list_machine_types to find the name, e.g. 'g2.mac.m2pro.4c')"), mcp.Required()),
 		mcp.WithString("working_directory", mcp.Description("Working directory for terminal sessions (absolute path)")),
 		mcp.WithArray("template_variables",
@@ -134,7 +134,7 @@ var CreateTemplate = devenv.Tool{
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		body := map[string]any{
 			"name":         request.GetString("name", ""),
-			"image":        request.GetString("image", ""),
+			"stack_id":     request.GetString("stack_id", ""),
 			"machine_type": request.GetString("machine_type", ""),
 		}
 		for _, key := range []string{"description", "startup_script", "warmup_script", "working_directory"} {
@@ -169,7 +169,7 @@ var UpdateTemplate = devenv.Tool{
 		mcp.WithString("description", mcp.Description("Updated description")),
 		mcp.WithString("startup_script", mcp.Description("Updated startup script")),
 		mcp.WithString("warmup_script", mcp.Description("Updated warmup script")),
-		mcp.WithString("image", mcp.Description(`Updated machine image name (use bitrise_devenv_list_images to find the name). Note: 'osx-tahoe-26-edge' is deprecated — prefer 'osx-26-edge'. The images 'osx-tahoe-26', 'osx-sonoma-15', 'osx-sonoma-16', and 'osx-ventura-15' are no longer available; if a user requests them, advise contacting Bitrise support.`)),
+		mcp.WithString("stack_id", mcp.Description(`Updated stack ID (use bitrise_devenv_list_stacks to find the id, e.g. 'osx-xcode-16.0.x-edge').`)),
 		mcp.WithString("machine_type", mcp.Description("Updated machine type name (use bitrise_devenv_list_machine_types to find the name)")),
 		mcp.WithString("working_directory", mcp.Description("Updated working directory")),
 		mcp.WithArray("template_variables",
@@ -230,7 +230,7 @@ var UpdateTemplate = devenv.Tool{
 		}
 
 		body := map[string]any{}
-		for _, key := range []string{"name", "description", "startup_script", "warmup_script", "image", "machine_type", "working_directory"} {
+		for _, key := range []string{"name", "description", "startup_script", "warmup_script", "stack_id", "machine_type", "working_directory"} {
 			if v := request.GetString(key, ""); v != "" {
 				body[key] = v
 			}

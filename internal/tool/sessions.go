@@ -223,7 +223,9 @@ var RestoreSession = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_restore",
 		mcp.WithDescription(`Restore a devenv session that is not currently running. The session will begin provisioning and transition to running. Resets agent_session_status.
 
-Restorable statuses: SESSION_STATUS_TERMINATED (user terminated), SESSION_STATUS_DRAINED (node was reclaimed under the session), SESSION_STATUS_FAILED. All three are terminal-and-restorable — restoring recreates the VM.`),
+Restorable statuses: SESSION_STATUS_TERMINATED (user terminated), SESSION_STATUS_DRAINED (node was reclaimed under the session), SESSION_STATUS_FAILED. All three are terminal-and-restorable — restoring recreates the VM.
+
+A session in SESSION_STATUS_UNKNOWN (the backend can't currently determine the machine state, e.g. its node lost network connectivity) cannot be restored, terminated or deleted until the state settles — retry shortly.`),
 		mcp.WithString("session_id",
 			mcp.Description("The unique identifier (UUID) of the session to restore"),
 			mcp.Required(),

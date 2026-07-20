@@ -26,7 +26,10 @@ type CallAPIParams struct {
 	Method string
 	Path   string
 	Params map[string]string
-	Body   any
+	// RepeatedParams holds query parameters that appear multiple times in the
+	// query string (e.g. label_selectors=a&label_selectors=b).
+	RepeatedParams map[string][]string
+	Body           any
 }
 
 var httpClient = &http.Client{Timeout: 30 * time.Second}
@@ -39,11 +42,18 @@ func CallAPI(ctx context.Context, p CallAPIParams) (string, error) {
 	}
 
 	fullURL := BaseURL + p.Path
-	if len(p.Params) > 0 {
+	if len(p.Params) > 0 || len(p.RepeatedParams) > 0 {
 		params := url.Values{}
 		for k, v := range p.Params {
 			if v != "" {
 				params.Set(k, v)
+			}
+		}
+		for k, vs := range p.RepeatedParams {
+			for _, v := range vs {
+				if v != "" {
+					params.Add(k, v)
+				}
 			}
 		}
 		if encoded := params.Encode(); encoded != "" {

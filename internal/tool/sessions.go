@@ -14,20 +14,31 @@ var ListSessions = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_list",
 		mcp.WithDescription(`List all devenv sessions for the currently authenticated user.
 
-Returns a lightweight view of each session: ID, name, description, status, agent_session_status, template_id, template_deleted flag, SSH/VNC connection details, AI config, and a template_snapshot containing the template_name, stack_id, and machine_type.
+Returns a lightweight view of each session: ID, name, description, status, agent_session_status, labels, template_id, template_deleted flag, SSH/VNC connection details, AI config, and a template_snapshot containing the template_name, stack_id, and machine_type.
 
 agent_session_status reflects the current state of the AI agent running in the session (working, waiting_for_input, idle, or unspecified). It is reset whenever the session is stopped or started.
 
 Sessions created without a template have an empty template_id and a template_snapshot with stack_id and machine_type but no template_name.
 
+Use label_selectors to filter sessions server-side by their labels. Each selector is a "key=value" exact-match equality; multiple selectors are ANDed, so a session must match all of them. For example, label_selectors=["team=mobile", "branch=main"] returns only sessions carrying both labels, instead of listing everything and filtering client-side.
+
 To get the full template snapshot (session inputs, feature flags, workspace links, working directory, script flags), use bitrise_devenv_get on a specific session.
 To check if a session's template has been updated, look at the template_outdated field on bitrise_devenv_get and use bitrise_devenv_compare_template for details.`),
+		mcp.WithArray("label_selectors",
+			mcp.Description(`Optional label filters of the form "key=value" (exact-match equality on one label). Multiple selectors are ANDed: only sessions matching every selector are returned. At most 8 selectors; duplicate keys are rejected (they can never match under AND); bare keys without "=" are invalid. System-owned "bitrise.io/"-prefixed keys may be used in selectors.`),
+			mcp.WithStringItems(),
+		),
 		mcp.WithReadOnlyHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		var repeatedParams map[string][]string
+		if selectors := request.GetStringSlice("label_selectors", nil); len(selectors) > 0 {
+			repeatedParams = map[string][]string{"label_selectors": selectors}
+		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
-			Method: http.MethodGet,
-			Path:   devenv.WsPath(ctx, "/sessions"),
+			Method:         http.MethodGet,
+			Path:           devenv.WsPath(ctx, "/sessions"),
+			RepeatedParams: repeatedParams,
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("list sessions", err), nil
@@ -56,6 +67,7 @@ Also includes:
 - template_outdated: true if the template has been updated since this session was created (use bitrise_devenv_compare_template to see what changed)
 - agent_session_status: current state of the AI agent running in the session (working, waiting_for_input, idle, or unspecified). Reset on terminate/restore.
 - agent_session_status_updated_at: timestamp when agent_session_status was last changed
+- labels: key/value metadata attached to the session (set at creation or via bitrise_devenv_update; filterable in bitrise_devenv_list via label_selectors)
 
 For sessions created without a template, template_id is empty and the snapshot is minimal: only stack_id and machine_type are populated, has_warmup_script/has_startup_script are false, and there is no template_name, session_inputs, feature_flags, or workspace_links. template_outdated is always false for such sessions.
 
@@ -158,6 +170,10 @@ Rules:
 		mcp.WithNumber("auto_terminate_minutes",
 			mcp.Description("Minutes before auto-termination. Default: 7200 (5 days). Set to 0 to disable."),
 		),
+		mcp.WithObject("labels",
+			mcp.Description(`Optional key/value string labels to attach to the session, e.g. {"team": "mobile", "branch": "main"}. At most 32 labels; keys are 1-63 characters of [a-zA-Z0-9._/-] starting and ending alphanumeric; values are 1-255 bytes of [a-zA-Z0-9._/:+-] with no positional rules (timestamps with offsets, branch names, paths, and semver all fit; spaces, '@', '=', newlines, and non-ASCII are rejected). The "bitrise.io/" key prefix is reserved for system-owned labels and rejected. Labels are returned on session reads and filterable in bitrise_devenv_list via label_selectors.`),
+			mcp.AdditionalProperties(map[string]any{"type": "string"}),
+		),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		templateID := request.GetString("template_id", "")
@@ -204,6 +220,9 @@ Rules:
 			return mcp.NewToolResultError(err.Error()), nil
 		} else if ok {
 			body["auto_terminate_minutes"] = minutes
+		}
+		if labels, ok := request.GetArguments()["labels"]; ok {
+			body["labels"] = labels
 		}
 
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
@@ -301,10 +320,11 @@ var DeleteSession = devenv.Tool{
 	},
 }
 
-// UpdateSession updates a session's name, description, or auto-terminate settings.
+// UpdateSession updates a session's name, description, labels, or
+// auto-terminate settings.
 var UpdateSession = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_update",
-		mcp.WithDescription("Update a session's name, description, or auto-terminate settings. Only provided fields are updated."),
+		mcp.WithDescription("Update a session's name, description, labels, or auto-terminate settings. Only provided fields are updated."),
 		mcp.WithString("session_id",
 			mcp.Description("The unique identifier (UUID) of the session to update"),
 			mcp.Required(),
@@ -317,6 +337,14 @@ var UpdateSession = devenv.Tool{
 		),
 		mcp.WithNumber("auto_terminate_minutes",
 			mcp.Description("Update auto-terminate duration in minutes. Resets the deadline to now + minutes. Set to 0 to disable."),
+		),
+		mcp.WithObject("labels",
+			mcp.Description(`Labels to add or update on the session. Merged into the existing labels: listed keys are overwritten, unlisted keys are left untouched. Same constraints as in bitrise_devenv_create (at most 32 labels total; keys 1-63 chars of [a-zA-Z0-9._/-] starting and ending alphanumeric; values 1-255 bytes of [a-zA-Z0-9._/:+-]; "bitrise.io/" key prefix reserved). To delete keys use remove_labels; if a key appears in both, the removal wins.`),
+			mcp.AdditionalProperties(map[string]any{"type": "string"}),
+		),
+		mcp.WithArray("remove_labels",
+			mcp.Description("Label keys to remove from the session. Unknown keys are ignored."),
+			mcp.WithStringItems(),
 		),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -336,6 +364,12 @@ var UpdateSession = devenv.Tool{
 			return mcp.NewToolResultError(err.Error()), nil
 		} else if ok {
 			body["auto_terminate_minutes"] = minutes
+		}
+		if labels, ok := request.GetArguments()["labels"]; ok {
+			body["labels"] = labels
+		}
+		if removeLabels := request.GetStringSlice("remove_labels", nil); len(removeLabels) > 0 {
+			body["remove_labels"] = removeLabels
 		}
 
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{

@@ -69,10 +69,10 @@ The server runs over **stdio** (above) for local use. It can also run over **HTT
 
 | Tool | Description |
 |------|-------------|
-| `bitrise_devenv_list` | List all sessions with their status, name, and template info |
+| `bitrise_devenv_list` | List all sessions with their status, name, labels, and template info; filterable server-side by `key=value` label selectors |
 | `bitrise_devenv_get` | Get details of a specific session including status, machine info, and SSH/VNC credentials |
-| `bitrise_devenv_create` | Create a new session, either from a template (with template ID, session inputs, and feature flags) or without one by supplying a stack and machine type directly |
-| `bitrise_devenv_update` | Update a session's name or description |
+| `bitrise_devenv_create` | Create a new session, either from a template (with template ID, session inputs, and feature flags) or without one by supplying a stack and machine type directly; optionally attach key/value labels |
+| `bitrise_devenv_update` | Update a session's name, description, or labels |
 | `bitrise_devenv_restore` | Restore a terminated (or failed/drained) session |
 | `bitrise_devenv_terminate` | Terminate a running session (stops the VM, keeping the session for later restart) |
 | `bitrise_devenv_delete` | Permanently delete a session |

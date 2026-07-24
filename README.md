@@ -152,7 +152,7 @@ The server runs over **stdio** (above) for local use. It can also run over **HTT
 - **Timeout**: Commands have a 2-minute execution limit.
 - **Bash features**: Pipes, redirects, command chaining, and subshells all work as expected.
 - **No file transfers via execute**: Use the dedicated upload/download tools instead.
-- **DNS-related dial failures**: Session SSH hostnames are dynamic tunnel addresses (behind ngrok) whose DNS answer depends on which resolver is asked — the local/automatic resolver can return an IP that's unreachable from the caller's network even though a public resolver (1.1.1.1 / 8.8.8.8) would return a reachable one. If the SSH dial fails with either an outright DNS lookup error or a dial timeout, the tool result includes a hint suggesting the caller switch this machine's DNS resolver to a public one — verified against a live session where switching from automatic to 1.1.1.1/8.8.8.8 DNS was the actual fix. Other dial failures (e.g. connection refused) are returned as-is.
+- **DNS-related dial failures**: Session SSH hostnames are dynamic tunnel addresses whose DNS answer depends on which resolver is asked — the local/automatic resolver can return an IP that's unreachable from the caller's network even though a public resolver (1.1.1.1 / 8.8.8.8) would return a reachable one. If the SSH dial fails with either an outright DNS lookup error or a dial timeout, the tool result includes a hint suggesting the caller switch this machine's DNS resolver to a public one — verified against a live session where switching from automatic to 1.1.1.1/8.8.8.8 DNS was the actual fix. Other dial failures (e.g. connection refused) are returned as-is.
 
 ### File Transfer
 

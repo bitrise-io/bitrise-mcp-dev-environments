@@ -60,7 +60,7 @@ const sshHandshakeTimeout = 15 * time.Second
 //
 //   - An outright lookup failure (*net.DNSError, e.g. "no such host").
 //   - A dial timeout after a *successful* lookup. Session SSH hostnames are
-//     dynamic tunnel addresses (behind ngrok) that resolve to different,
+//     dynamic tunnel addresses that resolve to different,
 //     region-specific IPs depending on which resolver answers the query; if
 //     the resolver's answer isn't reachable from the caller's network, the
 //     dial hangs and times out even though DNS "worked". Switching the local
@@ -84,12 +84,12 @@ func dnsFailureHint(err error, goos string) string {
 		hint = "This dial timed out. The session's SSH hostname is a dynamic tunnel address that can resolve to a different, region-specific IP depending on which DNS resolver answers the lookup — if the IP your resolver returned isn't reachable from this network, a different resolver may return one that is."
 	}
 	if goos == "darwin" {
-		hint += " Try switching to a public DNS resolver, e.g.:\n" +
+		hint += " Make this change on the machine running this MCP server, where the SSH dial originates — not inside the session via the execute tool. On macOS:\n" +
 			"    networksetup -setdnsservers Wi-Fi 1.1.1.1 8.8.8.8\n" +
 			"(replace \"Wi-Fi\" with your active network service if different — check with `networksetup -listallnetworkservices`). " +
 			"To revert to automatic DNS afterward: networksetup -setdnsservers Wi-Fi empty"
 	} else {
-		hint += " Try switching this machine's DNS resolver to a public one (e.g. 1.1.1.1 or 8.8.8.8) and retry."
+		hint += " Switch the DNS resolver on the machine running this MCP server, where the SSH dial originates — not inside the session via the execute tool — to a public one (e.g. 1.1.1.1 or 8.8.8.8) and retry."
 	}
 	return hint
 }

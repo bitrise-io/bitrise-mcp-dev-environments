@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"runtime"
 	"time"
 
 	"github.com/bitrise-io/bitrise-mcp-dev-environments/internal/devenv"
@@ -154,6 +155,9 @@ short timeout so you fail fast and can fall back to the GUI tools:
 
 		client, err := dialSSH(execCtx, target)
 		if err != nil {
+			if hint := dnsFailureHint(err, runtime.GOOS); hint != "" {
+				return mcp.NewToolResultError(fmt.Sprintf("ssh dial: %v\n\n%s", err, hint)), nil
+			}
 			return mcp.NewToolResultErrorFromErr("ssh dial", err), nil
 		}
 		defer client.Close()

@@ -54,6 +54,46 @@ type sshClient struct {
 
 const sshHandshakeTimeout = 15 * time.Second
 
+// dnsFailureHint returns a human-readable troubleshooting hint if err looks
+// like it stems from local DNS resolution, or "" otherwise. Two distinct
+// symptoms are covered:
+//
+//   - An outright lookup failure (*net.DNSError, e.g. "no such host").
+//   - A dial timeout after a *successful* lookup. Session SSH hostnames are
+//     dynamic tunnel addresses (behind ngrok) that resolve to different,
+//     region-specific IPs depending on which resolver answers the query; if
+//     the resolver's answer isn't reachable from the caller's network, the
+//     dial hangs and times out even though DNS "worked". Switching the local
+//     resolver to a public one (which returns a different, often reachable,
+//     IP for the same hostname) is a known fix for both symptoms.
+func dnsFailureHint(err error, goos string) string {
+	var dnsErr *net.DNSError
+	isLookupFailure := errors.As(err, &dnsErr)
+
+	var netErr net.Error
+	isTimeout := !isLookupFailure && errors.As(err, &netErr) && netErr.Timeout()
+
+	if !isLookupFailure && !isTimeout {
+		return ""
+	}
+
+	var hint string
+	if isLookupFailure {
+		hint = "This looks like a DNS resolution failure on this machine (not a problem with the session) — the SSH hostname could not be looked up."
+	} else {
+		hint = "This dial timed out. The session's SSH hostname is a dynamic tunnel address that can resolve to a different, region-specific IP depending on which DNS resolver answers the lookup — if the IP your resolver returned isn't reachable from this network, a different resolver may return one that is."
+	}
+	if goos == "darwin" {
+		hint += " Try switching to a public DNS resolver, e.g.:\n" +
+			"    networksetup -setdnsservers Wi-Fi 1.1.1.1 8.8.8.8\n" +
+			"(replace \"Wi-Fi\" with your active network service if different — check with `networksetup -listallnetworkservices`). " +
+			"To revert to automatic DNS afterward: networksetup -setdnsservers Wi-Fi empty"
+	} else {
+		hint += " Try switching this machine's DNS resolver to a public one (e.g. 1.1.1.1 or 8.8.8.8) and retry."
+	}
+	return hint
+}
+
 // dialSSH opens an SSH connection to the target, trying auth methods in order:
 // SSH agent (via SSH_AUTH_SOCK) → default key files (~/.ssh/id_ed25519,
 // id_ecdsa, id_rsa, unencrypted only) → password. Host key verification is

@@ -12,9 +12,9 @@ import (
 // ListSessions lists all sessions for the current user.
 var ListSessions = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_list",
-		mcp.WithDescription(`List all devenv sessions for the currently authenticated user.
+		mcp.WithDescription(`List devenv sessions. By default (scope="mine") returns the currently authenticated user's own sessions; set scope="workspace" to list sessions owned by the workspace itself instead.
 
-Returns a lightweight view of each session: ID, name, description, status, agent_session_status, labels, template_id, template_deleted flag, SSH/VNC connection details, AI config, and a template_snapshot containing the template_name, stack_id, and machine_type.
+Returns a lightweight view of each session: ID, name, description, status, agent_session_status, labels, owner_type ("user" or "workspace"), owner_id (user UUID or workspace slug), template_id, template_deleted flag, SSH/VNC connection details, AI config, and a template_snapshot containing the template_name, stack_id, and machine_type.
 
 agent_session_status reflects the current state of the AI agent running in the session (working, waiting_for_input, idle, or unspecified). It is reset whenever the session is stopped or started.
 
@@ -28,6 +28,11 @@ To check if a session's template has been updated, look at the template_outdated
 			mcp.Description(`Optional label filters of the form "key=value" (exact-match equality on one label). Multiple selectors are ANDed: only sessions matching every selector are returned. At most 8 selectors; duplicate keys are rejected (they can never match under AND); bare keys without "=" are invalid. System-owned "bitrise.io/"-prefixed keys may be used in selectors.`),
 			mcp.WithStringItems(),
 		),
+		mcp.WithString("scope",
+			mcp.Description(`Ownership scope of the listing. "mine" (default) returns the calling user's own sessions. "workspace" returns sessions owned by the workspace itself — e.g. device-preview sessions started from workspace preview links — which are visible to every workspace member.`),
+			mcp.Enum("mine", "workspace"),
+			mcp.DefaultString("mine"),
+		),
 		mcp.WithReadOnlyHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -35,9 +40,14 @@ To check if a session's template has been updated, look at the template_outdated
 		if selectors := request.GetStringSlice("label_selectors", nil); len(selectors) > 0 {
 			repeatedParams = map[string][]string{"label_selectors": selectors}
 		}
+		params := map[string]string{}
+		if request.GetString("scope", "") == "workspace" {
+			params["scope"] = "SESSION_LIST_SCOPE_WORKSPACE"
+		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method:         http.MethodGet,
 			Path:           devenv.WsPath(ctx, "/sessions"),
+			Params:         params,
 			RepeatedParams: repeatedParams,
 		})
 		if err != nil {
@@ -425,14 +435,23 @@ Sessions created without a template have nothing to compare against, so the curr
 // DeleteTerminatedSessions deletes all terminated sessions.
 var DeleteTerminatedSessions = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_delete_terminated",
-		mcp.WithDescription("Delete all terminated devenv sessions for the current user. Returns the number of deleted sessions."),
+		mcp.WithDescription(`Delete all terminated devenv sessions in the given ownership scope. By default (scope="mine") deletes the current user's terminated sessions; set scope="workspace" to delete terminated workspace-owned sessions instead. Returns the number of deleted sessions.`),
+		mcp.WithString("scope",
+			mcp.Description(`Ownership scope of the cleanup. "mine" (default) deletes the calling user's own terminated sessions. "workspace" deletes terminated sessions owned by the workspace itself — e.g. device-preview sessions started from workspace preview links.`),
+			mcp.Enum("mine", "workspace"),
+			mcp.DefaultString("mine"),
+		),
 		mcp.WithDestructiveHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		body := map[string]any{}
+		if request.GetString("scope", "") == "workspace" {
+			body["scope"] = "SESSION_LIST_SCOPE_WORKSPACE"
+		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodPost,
 			Path:   devenv.WsPath(ctx, "/sessions:delete-terminated"),
-			Body:   map[string]any{},
+			Body:   body,
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("delete terminated sessions", err), nil

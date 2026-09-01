@@ -23,10 +23,10 @@ Response shape (zero-valued fields and empty objects may be omitted from the JSO
   - vcpu: total vCPUs across those sessions.
   - memoryGb: total memory in GB across those sessions.
 - users: per-user breakdown, sorted by email. Each row has:
-  - userSlug: the user's Bitrise slug, usable with other Bitrise APIs.
+  - userSlug: the user's Bitrise slug, usable with other Bitrise APIs. Best-effort: may be empty even on user rows, so use isWorkspace (not an empty userSlug) to detect the workspace bucket.
   - email / username: the user's identity (username is best-effort and may be empty).
   - userId: internal identifier; prefer userSlug for cross-referencing.
-  - isWorkspace: true for the single aggregate row of workspace-owned sessions (created with a workspace API token rather than by a user); that row has no userSlug/email.
+  - isWorkspace: true for the single aggregate row of sessions owned by the workspace itself rather than by an individual user (for example sessions spawned by a preview link minted with a Workspace API Token); that row has no userSlug/email.
   - totals: this row's usage, same linux/macos/unknown bucket shape as the workspace-wide totals.
 - unknownMachineTypeCount: number of active sessions whose machine type had no resolvable vCPU/RAM spec. Those sessions are counted in sessionCount but contribute 0 to the vcpu/memory sums, so totals undercount when this is non-zero — mention that caveat when presenting the numbers.`),
 		mcp.WithReadOnlyHintAnnotation(true),

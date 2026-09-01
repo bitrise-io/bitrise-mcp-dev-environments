@@ -63,6 +63,9 @@ func NewBelt() *Belt {
 			ListStacks,
 			ListMachineTypes,
 
+			// Workspace Usage
+			GetWorkspaceUsage,
+
 			// Session Notifications
 			ListSessionNotifications,
 

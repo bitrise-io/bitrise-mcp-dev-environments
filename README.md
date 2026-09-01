@@ -106,6 +106,12 @@ The server runs over **stdio** (above) for local use. It can also run over **HTT
 | `bitrise_devenv_list_stacks` | List available stacks (with title, OS, and status) for templates and sessions |
 | `bitrise_devenv_list_machine_types` | List available machine types for templates |
 
+### Workspace Usage
+
+| Tool | Description |
+|------|-------------|
+| `bitrise_devenv_get_workspace_usage` | Snapshot of active sessions and vCPU/memory totals, split by OS, workspace-wide and per user (requires billing-view permission) |
+
 ### Command & File Operations
 
 | Tool | Description |

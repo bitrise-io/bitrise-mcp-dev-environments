@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/bitrise-io/bitrise-mcp-dev-environments/internal/devenv"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -254,7 +255,9 @@ var RestoreSession = devenv.Tool{
 
 Restorable statuses: SESSION_STATUS_TERMINATED (user terminated), SESSION_STATUS_DRAINED (node was reclaimed under the session), SESSION_STATUS_FAILED. All three are terminal-and-restorable — restoring recreates the VM.
 
-A session in SESSION_STATUS_UNKNOWN (the backend can't currently determine the machine state, e.g. its node lost network connectivity) cannot be restored, terminated or deleted until the state settles — retry shortly.`),
+A session in SESSION_STATUS_UNKNOWN (the backend can't currently determine the machine state, e.g. its node lost network connectivity) cannot be restored, terminated or deleted until the state settles — retry shortly.
+
+Only sessions that were terminated (not deleted) can be restored: bitrise_devenv_delete discards the VM and its disk for good.`),
 		mcp.WithString("session_id",
 			mcp.Description("The unique identifier (UUID) of the session to restore"),
 			mcp.Required(),
@@ -281,7 +284,11 @@ A session in SESSION_STATUS_UNKNOWN (the backend can't currently determine the m
 // session for later restore).
 var TerminateSession = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_terminate",
-		mcp.WithDescription("Terminate a running devenv session. The VM is stopped and the session can be started again later. Resets agent_session_status."),
+		mcp.WithDescription(`Terminate a running devenv session but KEEP it for a later restore: the VM is stopped, its disk is preserved, and the session stays listed as SESSION_STATUS_TERMINATED until it is restored (bitrise_devenv_restore) or deleted. Resets agent_session_status.
+
+Use this only when the user wants to come back to this exact session later (e.g. to keep uncommitted work or an expensive warm state). A terminated session keeps occupying disk until it is deleted, and forgotten terminated sessions are the main source of waste — so when the session is simply no longer needed, call bitrise_devenv_delete directly instead; it works on running sessions and does NOT require terminating first.
+
+Asynchronous: returns while the session is still SESSION_STATUS_TERMINATING; poll bitrise_devenv_get if you need to observe it reach SESSION_STATUS_TERMINATED.`),
 		mcp.WithString("session_id",
 			mcp.Description("The unique identifier (UUID) of the session to terminate"),
 			mcp.Required(),
@@ -304,10 +311,15 @@ var TerminateSession = devenv.Tool{
 	},
 }
 
-// DeleteSession permanently deletes a session.
+// DeleteSession permanently deletes a session in any state (RDE-54): a
+// running VM is stopped and discarded by the backend, no terminate needed.
 var DeleteSession = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_delete",
-		mcp.WithDescription("Permanently delete a devenv session. This cannot be undone."),
+		mcp.WithDescription(`Permanently delete a devenv session in ANY state — running, starting, terminating, terminated or failed. This is the preferred way to get rid of a session you are done with: it does not have to be terminated first.
+
+The session disappears from the list immediately and cannot be restored. If its VM is still running, the backend stops it and then discards it together with its disk in the background — any unsaved work on the VM is lost, so make sure anything worth keeping (commits, pushes, uploads) is already off the machine.
+
+Prefer this over bitrise_devenv_terminate unless the user explicitly wants to restore the session later. Fails with a precondition error while the machine state is SESSION_STATUS_UNKNOWN — retry shortly.`),
 		mcp.WithString("session_id",
 			mcp.Description("The unique identifier (UUID) of the session to delete"),
 			mcp.Required(),
@@ -325,6 +337,11 @@ var DeleteSession = devenv.Tool{
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("delete session", err), nil
+		}
+		if strings.TrimSpace(res) == "" || strings.TrimSpace(res) == "{}" {
+			// The API returns an empty body on success; say what happened so
+			// the model doesn't have to guess from a blank result.
+			return mcp.NewToolResultText(fmt.Sprintf("Session %s deleted. If its VM was still running it is being stopped and discarded in the background; the session cannot be restored.", sessionID)), nil
 		}
 		return mcp.NewToolResultText(res), nil
 	},
@@ -435,7 +452,7 @@ Sessions created without a template have nothing to compare against, so the curr
 // DeleteTerminatedSessions deletes all terminated sessions.
 var DeleteTerminatedSessions = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_delete_terminated",
-		mcp.WithDescription(`Delete all terminated devenv sessions in the given ownership scope. By default (scope="mine") deletes the current user's terminated sessions; set scope="workspace" to delete terminated workspace-owned sessions instead. Returns the number of deleted sessions.`),
+		mcp.WithDescription(`Delete all terminated devenv sessions in the given ownership scope. By default (scope="mine") deletes the current user's terminated sessions; set scope="workspace" to delete terminated workspace-owned sessions instead. Returns the number of deleted sessions. Running sessions are left alone — use bitrise_devenv_delete to delete a specific session regardless of its state.`),
 		mcp.WithString("scope",
 			mcp.Description(`Ownership scope of the cleanup. "mine" (default) deletes the calling user's own terminated sessions. "workspace" deletes terminated sessions owned by the workspace itself — e.g. device-preview sessions started from workspace preview links.`),
 			mcp.Enum("mine", "workspace"),

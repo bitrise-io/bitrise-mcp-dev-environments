@@ -74,8 +74,8 @@ The server runs over **stdio** (above) for local use. It can also run over **HTT
 | `bitrise_devenv_create` | Create a new session, either from a template (with template ID, session inputs, and feature flags) or without one by supplying a stack and machine type directly; optionally attach key/value labels |
 | `bitrise_devenv_update` | Update a session's name, description, or labels |
 | `bitrise_devenv_restore` | Restore a terminated (or failed/drained) session |
-| `bitrise_devenv_terminate` | Terminate a running session (stops the VM, keeping the session for later restart) |
-| `bitrise_devenv_delete` | Permanently delete a session |
+| `bitrise_devenv_terminate` | Terminate a running session but keep it for a later restore (stops the VM, preserves its disk; the session stays listed as terminated) |
+| `bitrise_devenv_delete` | Permanently delete a session in any state — running sessions are stopped and discarded, no terminate needed; preferred over terminate unless you plan to restore |
 | `bitrise_devenv_delete_terminated` | Delete all terminated sessions in the chosen scope (your own by default, or workspace-owned) |
 | `bitrise_devenv_list_session_notifications` | List notifications for a session (e.g., agent stopped, permission prompt). Supports pagination and polling via timestamp cursors. |
 
@@ -146,7 +146,7 @@ The server runs over **stdio** (above) for local use. It can also run over **HTT
 
 - **Template-based or template-less**: Sessions can be created from a template that defines the stack, startup scripts, template variables, and session inputs, or without a template by supplying a stack and machine type directly (a base environment with no warmup/startup scripts)
 - **Session inputs**: When creating a session, provide values for session inputs (either direct values or references to saved inputs for secrets)
-- **Stopped sessions**: Stopped (terminated) sessions can be restarted later
+- **Done with a session? Delete it**: `bitrise_devenv_delete` works on running sessions too — the VM is stopped and discarded along with its disk. Only use `bitrise_devenv_terminate` when you intend to `bitrise_devenv_restore` the same session later; terminated sessions keep using disk until deleted
 - **Always check first**: Call `bitrise_devenv_list` before creating to reuse existing sessions
 
 ### Command Execution

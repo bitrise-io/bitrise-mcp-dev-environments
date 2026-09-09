@@ -9,7 +9,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
-// The guides are embedded copies of the codespaces repo's docs; an empty or
+// The guides are embedded copies of the RDE backend's docs; an empty or
 // truncated copy would silently ship an agent nothing to read.
 func TestGuideResources(t *testing.T) {
 	s := server.NewMCPServer("test", "0.0.0")

@@ -118,7 +118,7 @@ By default, secret session input values are redacted from the snapshot; set incl
 // a stack + machine type (template-less).
 var CreateSession = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_create",
-		mcp.WithDescription(`Create a new devenv session. There are two ways to create one:
+		mcp.WithDescription(`Create a new devenv session. There are three ways to create one:
 
 A) From a template (template_id set):
 1. List templates with bitrise_devenv_list_templates to find available templates and their session inputs
@@ -197,6 +197,7 @@ Rules:
 				"cores":        map[string]any{"type": "integer", "description": "Android only: emulator CPU cores; 0 = host-derived"},
 				"cold_boot":    map[string]any{"type": "boolean", "description": "Android only: full cold boot every start (no quickboot)"},
 			}),
+			requiredProperties("platform"),
 		),
 		mcp.WithObject("artifact",
 			mcp.Description(`Optional app build to install on the device once it is READY (requires device_spec). url is an absolute http(s) URL the VM downloads directly (a signed URL is fine; it is never returned) — iOS: a zipped simulator .app, Android: an .apk. app_name / build_number / commit_sha are display metadata (shown in the viewer). Progress: session.device.install_status; a FAILED install (install_reason says why) leaves the device usable — install the app yourself.`),
@@ -206,6 +207,7 @@ Rules:
 				"build_number": map[string]any{"type": "string"},
 				"commit_sha":   map[string]any{"type": "string"},
 			}),
+			requiredProperties("url"),
 		),
 		mcp.WithObject("labels",
 			mcp.Description(`Optional key/value string labels to attach to the session, e.g. {"team": "mobile", "branch": "main"}. At most 32 labels; keys are 1-63 characters of [a-zA-Z0-9._/-] starting and ending alphanumeric; values are 1-255 bytes of [a-zA-Z0-9._/:+-] with no positional rules (timestamps with offsets, branch names, paths, and semver all fit; spaces, '@', '=', newlines, and non-ASCII are rejected). The "bitrise.io/" key prefix is reserved for system-owned labels and rejected. Labels are returned on session reads and filterable in bitrise_devenv_list via label_selectors.`),
@@ -228,6 +230,19 @@ Rules:
 		}
 		if hasArtifact && !hasDevice {
 			return mcp.NewToolResultError("artifact requires device_spec — there is no device to install it on"), nil
+		}
+		// The nested "required" lists above are advisory to the client; check
+		// the two fields the backend cannot default before spending a round
+		// trip on a request that is certain to be rejected.
+		if hasDevice {
+			if err := requireNonEmptyString(deviceSpec, "device_spec", "platform"); err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+		}
+		if hasArtifact {
+			if err := requireNonEmptyString(artifact, "artifact", "url"); err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
 		}
 
 		body := map[string]any{
@@ -514,4 +529,29 @@ var DeleteTerminatedSessions = devenv.Tool{
 		}
 		return mcp.NewToolResultText(res), nil
 	},
+}
+
+// requiredProperties marks the listed keys of an object-typed tool parameter
+// as required in its nested JSON schema. mcp.Required() only marks the
+// parameter itself as required on the top-level schema; nothing in mcp-go
+// sets "required" inside a nested object built with mcp.Properties.
+func requiredProperties(names ...string) mcp.PropertyOption {
+	return func(schema map[string]any) {
+		schema["required"] = names
+	}
+}
+
+// requireNonEmptyString checks that an object-typed argument carries a
+// non-empty string under key, returning a client-facing error that names the
+// parameter when it does not.
+func requireNonEmptyString(arg any, param, key string) error {
+	obj, ok := arg.(map[string]any)
+	if !ok {
+		return fmt.Errorf("%s must be an object with a %q field", param, key)
+	}
+	val, ok := obj[key].(string)
+	if !ok || strings.TrimSpace(val) == "" {
+		return fmt.Errorf("%s.%s is required and must be a non-empty string", param, key)
+	}
+	return nil
 }

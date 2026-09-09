@@ -235,7 +235,9 @@ Rules:
 		if hasArtifact && !hasDevice {
 			return mcp.NewToolResultError("artifact requires device_spec — there is no device to install it on"), nil
 		}
-		if hasNoDevice && hasDevice {
+		// Same rule as the backend: only a TRUE no_device conflicts with a
+		// device_spec (an explicit false is a no-op, not an opt-out).
+		if noDeviceTrue, _ := noDevice.(bool); hasNoDevice && noDeviceTrue && hasDevice {
 			return mcp.NewToolResultError("no_device and device_spec are mutually exclusive — no_device skips the template's declared device, device_spec boots one"), nil
 		}
 		// The nested "required" lists above are advisory to the client; check

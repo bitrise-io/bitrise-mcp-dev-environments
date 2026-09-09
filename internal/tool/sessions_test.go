@@ -63,7 +63,6 @@ func TestCreateSessionRejectsIncompleteNestedObjects(t *testing.T) {
 		{"artifact empty url", map[string]any{"device_spec": map[string]any{"platform": "ios"}, "artifact": map[string]any{"url": ""}}, "artifact.url is required"},
 		{"artifact without device_spec", map[string]any{"stack_id": "s", "machine_type": "m", "artifact": map[string]any{"url": "https://x"}}, "artifact requires device_spec"},
 		{"no_device with device_spec", map[string]any{"template_id": "t", "no_device": true, "device_spec": map[string]any{"platform": "android"}}, "no_device and device_spec are mutually exclusive"},
-		{"no_device false with device_spec", map[string]any{"template_id": "t", "no_device": false, "device_spec": map[string]any{"platform": "android"}}, "no_device and device_spec are mutually exclusive"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

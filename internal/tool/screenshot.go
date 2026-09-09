@@ -31,6 +31,12 @@ Use this to verify the current state of the GUI, identify coordinates for click/
 and debug visual issues. Always call this before bitrise_devenv_click or bitrise_devenv_mouse_drag
 so the server can capture the real screen resolution and rescale your coordinates correctly.
 
+NOT FOR THE iOS SIMULATOR / ANDROID EMULATOR OF A DEVICE SESSION: those devices run headless (no
+window), so the desktop shows nothing of them — an empty desktop here does NOT mean the device is
+broken. Read the device through its own tools instead (accessibility tree, xcrun simctl io <udid>
+screenshot / adb exec-out screencap, or the session's device.viewer_url for a human) — see the
+resource bitrise-devenv://guides/device-sessions.
+
 PREFER SCRIPTED STATE CHECKS WHEN POSSIBLE: if you just need to know what app
 or window is frontmost, what's running, or what a setting's value is, it's
 usually faster and more reliable to ask the system via bitrise_devenv_execute

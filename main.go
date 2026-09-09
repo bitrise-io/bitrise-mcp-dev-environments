@@ -84,10 +84,12 @@ func run() error {
 		"bitrise-mcp-dev-environments",
 		"1.0.0",
 		server.WithToolFilter(belt.FilterTools),
+		server.WithResourceCapabilities(false, false),
 		server.WithRecovery(),
 		server.WithLogging(),
 	)
 	belt.RegisterAll(mcpServer)
+	belt.RegisterResources(mcpServer)
 
 	if cfg.Addr == "" {
 		logger.Info("starting MCP server in stdio mode")

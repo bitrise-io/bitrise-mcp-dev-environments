@@ -71,7 +71,7 @@ The server runs over **stdio** (above) for local use. It can also run over **HTT
 |------|-------------|
 | `bitrise_devenv_list` | List sessions with their status, name, labels, owner, and template info; filterable server-side by `key=value` label selectors, and scopeable to your own sessions (default) or workspace-owned sessions |
 | `bitrise_devenv_get` | Get details of a specific session including status, machine info, and SSH/VNC credentials |
-| `bitrise_devenv_create` | Create a new session, either from a template (with template ID, session inputs, and feature flags) or without one by supplying a stack and machine type directly; optionally attach key/value labels |
+| `bitrise_devenv_create` | Create a new session, either from a template (with template ID, session inputs, and feature flags) or without one by supplying a stack and machine type directly; optionally boot a virtual device with it (`device_spec`: iOS simulator / Android emulator, optional `artifact` to pre-install) and attach key/value labels |
 | `bitrise_devenv_update` | Update a session's name, description, or labels |
 | `bitrise_devenv_restore` | Restore a terminated (or failed/drained) session |
 | `bitrise_devenv_terminate` | Terminate a running session but keep it for a later restore (stops the VM, preserves its disk; the session stays listed as terminated) |
@@ -124,7 +124,7 @@ The server runs over **stdio** (above) for local use. It can also run over **HTT
 
 | Tool | Description |
 |------|-------------|
-| `bitrise_devenv_screenshot` | Capture the session's macOS display (1920x1080 resolution) |
+| `bitrise_devenv_screenshot` | Capture the session's macOS display (1920x1080 resolution) — the desktop, not a device session's headless simulator/emulator |
 | `bitrise_devenv_click` | Click at coordinates on the display (left/right/middle, single/double) |
 | `bitrise_devenv_mouse_drag` | Drag the mouse between two points |
 | `bitrise_devenv_type` | Type text as keyboard input |
@@ -140,9 +140,24 @@ The server runs over **stdio** (above) for local use. It can also run over **HTT
 |------|-------------|
 | `bitrise_devenv_open_remote_access` | Open SSH/VNC remote access tunnel and get connection details |
 
+## Resources
+
+Besides tools, the server exposes read-only **resources** (markdown guides an
+agent reads on demand — they cost no context until requested):
+
+| URI | Description |
+|-----|-------------|
+| `bitrise-devenv://guides/device-sessions` | Device sessions: create a session that boots an iOS simulator / Android emulator (`bitrise_devenv_create` with `device_spec`), wait for `device.state` READY, connect, drive the device (accessibility tree first), let a human watch (`device.viewer_url`), do-nots and recovery |
+| `bitrise-devenv://guides/device-sessions/ios` | iOS simulator specifics: `xcrun simctl`, serve-sim CLI and `/ax` accessibility endpoint |
+| `bitrise-devenv://guides/device-sessions/android` | Android emulator specifics: adb, `uiautomator dump`, input, install |
+
+The guides mirror the RDE backend's device-session documentation (the source of truth) and are updated alongside it.
+
 ## Usage Notes
 
 ### Sessions & Templates
+
+- **Device sessions**: Pass `device_spec` (`{"platform": "ios"|"android", …}`) to `bitrise_devenv_create` to boot a virtual device with the session — stack/machine type/cluster then default to the platform's known-good pair, and `auto_terminate_minutes` defaults to 240. A `running` session is **not** a ready device: poll `bitrise_devenv_get` until `device.state` is `PREVIEW_DEVICE_STATE_READY`. Read the `bitrise-devenv://guides/device-sessions` resource before driving the device
 
 - **Template-based or template-less**: Sessions can be created from a template that defines the stack, startup scripts, template variables, and session inputs, or without a template by supplying a stack and machine type directly (a base environment with no warmup/startup scripts)
 - **Session inputs**: When creating a session, provide values for session inputs (either direct values or references to saved inputs for secrets)

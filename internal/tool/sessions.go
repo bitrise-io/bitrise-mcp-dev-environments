@@ -209,6 +209,9 @@ Rules:
 			}),
 			requiredProperties("url"),
 		),
+		mcp.WithBoolean("no_device",
+			mcp.Description("Skip the template's declared device (its Android emulator) for this session so it boots with no device. Only meaningful with template_id on a template that declares one; mutually exclusive with device_spec."),
+		),
 		mcp.WithObject("labels",
 			mcp.Description(`Optional key/value string labels to attach to the session, e.g. {"team": "mobile", "branch": "main"}. At most 32 labels; keys are 1-63 characters of [a-zA-Z0-9._/-] starting and ending alphanumeric; values are 1-255 bytes of [a-zA-Z0-9._/:+-] with no positional rules (timestamps with offsets, branch names, paths, and semver all fit; spaces, '@', '=', newlines, and non-ASCII are rejected). The "bitrise.io/" key prefix is reserved for system-owned labels and rejected. Labels are returned on session reads and filterable in bitrise_devenv_list via label_selectors.`),
 			mcp.AdditionalProperties(map[string]any{"type": "string"}),
@@ -220,6 +223,7 @@ Rules:
 		machineType := request.GetString("machine_type", "")
 		deviceSpec, hasDevice := request.GetArguments()["device_spec"]
 		artifact, hasArtifact := request.GetArguments()["artifact"]
+		noDevice, hasNoDevice := request.GetArguments()["no_device"]
 
 		// Without a template the session is built directly from a stack and
 		// machine type, so both must be supplied — unless a device_spec is
@@ -230,6 +234,9 @@ Rules:
 		}
 		if hasArtifact && !hasDevice {
 			return mcp.NewToolResultError("artifact requires device_spec — there is no device to install it on"), nil
+		}
+		if hasNoDevice && hasDevice {
+			return mcp.NewToolResultError("no_device and device_spec are mutually exclusive — no_device skips the template's declared device, device_spec boots one"), nil
 		}
 		// The nested "required" lists above are advisory to the client; check
 		// the two fields the backend cannot default before spending a round
@@ -288,6 +295,9 @@ Rules:
 		}
 		if hasArtifact {
 			body["artifact"] = artifact
+		}
+		if hasNoDevice {
+			body["no_device"] = noDevice
 		}
 
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{

@@ -71,7 +71,7 @@ The server runs over **stdio** (above) for local use. It can also run over **HTT
 |------|-------------|
 | `bitrise_devenv_list` | List sessions with their status, name, labels, owner, and template info; filterable server-side by `key=value` label selectors, and scopeable to your own sessions (default) or workspace-owned sessions |
 | `bitrise_devenv_get` | Get details of a specific session including status, machine info, and SSH/VNC credentials |
-| `bitrise_devenv_create` | Create a new session, either from a template (with template ID, session inputs, and feature flags) or without one by supplying a stack and machine type directly; optionally boot a virtual device with it (`device_spec`: iOS simulator / Android emulator, optional `artifact` to pre-install) and attach key/value labels |
+| `bitrise_devenv_create` | Create a new session, either from a template (with template ID, session inputs, and feature flags) or without one by supplying a stack and machine type directly; optionally boot a virtual device with it (`device_spec`: iOS simulator / Android emulator, optional `artifact` to pre-install; `no_device` skips a template's declared emulator) and attach key/value labels |
 | `bitrise_devenv_update` | Update a session's name, description, or labels |
 | `bitrise_devenv_restore` | Restore a terminated (or failed/drained) session |
 | `bitrise_devenv_terminate` | Terminate a running session but keep it for a later restore (stops the VM, preserves its disk; the session stays listed as terminated) |

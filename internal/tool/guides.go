@@ -54,7 +54,7 @@ var guides = []guide{
 	{
 		uri:         GuideURIDeviceSessions,
 		name:        "Device sessions — agent guide",
-		description: "How to create an RDE session that boots an iOS simulator or Android emulator (bitrise_devenv_create with device_spec), wait for the device to be READY, connect (SSH tunnel or bitrise_devenv_execute), drive it efficiently (accessibility tree first, then input), let a human watch (viewer_url), and what never to do. Read this before driving a device session.",
+		description: "How to create an RDE session that boots an iOS simulator or Android emulator (bitrise_devenv_create with device_spec), wait for the device to be READY, connect (SSH tunnel or bitrise_devenv_execute), drive it efficiently (accessibility tree first, then input), let a human watch from the session page in the RDE web UI, and what never to do. Read this before driving a device session.",
 		body:        guideDeviceSessions,
 	},
 	{

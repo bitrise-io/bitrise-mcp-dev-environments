@@ -147,7 +147,7 @@ agent reads on demand — they cost no context until requested):
 
 | URI | Description |
 |-----|-------------|
-| `bitrise-devenv://guides/device-sessions` | Device sessions: create a session that boots an iOS simulator / Android emulator (`bitrise_devenv_create` with `device_spec`), wait for `device.state` READY, connect, drive the device (accessibility tree first), let a human watch (`device.viewer_url`), do-nots and recovery |
+| `bitrise-devenv://guides/device-sessions` | Device sessions: create a session that boots an iOS simulator / Android emulator (`bitrise_devenv_create` with `device_spec`), wait for `device.state` READY, connect, drive the device (accessibility tree first), let a human watch from the session page in the RDE web UI, do-nots and recovery |
 | `bitrise-devenv://guides/device-sessions/ios` | iOS simulator specifics: `xcrun simctl`, serve-sim CLI and `/ax` accessibility endpoint |
 | `bitrise-devenv://guides/device-sessions/android` | Android emulator specifics: adb, `uiautomator dump`, input, install |
 

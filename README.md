@@ -71,7 +71,7 @@ The server runs over **stdio** (above) for local use. It can also run over **HTT
 |------|-------------|
 | `bitrise_devenv_list` | List sessions with their status, name, labels, owner, and template info; filterable server-side by `key=value` label selectors, and scopeable to your own sessions (default) or workspace-owned sessions |
 | `bitrise_devenv_get` | Get details of a specific session including status, machine info, and SSH/VNC credentials |
-| `bitrise_devenv_create` | Create a new session, either from a template (with template ID, session inputs, and feature flags) or without one by supplying a stack and machine type directly; optionally boot a virtual device with it (`device_spec`: iOS simulator / Android emulator, optional `artifact` to pre-install; `no_device` skips a template's declared emulator) and attach key/value labels |
+| `bitrise_devenv_create` | Create a new session, either from a template (with template ID, session inputs, and feature flags) or without one by supplying a stack and machine type directly; optionally boot a virtual device with it (`device_spec`: iOS simulator / Android emulator, optional `artifact` to pre-install) and attach key/value labels |
 | `bitrise_devenv_update` | Update a session's name, description, or labels |
 | `bitrise_devenv_restore` | Restore a terminated (or failed/drained) session |
 | `bitrise_devenv_terminate` | Terminate a running session but keep it for a later restore (stops the VM, preserves its disk; the session stays listed as terminated) |
@@ -157,7 +157,7 @@ The guides mirror the RDE backend's device-session documentation (the source of 
 
 ### Sessions & Templates
 
-- **Device sessions**: Pass `device_spec` (`{"platform": "ios"|"android", …}`) to `bitrise_devenv_create` to boot a virtual device with the session — stack/machine type/cluster then default to the platform's known-good pair, and `auto_terminate_minutes` defaults to 240. A `running` session is **not** a ready device: poll `bitrise_devenv_get` until `device.state` is `PREVIEW_DEVICE_STATE_READY`. Read the `bitrise-devenv://guides/device-sessions` resource before driving the device
+- **Device sessions**: Pass `device_spec` (`{"platform": "ios"|"android", …}`) to `bitrise_devenv_create` to boot a virtual device with the session — stack/machine type/cluster then default to the platform's known-good pair on a template-less session. A `running` session is **not** a ready device: poll `bitrise_devenv_get` until `device.state` is `PREVIEW_DEVICE_STATE_READY`. Read the `bitrise-devenv://guides/device-sessions` resource before driving the device
 
 - **Template-based or template-less**: Sessions can be created from a template that defines the stack, startup scripts, template variables, and session inputs, or without a template by supplying a stack and machine type directly (a base environment with no warmup/startup scripts)
 - **Session inputs**: When creating a session, provide values for session inputs (either direct values or references to saved inputs for secrets)

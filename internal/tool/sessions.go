@@ -79,7 +79,7 @@ Also includes:
 - agent_session_status: current state of the AI agent running in the session (working, waiting_for_input, idle, or unspecified). Reset on terminate/restore.
 - agent_session_status_updated_at: timestamp when agent_session_status was last changed
 - labels: key/value metadata attached to the session (set at creation or via bitrise_devenv_update; filterable in bitrise_devenv_list via label_selectors)
-- device (only on sessions created with a device_spec): the virtual device and its readiness. device.state is VM-asserted — PREVIEW_DEVICE_STATE_BOOTING while the VM runs but the device is not proven, PREVIEW_DEVICE_STATE_READY once the device is booted and streaming (start working), PREVIEW_DEVICE_STATE_FAILED with device_notes when this boot gave up. device.install_status / install_reason track the optional app install. device.viewer_url is a shareable watch-mode link to the same viewer page a preview link opens — hand it to a human who wants to see what you are doing (valid up to 24h, re-minted on every read). template_snapshot.service_ports lists the device ports to tunnel (adb 5555→15555, simulator-web-view 3200, emulator-web-view 8000). Full know-how: resource bitrise-devenv://guides/device-sessions.
+- device (on sessions created with a device_spec): the virtual device and its readiness. device.state is VM-asserted — PREVIEW_DEVICE_STATE_BOOTING while the VM runs but the device is not proven, PREVIEW_DEVICE_STATE_READY once the device is booted and streaming (start working), PREVIEW_DEVICE_STATE_FAILED with device_notes when this boot gave up. Always read device.state together with the session status: PREVIEW_DEVICE_STATE_UNSPECIFIED with status pending/starting means the VM is not up yet (wait); UNSPECIFIED with a terminal status (terminated, terminating, draining, drained, failed) means the device is gone with the VM — restore the session or create a new one, do not keep polling. device.install_status / install_reason track the optional app install. device.viewer_url is an attach-only link to the same viewer page a preview link opens: it attaches to this exact session, never creates one and offers no delete — but anyone holding it can view AND touch the device, so share it deliberately. It is minted by bitrise_devenv_get, bitrise_devenv_create and bitrise_devenv_restore (valid up to 24h, re-minted on every such read); bitrise_devenv_list returns device without it. template_snapshot.service_ports lists the device ports to tunnel (adb 5555→15555, simulator-web-view 3200, emulator-web-view 8000). Full know-how: resource bitrise-devenv://guides/device-sessions.
 
 For sessions created without a template, template_id is empty and the snapshot is minimal: only stack_id and machine_type are populated, has_warmup_script/has_startup_script are false, and there is no template_name, session_inputs, feature_flags, or workspace_links. template_outdated is always false for such sessions.
 
@@ -130,7 +130,7 @@ B) Without a template (template_id omitted):
 Supply stack_id and machine_type directly to get a base environment with no warmup/startup scripts and no template configuration (no session inputs, feature flags, or workspace links). Use bitrise_devenv_list_stacks and bitrise_devenv_list_machine_types to discover valid values. This is the quickest way to spin up an environment for a repo when no template is needed.
 
 C) With a virtual device (device_spec set, with or without a template):
-Boots an iOS simulator (platform "ios", macOS stack) or Android emulator (platform "android", Linux stack) alongside the session and streams it — the same device a Bitrise device preview link would give a PR reviewer, but on YOUR session, ready for adb / xcrun simctl / serve-sim. With device_spec you may omit stack_id, machine_type and cluster: the deployment's known-good per-platform defaults apply. Optionally pass artifact to pre-install an app build. auto_terminate_minutes then defaults to 240 (4 hours), not 5 days — delete the session when done.
+Boots an iOS simulator (platform "ios", macOS stack) or Android emulator (platform "android", Linux stack) alongside the session and streams it — the same device a Bitrise device preview link would give a PR reviewer, but on YOUR session, ready for adb / xcrun simctl / serve-sim. On a template-less session you may omit stack_id and machine_type (both or neither) and cluster: the deployment's known-good per-platform defaults apply. With a template, the template's stack and machine type are used and must fit the platform. Optionally pass artifact to pre-install an app build. Delete the session when done.
 IMPORTANT: "running" is not "device ready". Poll bitrise_devenv_get until session.device.state is PREVIEW_DEVICE_STATE_READY (and install_status is PREVIEW_INSTALL_STATUS_OK if you passed an artifact) before touching the device, and READ THE RESOURCE bitrise-devenv://guides/device-sessions first — it covers connecting, the accessibility tree, input, screenshots, letting a human watch (device.viewer_url), and what never to do.
 
 The session will start provisioning immediately after creation.`),
@@ -209,9 +209,6 @@ Rules:
 			}),
 			requiredProperties("url"),
 		),
-		mcp.WithBoolean("no_device",
-			mcp.Description("Skip the template's declared device (its Android emulator) for this session so it boots with no device. Only meaningful with template_id on a template that declares one; mutually exclusive with device_spec."),
-		),
 		mcp.WithObject("labels",
 			mcp.Description(`Optional key/value string labels to attach to the session, e.g. {"team": "mobile", "branch": "main"}. At most 32 labels; keys are 1-63 characters of [a-zA-Z0-9._/-] starting and ending alphanumeric; values are 1-255 bytes of [a-zA-Z0-9._/:+-] with no positional rules (timestamps with offsets, branch names, paths, and semver all fit; spaces, '@', '=', newlines, and non-ASCII are rejected). The "bitrise.io/" key prefix is reserved for system-owned labels and rejected. Labels are returned on session reads and filterable in bitrise_devenv_list via label_selectors.`),
 			mcp.AdditionalProperties(map[string]any{"type": "string"}),
@@ -223,7 +220,6 @@ Rules:
 		machineType := request.GetString("machine_type", "")
 		deviceSpec, hasDevice := request.GetArguments()["device_spec"]
 		artifact, hasArtifact := request.GetArguments()["artifact"]
-		noDevice, hasNoDevice := request.GetArguments()["no_device"]
 
 		// Without a template the session is built directly from a stack and
 		// machine type, so both must be supplied — unless a device_spec is
@@ -234,11 +230,6 @@ Rules:
 		}
 		if hasArtifact && !hasDevice {
 			return mcp.NewToolResultError("artifact requires device_spec — there is no device to install it on"), nil
-		}
-		// Same rule as the backend: only a TRUE no_device conflicts with a
-		// device_spec (an explicit false is a no-op, not an opt-out).
-		if noDeviceTrue, _ := noDevice.(bool); hasNoDevice && noDeviceTrue && hasDevice {
-			return mcp.NewToolResultError("no_device and device_spec are mutually exclusive — no_device skips the template's declared device, device_spec boots one"), nil
 		}
 		// The nested "required" lists above are advisory to the client; check
 		// the two fields the backend cannot default before spending a round
@@ -297,9 +288,6 @@ Rules:
 		}
 		if hasArtifact {
 			body["artifact"] = artifact
-		}
-		if hasNoDevice {
-			body["no_device"] = noDevice
 		}
 
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{

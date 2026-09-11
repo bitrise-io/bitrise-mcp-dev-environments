@@ -131,7 +131,7 @@ var CreateTemplate = devenv.Tool{
 			}),
 		),
 		mcp.WithObject("device_spec",
-			deviceSpecSchema(`Optional virtual device declared on the template: sessions created from this template boot this device unless the create request overrides it (its own device_spec merges per field on the same platform, replaces wholesale on the other) or skips it (no_device=true). `+deviceSpecFieldsDoc+` The template's stack_id and machine_type must fit the platform.`)...,
+			deviceSpecSchema(`Optional virtual device declared on the template: sessions created from this template boot this device unless the create request overrides it (a device_spec without a platform tweaks it per field; one with a platform replaces it whole) or skips it (no_device=true). `+deviceSpecFieldsDoc+` The template's stack_id and machine_type must fit the platform.`)...,
 		),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {

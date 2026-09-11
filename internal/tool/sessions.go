@@ -191,7 +191,7 @@ Rules:
 			mcp.Properties(map[string]any{
 				"platform":     map[string]any{"type": "string", "enum": []string{"ios", "android"}, "description": `"ios" or "android"`},
 				"device_model": map[string]any{"type": "string", "description": "simctl device type (iOS) or emulator device profile (Android); empty = platform default"},
-				"os_version":   map[string]any{"type": "string", "description": "iOS only: version hint like \"18.2\" or a simctl runtime id; empty = newest installed"},
+				"os_version":   map[string]any{"type": "string", "description": "iOS only: an iOS version such as \"18.2\" or a simctl runtime id — anything else (and any value on Android) is rejected; empty = newest installed"},
 				"system_image": map[string]any{"type": "string", "description": "Android only: sdkmanager system image package; empty = platform default"},
 				"ram_mb":       map[string]any{"type": "integer", "description": "Android only: emulator RAM in MB; 0 = host-derived"},
 				"cores":        map[string]any{"type": "integer", "description": "Android only: emulator CPU cores; 0 = host-derived"},

@@ -129,8 +129,9 @@ The session inherits the template's stack, machine type, scripts, feature flags,
 B) Without a template (template_id omitted):
 Supply stack_id and machine_type directly to get a base environment with no warmup/startup scripts and no template configuration (no session inputs, feature flags, or workspace links). Use bitrise_devenv_list_stacks and bitrise_devenv_list_machine_types to discover valid values. This is the quickest way to spin up an environment for a repo when no template is needed.
 
-C) With a virtual device (device_spec set, with or without a template):
-Boots an iOS simulator (platform "ios", macOS stack) or Android emulator (platform "android", a dockerless Android Linux stack such as ubuntu-resolute-26.04-bitrise-2026-android — the Docker-based linux-docker-* stacks keep the Android SDK inside a container and are rejected) alongside the session and streams it — the same device a Bitrise device preview link would give a PR reviewer, but on YOUR session, ready for adb / xcrun simctl / serve-sim. On a template-less session prefer omitting stack_id and machine_type (both or neither): the deployment's known-good per-platform defaults apply. cluster is never needed with device_spec — the backend picks one. With a template, the template's stack and machine type are used and must fit the platform. Optionally pass artifact to pre-install an app build. Delete the session when done.
+C) With a virtual device (device_spec set, or a template that declares one):
+Boots an iOS simulator (platform "ios", macOS stack) or Android emulator (platform "android", a dockerless Android Linux stack such as ubuntu-resolute-26.04-bitrise-2026-android — the Docker-based linux-docker-* stacks keep the Android SDK inside a container and are rejected) alongside the session and streams it — the same device a Bitrise device preview link would give a PR reviewer, but on YOUR session, ready for adb / xcrun simctl / serve-sim. On a template-less session prefer omitting stack_id and machine_type (both or neither): the deployment's known-good per-platform defaults apply. cluster is never needed with a device — the backend picks one. With a template, the template's stack and machine type are used and must fit the platform. Optionally pass artifact to pre-install an app build. Delete the session when done.
+Templates can declare a device themselves (device_spec on bitrise_devenv_get_template). Creating from such a template: omit device_spec to boot the template's device exactly as declared; pass device_spec to override it — with the same platform (or platform omitted) the two merge per field, so empty/zero request fields inherit the template's values and only what you set changes; with the other platform your device_spec replaces the template's wholesale; pass no_device=true to skip the device entirely (no_device and device_spec together are rejected; no_device is ignored when the template declares no device).
 IMPORTANT: "running" is not "device ready". Poll bitrise_devenv_get until session.device.state is PREVIEW_DEVICE_STATE_READY (and install_status is PREVIEW_INSTALL_STATUS_OK if you passed an artifact) before touching the device, and READ THE GUIDE first — it covers connecting, the accessibility tree, input, screenshots, letting a human watch, and what never to do: if your client can read MCP resources, read bitrise-devenv://guides/device-sessions (then .../ios or .../android for the platform you boot); if it cannot, call bitrise_devenv_device_guide, which returns the same text. A human watches and drives the device from the session's page in the RDE web UI ("Open device view" in the Device row), which requires being logged in with access to the session.
 
 The session will start provisioning immediately after creation.`),
@@ -187,17 +188,10 @@ Rules:
 			mcp.Description("Minutes before auto-termination. Default: 7200 (5 days). Set to 0 to disable."),
 		),
 		mcp.WithObject("device_spec",
-			mcp.Description(`Optional virtual device to boot with the session (see C above). platform is required: "ios" (simulator; macOS stack) or "android" (emulator; Linux stack). Everything else is optional: device_model (simctl device type like "iPhone 16" / emulator device profile like "pixel_7"; empty = platform default), os_version (iOS only: "18.2" or a simctl runtime id; empty = newest installed), system_image (Android only: sdkmanager package like "system-images;android-34;google_apis;x86_64"), ram_mb / cores (Android only: explicit emulator sizing, 0 = host-derived), cold_boot (Android only). If you also pass stack_id/machine_type they must fit the platform (OS family, >= 4 vCPU / 6-8 GB) or the request is rejected with the reason — prefer omitting them.`),
-			mcp.Properties(map[string]any{
-				"platform":     map[string]any{"type": "string", "enum": []string{"ios", "android"}, "description": `"ios" or "android"`},
-				"device_model": map[string]any{"type": "string", "description": "simctl device type (iOS) or emulator device profile (Android); empty = platform default"},
-				"os_version":   map[string]any{"type": "string", "description": "iOS only: an iOS version such as \"18.2\" or a simctl runtime id — anything else (and any value on Android) is rejected; empty = newest installed"},
-				"system_image": map[string]any{"type": "string", "description": "Android only: sdkmanager system image package; empty = platform default"},
-				"ram_mb":       map[string]any{"type": "integer", "description": "Android only: emulator RAM in MB; 0 = host-derived"},
-				"cores":        map[string]any{"type": "integer", "description": "Android only: emulator CPU cores; 0 = host-derived"},
-				"cold_boot":    map[string]any{"type": "boolean", "description": "Android only: full cold boot every start (no quickboot)"},
-			}),
-			requiredProperties("platform"),
+			deviceSpecSchema(`Optional virtual device to boot with the session (see C above). `+deviceSpecFieldsDoc+` If you also pass stack_id/machine_type they must fit the platform (OS family, >= 4 vCPU / 6-8 GB) or the request is rejected with the reason — prefer omitting them. With a template that declares its own device_spec, this is an override: same platform (or platform omitted) merges per field, the other platform replaces the template's device wholesale.`)...,
+		),
+		mcp.WithBoolean("no_device",
+			mcp.Description("Create the session WITHOUT the device its template declares (see C above). Only meaningful with a template that has a device_spec; ignored otherwise. Cannot be combined with device_spec."),
 		),
 		mcp.WithObject("artifact",
 			mcp.Description(`Optional app build to install on the device once it is READY (requires device_spec). url is an absolute http(s) URL the VM downloads directly (a signed URL is fine; it is never returned) — iOS: a zipped simulator .app, Android: an .apk. app_name / build_number / commit_sha are display metadata (shown in the viewer). Progress: session.device.install_status; a FAILED install (install_reason says why) leaves the device usable — install the app yourself.`),
@@ -220,6 +214,7 @@ Rules:
 		machineType := request.GetString("machine_type", "")
 		deviceSpec, hasDevice := request.GetArguments()["device_spec"]
 		artifact, hasArtifact := request.GetArguments()["artifact"]
+		noDevice := request.GetBool("no_device", false)
 
 		// Without a template the session is built directly from a stack and
 		// machine type, so both must be supplied — unless a device_spec is
@@ -228,8 +223,15 @@ Rules:
 		if templateID == "" && !hasDevice && (stackID == "" || machineType == "") {
 			return mcp.NewToolResultError("either template_id, device_spec, or both stack_id and machine_type (to create a session without a template), must be provided"), nil
 		}
-		if hasArtifact && !hasDevice {
-			return mcp.NewToolResultError("artifact requires device_spec — there is no device to install it on"), nil
+		if hasDevice && noDevice {
+			return mcp.NewToolResultError("no_device cannot be combined with device_spec — either boot a device or skip it"), nil
+		}
+		// An artifact needs a device to land on: either a device_spec on the
+		// request, or a template-declared device that no_device does not
+		// suppress (whether the template really declares one is the
+		// backend's call).
+		if hasArtifact && !hasDevice && (templateID == "" || noDevice) {
+			return mcp.NewToolResultError("artifact requires a device — pass device_spec, or create from a template that declares one without no_device"), nil
 		}
 		// The nested "required" lists above are advisory to the client; check
 		// the two fields the backend cannot default before spending a round
@@ -285,6 +287,9 @@ Rules:
 		}
 		if hasDevice {
 			body["device_spec"] = deviceSpec
+		}
+		if noDevice {
+			body["no_device"] = true
 		}
 		if hasArtifact {
 			body["artifact"] = artifact
@@ -476,6 +481,7 @@ Returns both the snapshot (template config at session creation time) and the cur
 - feature_flags (name, description, enabled)
 - session_inputs (key, description, required, default_value)
 - template_variables (key, is_secret — values never exposed)
+- device_spec (the virtual device the template boots with its sessions; absent when it declares none)
 - changed_variable_keys: list of variable keys whose values differ (computed server-side)
 
 Use this when template_outdated is true on a session to see exactly what changed.
@@ -554,4 +560,29 @@ func requireNonEmptyString(arg any, param, key string) error {
 		return fmt.Errorf("%s.%s is required and must be a non-empty string", param, key)
 	}
 	return nil
+}
+
+// deviceSpecFieldsDoc explains the fields of a device_spec object. It is
+// shared by every tool that accepts one so the field semantics are described
+// identically on sessions and templates.
+const deviceSpecFieldsDoc = `platform is required: "ios" (simulator; macOS stack) or "android" (emulator; Linux stack). Everything else is optional: device_model (simctl device type like "iPhone 16" / emulator device profile like "pixel_7"; empty = platform default), os_version (iOS only: "18.2" or a simctl runtime id; empty = newest installed), system_image (Android only: sdkmanager package like "system-images;android-34;google_apis;x86_64"), ram_mb / cores (Android only: explicit emulator sizing, 0 = host-derived), cold_boot (Android only).`
+
+// deviceSpecSchema returns the property options of a device_spec object
+// parameter — the same shape wherever a virtual device is described
+// (bitrise_devenv_create, bitrise_devenv_create_template,
+// bitrise_devenv_update_template) — under the given tool-specific description.
+func deviceSpecSchema(description string) []mcp.PropertyOption {
+	return []mcp.PropertyOption{
+		mcp.Description(description),
+		mcp.Properties(map[string]any{
+			"platform":     map[string]any{"type": "string", "enum": []string{"ios", "android"}, "description": `"ios" or "android"`},
+			"device_model": map[string]any{"type": "string", "description": "simctl device type (iOS) or emulator device profile (Android); empty = platform default"},
+			"os_version":   map[string]any{"type": "string", "description": "iOS only: an iOS version such as \"18.2\" or a simctl runtime id — anything else (and any value on Android) is rejected; empty = newest installed"},
+			"system_image": map[string]any{"type": "string", "description": "Android only: sdkmanager system image package; empty = platform default"},
+			"ram_mb":       map[string]any{"type": "integer", "description": "Android only: emulator RAM in MB; 0 = host-derived"},
+			"cores":        map[string]any{"type": "integer", "description": "Android only: emulator CPU cores; 0 = host-derived"},
+			"cold_boot":    map[string]any{"type": "boolean", "description": "Android only: full cold boot every start (no quickboot)"},
+		}),
+		requiredProperties("platform"),
+	}
 }

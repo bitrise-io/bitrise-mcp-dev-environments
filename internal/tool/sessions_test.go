@@ -61,7 +61,9 @@ func TestCreateSessionRejectsIncompleteNestedObjects(t *testing.T) {
 		{"device_spec not an object", map[string]any{"device_spec": "ios"}, "device_spec must be an object"},
 		{"artifact missing url", map[string]any{"device_spec": map[string]any{"platform": "ios"}, "artifact": map[string]any{"app_name": "x"}}, "artifact.url is required"},
 		{"artifact empty url", map[string]any{"device_spec": map[string]any{"platform": "ios"}, "artifact": map[string]any{"url": ""}}, "artifact.url is required"},
-		{"artifact without device_spec", map[string]any{"stack_id": "s", "machine_type": "m", "artifact": map[string]any{"url": "https://x"}}, "artifact requires device_spec"},
+		{"artifact without device_spec", map[string]any{"stack_id": "s", "machine_type": "m", "artifact": map[string]any{"url": "https://x"}}, "artifact requires a device"},
+		{"artifact with template but no_device", map[string]any{"template_id": testTemplateID, "no_device": true, "artifact": map[string]any{"url": "https://x"}}, "artifact requires a device"},
+		{"no_device with device_spec", map[string]any{"template_id": testTemplateID, "no_device": true, "device_spec": map[string]any{"platform": "ios"}}, "no_device cannot be combined with device_spec"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -137,4 +139,53 @@ func TestCreateSessionForwardsDeviceSpecAndArtifact(t *testing.T) {
 			t.Errorf("%s = %v present in body, want absent", key, v)
 		}
 	}
+}
+
+// Creating from a template that declares a device: no_device is forwarded
+// only when set, and an artifact is allowed without a device_spec because the
+// template's device is the one it lands on.
+func TestCreateSessionFromTemplateDeviceOptions(t *testing.T) {
+	const path = "/v1/workspaces/ws/sessions"
+
+	t.Run("no_device", func(t *testing.T) {
+		ctx, got := captureBody(t, http.MethodPost, path)
+		callOK(t, CreateSession, ctx, map[string]any{"name": "plain", "template_id": testTemplateID, "no_device": true})
+		if *got == nil {
+			t.Fatalf("backend was never called")
+		}
+		if (*got)["no_device"] != true {
+			t.Errorf("no_device = %v, want true", (*got)["no_device"])
+		}
+		if v, present := (*got)["device_spec"]; present {
+			t.Errorf("device_spec = %v present in body, want absent", v)
+		}
+	})
+	t.Run("no_device false stays off the wire", func(t *testing.T) {
+		ctx, got := captureBody(t, http.MethodPost, path)
+		callOK(t, CreateSession, ctx, map[string]any{"name": "inherit", "template_id": testTemplateID, "no_device": false})
+		if v, present := (*got)["no_device"]; present {
+			t.Errorf("no_device = %v present in body, want absent", v)
+		}
+	})
+	t.Run("artifact rides the template's device", func(t *testing.T) {
+		ctx, got := captureBody(t, http.MethodPost, path)
+		artifact := map[string]any{"url": "https://example.com/app.apk"}
+		callOK(t, CreateSession, ctx, map[string]any{"name": "with build", "template_id": testTemplateID, "artifact": artifact})
+		if !reflect.DeepEqual((*got)["artifact"], artifact) {
+			t.Errorf("artifact = %v, want %v", (*got)["artifact"], artifact)
+		}
+		for _, key := range []string{"device_spec", "no_device"} {
+			if v, present := (*got)[key]; present {
+				t.Errorf("%s = %v present in body, want absent", key, v)
+			}
+		}
+	})
+	t.Run("device_spec override is forwarded as given", func(t *testing.T) {
+		ctx, got := captureBody(t, http.MethodPost, path)
+		override := map[string]any{"platform": "android", "device_model": "pixel_8"}
+		callOK(t, CreateSession, ctx, map[string]any{"name": "override", "template_id": testTemplateID, "device_spec": override})
+		if !reflect.DeepEqual((*got)["device_spec"], override) {
+			t.Errorf("device_spec = %v, want %v", (*got)["device_spec"], override)
+		}
+	})
 }

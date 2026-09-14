@@ -80,8 +80,10 @@ func callErr(t *testing.T, tool devenv.Tool, args map[string]any) string {
 }
 
 // The device_spec object is declared on every tool that accepts one through
-// the same helper, so its shape (and the advisory platform requirement) must
-// match bitrise_devenv_create's.
+// the same helper, so its properties must match bitrise_devenv_create's. The
+// advisory platform requirement differs on purpose: a template's device is a
+// complete device (platform required), a session's device_spec may omit the
+// platform to tweak the template's device per field.
 func TestTemplateToolsShareDeviceSpecSchema(t *testing.T) {
 	type prop struct {
 		Type       string         `json:"type"`
@@ -106,13 +108,16 @@ func TestTemplateToolsShareDeviceSpecSchema(t *testing.T) {
 		return p
 	}
 	want := schemaOf(CreateSession)
-	if want.Type != "object" || !reflect.DeepEqual(want.Required, []string{"platform"}) {
-		t.Fatalf("bitrise_devenv_create device_spec: type %q required %v", want.Type, want.Required)
+	if want.Type != "object" || want.Required != nil {
+		t.Fatalf("bitrise_devenv_create device_spec: type %q required %v (a session's platform must stay optional for template overrides)", want.Type, want.Required)
 	}
 	for _, tool := range []devenv.Tool{CreateTemplate, UpdateTemplate} {
 		got := schemaOf(tool)
-		if got.Type != want.Type || !reflect.DeepEqual(got.Required, want.Required) || !reflect.DeepEqual(got.Properties, want.Properties) {
+		if got.Type != want.Type || !reflect.DeepEqual(got.Properties, want.Properties) {
 			t.Errorf("%s: device_spec schema differs from bitrise_devenv_create's", tool.Definition.Name)
+		}
+		if !reflect.DeepEqual(got.Required, []string{"platform"}) {
+			t.Errorf("%s: device_spec required %v, want [platform] — a template's device is a complete device", tool.Definition.Name, got.Required)
 		}
 	}
 }

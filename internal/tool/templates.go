@@ -131,7 +131,7 @@ var CreateTemplate = devenv.Tool{
 			}),
 		),
 		mcp.WithObject("device_spec",
-			deviceSpecSchema(`Optional virtual device declared on the template: sessions created from this template boot this device unless the create request overrides it (a device_spec without a platform tweaks it per field; one with a platform replaces it whole) or skips it (no_device=true). `+deviceSpecFieldsDoc+` The template's stack_id and machine_type must fit the platform.`)...,
+			deviceSpecSchema(`Optional virtual device declared on the template: sessions created from this template boot this device unless the create request overrides it (a device_spec without a platform tweaks it per field; one with a platform replaces it whole) or skips it (no_device=true). `+deviceSpecFieldsDoc+` platform is required here. The template's stack_id and machine_type must fit the platform.`, "platform")...,
 		),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -232,7 +232,7 @@ var UpdateTemplate = devenv.Tool{
 			}),
 		),
 		mcp.WithObject("device_spec",
-			deviceSpecSchema(`Replace the template's declared virtual device with this one (the whole object is replaced, so include every field you want kept). Omit to leave the device unchanged; use clear_device_spec to remove it. `+deviceSpecFieldsDoc+` The template's stack_id and machine_type (after this update) must fit the platform.`)...,
+			deviceSpecSchema(`Replace the template's declared virtual device with this one (the whole object is replaced, so include every field you want kept). Omit to leave the device unchanged; use clear_device_spec to remove it. `+deviceSpecFieldsDoc+` platform is required here. The template's stack_id and machine_type (after this update) must fit the platform.`, "platform")...,
 		),
 		mcp.WithBoolean("clear_device_spec",
 			mcp.Description("When true, remove the template's declared device so new sessions boot without one. Cannot be combined with device_spec."),

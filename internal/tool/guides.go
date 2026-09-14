@@ -18,10 +18,11 @@ import (
 // verbatim; the backend is the source of truth — keep these in sync with the
 // backend release this server targets rather than editing here.
 //
-// Resources rather than tool output: they cost no context until an agent asks
-// for them, and the create/get tool descriptions point at them by URI. Not
-// every MCP client can read resources, so DeviceGuide serves the very same
-// bodies as a tool — a fallback, sharing this slice so the two cannot drift.
+// Served both as resources (they cost no context until an agent asks for
+// them) and as the DeviceGuide tool, sharing this slice so the two cannot
+// drift. The tool is the door the create/get descriptions point at first: in
+// practice many MCP clients cannot read resources at all, and a pointer that
+// only works sometimes is not a pointer.
 
 //go:embed guides/device-sessions.md
 var guideDeviceSessions string
@@ -81,14 +82,14 @@ var guides = []guide{
 		key:         "device-sessions",
 		uri:         GuideURIDeviceSessions,
 		name:        "Device sessions — agent guide",
-		description: "How to create an RDE session that boots an iOS simulator or Android emulator (bitrise_devenv_create with device_spec), wait for the device to be READY, connect (SSH tunnel or bitrise_devenv_execute), drive it efficiently (accessibility tree first, then input), let a human watch from the session page in the RDE web UI, and what never to do. Read this before driving a device session.",
+		description: "How to create an RDE session that boots an iOS simulator or Android emulator (bitrise_devenv_create with device_spec), wait for the device to be READY (and what a FAILED device really means), connect (bitrise_devenv_execute or an SSH tunnel), drive it efficiently (accessibility tree first, then input), get files off the VM, let a human watch from the session page in the RDE web UI, and what never to do. Read this before creating or driving a device session.",
 		body:        guideDeviceSessions,
 	},
 	{
 		key:         "ios",
 		uri:         GuideURIIOS,
 		name:        "Device sessions — iOS simulator specifics",
-		description: "Driving the iOS simulator on a device session: simctl, serve-sim's CLI (tap/type/button/gesture) and its /ax accessibility JSON endpoint, screenshots, logs, and recovery.",
+		description: "Driving the iOS simulator on a device session: simctl, serve-sim's CLI (tap/type/button/gesture — run with TMPDIR=/tmp) and its /helper/<UDID>/ax accessibility JSON endpoint, screenshots, logs, and recovery.",
 		body:        guideIOS,
 	},
 	{
@@ -123,9 +124,9 @@ func (b *Belt) RegisterResources(s *server.MCPServer) {
 // tools-only client gets the same know-how, just paid for in context up front.
 var DeviceGuide = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_device_guide",
-		mcp.WithDescription(`Fallback for clients that cannot read MCP resources: returns the device-session agent guide as markdown — the exact same content as the resources bitrise-devenv://guides/device-sessions, .../ios and .../android. If your client supports MCP resources, read those instead (they cost no context until requested); use this tool only when the resources are not available to you.
+		mcp.WithDescription(`Returns the device-session agent guide as markdown. Read "device-sessions" BEFORE creating or driving a session that boots an iOS simulator / Android emulator (bitrise_devenv_create with device_spec, or a template that declares one), then "ios" or "android" for the platform you boot. It is the know-how the tool descriptions cannot hold: create rules, the readiness contract ("running" is not "ready"; what a FAILED device really means), connecting, the accessibility tree, input, screenshots, getting files off the VM, letting a human watch, recovery, and what never to do.
 
-Read "device-sessions" before creating or driving a session with a device_spec (readiness contract, connecting, accessibility tree, input, screenshots, letting a human watch, do-nots, recovery), then the platform guide for the device you boot.`),
+The same text is also served as the MCP resources bitrise-devenv://guides/device-sessions, .../ios and .../android for clients that read resources; this tool works everywhere.`),
 		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithString("guide",
 			mcp.Description(`Which guide to return: "device-sessions" (platform-independent, read first), "ios" (simulator specifics: simctl, serve-sim CLI, /ax accessibility endpoint) or "android" (emulator specifics: adb, uiautomator dump, input, install).`),

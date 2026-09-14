@@ -32,7 +32,7 @@ func TestCreateSessionNestedRequired(t *testing.T) {
 		t.Fatalf("unmarshal input schema: %v", err)
 	}
 	for name, want := range map[string][]string{
-		"device_spec": {"platform"},
+		"device_spec": nil, // platform is not required on the wire: without a template the handler checks it; with one, omitting it is the per-field override
 		"artifact":    {"url"},
 	} {
 		prop, ok := schema.Properties[name]
@@ -48,8 +48,8 @@ func TestCreateSessionNestedRequired(t *testing.T) {
 	}
 }
 
-// A device_spec without a platform or an artifact without a URL must be
-// rejected before any API call is made.
+// A template-less device_spec without a platform or an artifact without a URL
+// must be rejected before any API call is made.
 func TestCreateSessionRejectsIncompleteNestedObjects(t *testing.T) {
 	cases := []struct {
 		name string
@@ -178,6 +178,14 @@ func TestCreateSessionFromTemplateDeviceOptions(t *testing.T) {
 			if v, present := (*got)[key]; present {
 				t.Errorf("%s = %v present in body, want absent", key, v)
 			}
+		}
+	})
+	t.Run("platform-less device_spec is the per-field override and is forwarded", func(t *testing.T) {
+		ctx, got := captureBody(t, http.MethodPost, path)
+		tweak := map[string]any{"device_model": "iPhone 15"}
+		callOK(t, CreateSession, ctx, map[string]any{"name": "tweak", "template_id": testTemplateID, "device_spec": tweak})
+		if !reflect.DeepEqual((*got)["device_spec"], tweak) {
+			t.Errorf("device_spec = %v, want %v", (*got)["device_spec"], tweak)
 		}
 	})
 	t.Run("device_spec override is forwarded as given", func(t *testing.T) {

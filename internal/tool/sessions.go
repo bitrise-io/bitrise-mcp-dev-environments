@@ -23,7 +23,7 @@ Sessions created without a template have an empty template_id and a template_sna
 
 Use label_selectors to filter sessions server-side by their labels. Each selector is a "key=value" exact-match equality; multiple selectors are ANDed, so a session must match all of them. For example, label_selectors=["team=mobile", "branch=main"] returns only sessions carrying both labels, instead of listing everything and filtering client-side.
 
-To get the full template snapshot (session inputs, feature flags, workspace links, working directory, script flags), use bitrise_devenv_get on a specific session.
+To get the full template snapshot (session inputs, feature flags, workspace links, working directory, script flags), the service_ports of a device session and its SSH credentials, use bitrise_devenv_get on a specific session — the list view omits them.
 To check if a session's template has been updated, look at the template_outdated field on bitrise_devenv_get and use bitrise_devenv_compare_template for details.`),
 		mcp.WithArray("label_selectors",
 			mcp.Description(`Optional label filters of the form "key=value" (exact-match equality on one label). Multiple selectors are ANDed: only sessions matching every selector are returned. At most 8 selectors; duplicate keys are rejected (they can never match under AND); bare keys without "=" are invalid. System-owned "bitrise.io/"-prefixed keys may be used in selectors.`),
@@ -79,7 +79,7 @@ Also includes:
 - agent_session_status: current state of the AI agent running in the session (working, waiting_for_input, idle, or unspecified). Reset on terminate/restore.
 - agent_session_status_updated_at: timestamp when agent_session_status was last changed
 - labels: key/value metadata attached to the session (set at creation or via bitrise_devenv_update; filterable in bitrise_devenv_list via label_selectors)
-- device (on sessions created with a device_spec): the virtual device and its readiness. device.state is VM-asserted — PREVIEW_DEVICE_STATE_BOOTING while the VM runs but the device is not proven, PREVIEW_DEVICE_STATE_READY once the device is booted and streaming (start working), PREVIEW_DEVICE_STATE_FAILED with device_notes when this boot gave up. Always read device.state together with the session status: PREVIEW_DEVICE_STATE_UNSPECIFIED with status pending/starting means the VM is not up yet (wait); UNSPECIFIED with a terminal status (terminated, terminating, draining, drained, failed) means the device is gone with the VM — restore the session or create a new one, do not keep polling. device.install_status / install_reason track the optional app install. A human watches and drives the device from the session's page in the RDE web UI ("Open device view" in the Device row), which requires being logged in with access to the session. template_snapshot.service_ports lists the device ports to tunnel: device-web-view is the browser view on both platforms, forwarded to local 3200 (VM side: serve-sim 3200 on iOS, ws-scrcpy 8000 on Android); Android adds adb (VM 5555 → local 15555). Full know-how: the resource bitrise-devenv://guides/device-sessions, or — when your client cannot read MCP resources — the bitrise_devenv_device_guide tool, which returns the same text.
+- device (on sessions that boot a virtual device): the device and its readiness. device.state is VM-asserted — PREVIEW_DEVICE_STATE_BOOTING while the VM runs but the device is not proven (wait; touch nothing on the VM), PREVIEW_DEVICE_STATE_READY once the device is booted AND streaming (start working), PREVIEW_DEVICE_STATE_FAILED when this boot gave up — or only its stream did: device.device_notes says which, and a stream-only failure leaves the device fully drivable over adb / simctl. Always read device.state together with the session status: PREVIEW_DEVICE_STATE_UNSPECIFIED with status pending/starting means the VM is not up yet (wait); UNSPECIFIED with a terminal status (terminated, terminating, draining, drained, failed) means the device is gone with the VM — restore the session or create a new one, do not keep polling. device.install_status / install_reason track the optional app install. ssh_address (a ready-made "ssh user@host -p port" command), ssh_password, ssh_connection_open and template_snapshot.service_ports are on THIS call only (not on bitrise_devenv_list): device-web-view is the browser view on both platforms, forwarded to local 3200 (VM side: serve-sim 3200 on iOS, ws-scrcpy 8000 on Android); Android adds adb (VM 5555 → local 15555). A human watches and drives the device from the session's page in the RDE web UI ("Open device view" in the Device row). Full know-how: bitrise_devenv_device_guide (or the resource bitrise-devenv://guides/device-sessions — the same text).
 
 For sessions created without a template, template_id is empty and the snapshot is minimal: only stack_id and machine_type are populated, has_warmup_script/has_startup_script are false, and there is no template_name, session_inputs, feature_flags, or workspace_links. template_outdated is always false for such sessions.
 
@@ -118,7 +118,7 @@ By default, secret session input values are redacted from the snapshot; set incl
 // a stack + machine type (template-less).
 var CreateSession = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_create",
-		mcp.WithDescription(`Create a new devenv session. There are three ways to create one:
+		mcp.WithDescription(`Create a new devenv session. Booting an iOS simulator / Android emulator with it? Read the device guide FIRST: bitrise_devenv_device_guide with guide="device-sessions" (see C). There are three ways to create one:
 
 A) From a template (template_id set):
 1. List templates with bitrise_devenv_list_templates to find available templates and their session inputs
@@ -130,9 +130,10 @@ B) Without a template (template_id omitted):
 Supply stack_id and machine_type directly to get a base environment with no warmup/startup scripts and no template configuration (no session inputs, feature flags, or workspace links). Use bitrise_devenv_list_stacks and bitrise_devenv_list_machine_types to discover valid values. This is the quickest way to spin up an environment for a repo when no template is needed.
 
 C) With a virtual device (device_spec set, or a template that declares one):
-Boots an iOS simulator (platform "ios", macOS stack) or Android emulator (platform "android", a dockerless Android Linux stack such as ubuntu-resolute-26.04-bitrise-2026-android — the Docker-based linux-docker-* stacks keep the Android SDK inside a container and are rejected) alongside the session and streams it — the same device a Bitrise device preview link would give a PR reviewer, but on YOUR session, ready for adb / xcrun simctl / serve-sim. On a template-less session prefer omitting stack_id and machine_type (both or neither): the deployment's known-good per-platform defaults apply. cluster is never needed with a device — the backend picks one. With a template, the template's stack and machine type are used and must fit the platform. Optionally pass artifact to pre-install an app build. Delete the session when done.
-Templates can declare a device themselves (device_spec on bitrise_devenv_get_template). Creating from such a template: omit device_spec to boot the template's device exactly as declared; pass device_spec to override it — WITHOUT a platform it is a per-field tweak (empty/zero fields inherit the template's values, only what you set changes); WITH a platform it is the complete device to boot (the template's is ignored; empty fields are the platform defaults); pass no_device=true to skip the device entirely (no_device and device_spec together are rejected; no_device is ignored when the template declares no device).
-IMPORTANT: "running" is not "device ready". Poll bitrise_devenv_get until session.device.state is PREVIEW_DEVICE_STATE_READY (and install_status is PREVIEW_INSTALL_STATUS_OK if you passed an artifact) before touching the device, and READ THE GUIDE first — it covers connecting, the accessibility tree, input, screenshots, letting a human watch, and what never to do: if your client can read MCP resources, read bitrise-devenv://guides/device-sessions (then .../ios or .../android for the platform you boot); if it cannot, call bitrise_devenv_device_guide, which returns the same text. A human watches and drives the device from the session's page in the RDE web UI ("Open device view" in the Device row), which requires being logged in with access to the session.
+READ THE GUIDE FIRST — call bitrise_devenv_device_guide with guide="device-sessions", then "ios" or "android" for the platform you boot (clients that read MCP resources can read bitrise-devenv://guides/device-sessions instead; same text). It covers readiness, connecting, the accessibility tree, input, screenshots, letting a human watch, recovery, and what never to do.
+Boots an iOS simulator (platform "ios") or Android emulator (platform "android") alongside the session and streams it — ready for adb / xcrun simctl / serve-sim; a human can watch and drive it from the session's page in the RDE web UI ("Open device view"). Prefer OMITTING stack_id, machine_type and cluster: the deployment's known-good per-platform defaults apply (the guide says which stacks fit when you must name one; with a template, its stack and machine type are used and must fit). Optionally pass artifact to pre-install an app build. Delete the session when done.
+"running" is NOT "device ready": poll bitrise_devenv_get until session.device.state is PREVIEW_DEVICE_STATE_READY (and install_status is PREVIEW_INSTALL_STATUS_OK if you passed an artifact). While it is PREVIEW_DEVICE_STATE_BOOTING touch nothing on the VM — do not run recovery scripts, do not recreate. On PREVIEW_DEVICE_STATE_FAILED read device.device_notes: a stream-only failure leaves the device fully drivable over adb / simctl (guide §6).
+Templates can declare a device (device_spec on bitrise_devenv_get_template). Creating from one: omit device_spec to boot it as declared; pass a device_spec WITHOUT a platform to tweak it per field (empty fields inherit the template's); WITH a platform it is the complete device to boot (the template's is ignored); no_device=true skips the device (not combinable with device_spec; ignored when the template declares none).
 
 The session will start provisioning immediately after creation.`),
 		mcp.WithString("name",
@@ -188,7 +189,7 @@ Rules:
 			mcp.Description("Minutes before auto-termination. Default: 7200 (5 days). Set to 0 to disable."),
 		),
 		mcp.WithObject("device_spec",
-			deviceSpecSchema(`Optional virtual device to boot with the session (see C above). `+deviceSpecFieldsDoc+` If you also pass stack_id/machine_type they must fit the platform (OS family, >= 4 vCPU / 6-8 GB) or the request is rejected with the reason — prefer omitting them. With a template that declares its own device_spec, this is an override: omit platform to tweak the template's device per field, name a platform to replace it with this complete spec.`)...,
+			deviceSpecSchema(`Optional virtual device to boot with the session (see C above; read the device guide first). `+deviceSpecFieldsDoc+` platform is required unless the session is created from a template that declares a device — then omit it to tweak that device per field (only the fields you set change), or name one to replace it whole. Prefer omitting stack_id/machine_type; if you pass them they must fit the platform (OS family, >= 4 vCPU / 6-8 GB) or the request is rejected with the reason.`)...,
 		),
 		mcp.WithBoolean("no_device",
 			mcp.Description("Create the session WITHOUT the device its template declares (see C above). Only meaningful with a template that has a device_spec; ignored otherwise. Cannot be combined with device_spec."),
@@ -234,11 +235,19 @@ Rules:
 			return mcp.NewToolResultError("artifact requires a device — pass device_spec, or create from a template that declares one without no_device"), nil
 		}
 		// The nested "required" lists above are advisory to the client; check
-		// the two fields the backend cannot default before spending a round
-		// trip on a request that is certain to be rejected.
+		// what the backend cannot default before spending a round trip on a
+		// request that is certain to be rejected. device_spec.platform is only
+		// certain to be needed without a template: on a template that declares
+		// a device, a platform-less spec is the documented per-field override,
+		// and whether the template declares one is the backend's call.
 		if hasDevice {
-			if err := requireNonEmptyString(deviceSpec, "device_spec", "platform"); err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			if _, ok := deviceSpec.(map[string]any); !ok {
+				return mcp.NewToolResultError("device_spec must be an object with a \"platform\" field"), nil
+			}
+			if templateID == "" {
+				if err := requireNonEmptyString(deviceSpec, "device_spec", "platform"); err != nil {
+					return mcp.NewToolResultError(err.Error()), nil
+				}
 			}
 		}
 		if hasArtifact {
@@ -565,14 +574,17 @@ func requireNonEmptyString(arg any, param, key string) error {
 // deviceSpecFieldsDoc explains the fields of a device_spec object. It is
 // shared by every tool that accepts one so the field semantics are described
 // identically on sessions and templates.
-const deviceSpecFieldsDoc = `platform is required: "ios" (simulator; macOS stack) or "android" (emulator; Linux stack). Everything else is optional: device_model (simctl device type like "iPhone 16" / emulator device profile like "pixel_7"; empty = platform default), os_version (iOS only: "18.2" or a simctl runtime id; empty = newest installed), system_image (Android only: sdkmanager package like "system-images;android-34;google_apis;x86_64"), ram_mb / cores (Android only: explicit emulator sizing, 0 = host-derived), cold_boot (Android only).`
+const deviceSpecFieldsDoc = `platform: "ios" (simulator; macOS stack) or "android" (emulator; Linux stack). Everything else is optional: device_model (simctl device type like "iPhone 16" / emulator device profile like "pixel_7" — a screen profile on the generic emulator/simulator software, not that phone's firmware; empty = platform default), os_version (iOS only: "18.2" or a simctl runtime id; empty = newest installed), system_image (Android only — the API-level knob: sdkmanager package like "system-images;android-34;google_apis;x86_64"; empty = the stack's default), ram_mb / cores (Android only: explicit emulator sizing, 0 = host-derived), cold_boot (Android only).`
 
 // deviceSpecSchema returns the property options of a device_spec object
 // parameter — the same shape wherever a virtual device is described
 // (bitrise_devenv_create, bitrise_devenv_create_template,
 // bitrise_devenv_update_template) — under the given tool-specific description.
-func deviceSpecSchema(description string) []mcp.PropertyOption {
-	return []mcp.PropertyOption{
+// requiredKeys lists the nested fields the schema marks required: templates
+// always need a platform (a declared device is a complete device), while a
+// session's device_spec may omit it to tweak the template's device per field.
+func deviceSpecSchema(description string, requiredKeys ...string) []mcp.PropertyOption {
+	opts := []mcp.PropertyOption{
 		mcp.Description(description),
 		mcp.Properties(map[string]any{
 			"platform":     map[string]any{"type": "string", "enum": []string{"ios", "android"}, "description": `"ios" or "android"`},
@@ -583,6 +595,9 @@ func deviceSpecSchema(description string) []mcp.PropertyOption {
 			"cores":        map[string]any{"type": "integer", "description": "Android only: emulator CPU cores; 0 = host-derived"},
 			"cold_boot":    map[string]any{"type": "boolean", "description": "Android only: full cold boot every start (no quickboot)"},
 		}),
-		requiredProperties("platform"),
 	}
+	if len(requiredKeys) > 0 {
+		opts = append(opts, requiredProperties(requiredKeys...))
+	}
+	return opts
 }

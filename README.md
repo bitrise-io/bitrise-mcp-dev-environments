@@ -124,7 +124,7 @@ The server runs over **stdio** (above) for local use. It can also run over **HTT
 
 | Tool | Description |
 |------|-------------|
-| `bitrise_devenv_screenshot` | Capture the session's macOS display (1920x1080 resolution) — the desktop, not a device session's headless simulator/emulator |
+| `bitrise_devenv_screenshot` | Capture the session's macOS display (1920x1080 resolution) — the desktop, not the way to look at a device session's simulator/emulator |
 | `bitrise_devenv_click` | Click at coordinates on the display (left/right/middle, single/double) |
 | `bitrise_devenv_mouse_drag` | Drag the mouse between two points |
 | `bitrise_devenv_type` | Type text as keyboard input |
@@ -144,7 +144,7 @@ The server runs over **stdio** (above) for local use. It can also run over **HTT
 
 | Tool | Description |
 |------|-------------|
-| `bitrise_devenv_device_guide` | Returns a device-session guide (`device-sessions`, `ios` or `android`) as markdown — the same content as the [resources](#resources) below, for clients that cannot read MCP resources |
+| `bitrise_devenv_device_guide` | Returns a device-session guide (`device-sessions`, `ios` or `android`) as markdown — read `device-sessions` before creating or driving a session with a device; the same content is also served as the [resources](#resources) below |
 
 ## Resources
 
@@ -157,13 +157,13 @@ agent reads on demand — they cost no context until requested):
 | `bitrise-devenv://guides/device-sessions/ios` | iOS simulator specifics: `xcrun simctl`, serve-sim CLI and `/ax` accessibility endpoint |
 | `bitrise-devenv://guides/device-sessions/android` | Android emulator specifics: adb, `uiautomator dump`, input, install |
 
-The guides mirror the RDE backend's device-session documentation (the source of truth) and are updated alongside it. Clients without resource support get the same text from the `bitrise_devenv_device_guide` tool.
+The guides mirror the RDE backend's device-session documentation (the source of truth) and are synced from it with the backend's `docs/device-sessions/sync-mirrors.sh` — never edited here. The `bitrise_devenv_device_guide` tool returns the same text for clients that cannot read resources.
 
 ## Usage Notes
 
 ### Sessions & Templates
 
-- **Device sessions**: Pass `device_spec` (`{"platform": "ios"|"android", …}`) to `bitrise_devenv_create` to boot a virtual device with the session — stack/machine type/cluster then default to the platform's known-good pair on a template-less session. A `running` session is **not** a ready device: poll `bitrise_devenv_get` until `device.state` is `PREVIEW_DEVICE_STATE_READY`. Read the `bitrise-devenv://guides/device-sessions` resource (or call `bitrise_devenv_device_guide` if your client cannot read resources) before driving the device
+- **Device sessions**: Pass `device_spec` (`{"platform": "ios"|"android", …}`) to `bitrise_devenv_create` to boot a virtual device with the session — stack/machine type/cluster then default to the platform's known-good pair on a template-less session. A `running` session is **not** a ready device: poll `bitrise_devenv_get` until `device.state` is `PREVIEW_DEVICE_STATE_READY`, and touch nothing on the VM while it is `BOOTING`. Call `bitrise_devenv_device_guide` (or read the `bitrise-devenv://guides/device-sessions` resource) before creating or driving the device
 - **Templates can declare a device**: Give a template a `device_spec` (`bitrise_devenv_create_template` / `bitrise_devenv_update_template`; the template's stack and machine type must fit the platform) and every session created from it boots that device with no `device_spec` on the create call. Per session you can still override it — a `device_spec` without a `platform` tweaks it per field (only the fields you set change), one with a `platform` replaces it whole — or skip it with `no_device: true`. `bitrise_devenv_update_template` replaces the declared device as a whole (`device_spec`) or removes it (`clear_device_spec: true`); existing sessions keep the device they were created with
 
 - **Template-based or template-less**: Sessions can be created from a template that defines the stack, startup scripts, template variables, and session inputs, or without a template by supplying a stack and machine type directly (a base environment with no warmup/startup scripts)

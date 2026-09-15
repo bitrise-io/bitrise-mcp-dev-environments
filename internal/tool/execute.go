@@ -16,10 +16,14 @@ import (
 const executeTimeoutLocal = 2 * time.Minute
 
 // executeTimeoutHosted caps one execute call on the hosted HTTP server. The
-// hosted server sits behind a proxy that answers 504 at roughly 100 s, so a
-// longer server-side deadline only produces a gateway error the client cannot
-// interpret (the command may have finished) instead of this tool's own error.
-const executeTimeoutHosted = 90 * time.Second
+// proxy chain in front of the hosted server answers 504 at roughly 40 s
+// (measured on staging: a `sleep 100` came back as a Cloudflare 504 after
+// 39.5 s, well under Cloudflare's own 100 s default — the cut sits closer to
+// the origin). A longer server-side deadline only produces a gateway error the
+// client cannot interpret (the command may have finished) instead of this
+// tool's own error, so the cap stays under the cut with margin. Raise it only
+// together with that ingress timeout.
+const executeTimeoutHosted = 30 * time.Second
 
 // executeTimeoutFor returns the per-call deadline for the transport in ctx.
 func executeTimeoutFor(ctx context.Context) time.Duration {
@@ -81,9 +85,10 @@ IMPORTANT:
 - The session must be in "running" status with SSH remote access available.
   SSH remote access is provisioned automatically; if credentials aren't populated
   yet, the session is likely still starting up — wait briefly and retry.
-- Time cap per call: 90 seconds on the hosted server, 2 minutes on a locally-run
-  one. Past it the call fails and the command is cancelled. Chunk work to the cap;
-  background anything longer and poll its log (see next point).
+- Time cap per call: about 30 seconds on the hosted server, 2 minutes on a
+  locally-run one. Past it the call fails and the command is cancelled. Chunk
+  work to the cap; background anything longer and poll its log (see next
+  point).
 - A gateway timeout / 504 does NOT mean the command did not run — it may have
   completed or still be running on the VM. Before retrying anything that mutates
   state (installs, boots, file writes), verify with a read-only command.
@@ -119,7 +124,7 @@ osascript timeout safety net: the common automation scopes (Automation,
 Accessibility, Screen Recording) are pre-approved on session images, so
 osascript normally runs without any prompt. An uncommon action could still
 trigger a TCC permission dialog — and with no human to click "Allow" the
-command will block until the 2-minute execute cap. Wrap osascript calls in a
+command will block until the execute cap. Wrap osascript calls in a
 short timeout so you fail fast and can fall back to the GUI tools:
     timeout 15s osascript -e 'tell application "System Events" to ...'`),
 		mcp.WithString("session_id",

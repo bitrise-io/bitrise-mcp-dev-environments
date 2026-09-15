@@ -140,7 +140,7 @@ short timeout so you fail fast and can fall back to the GUI tools:
 		}
 		if !s.SSHConnectionOpen || s.SSHAddress == "" || s.SSHPassword == "" {
 			return mcp.NewToolResultError(
-				"session SSH is not ready yet (credentials not populated); remote access opens automatically during provisioning — wait a few seconds for the session to finish starting up, then retry",
+				"session SSH is not ready yet: the session read does not report ssh_connection_open=true with an ssh_address and ssh_password. Remote access opens automatically during provisioning, but it can take a few minutes after the session turns running — poll bitrise_devenv_get until ssh_connection_open is true, then retry",
 			), nil
 		}
 

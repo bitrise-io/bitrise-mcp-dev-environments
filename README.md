@@ -4,7 +4,7 @@ MCP Server for Bitrise Dev Environments, enabling AI assistants to create and ma
 
 ## Features
 
-- **Template-Based or Template-less Sessions**: Create sessions from templates that define a stack, startup scripts, template variables, and session inputs, or create them without a template by supplying a stack and machine type directly. Manage templates and saved input credentials.
+- **Template-Based or Template-less Sessions**: Create sessions from templates that define a stack, startup scripts, template variables, session inputs, and optionally a virtual device every session boots, or create them without a template by supplying a stack and machine type directly. Manage templates and saved input credentials.
 - **Session Lifecycle**: Create, list, start, stop, update, and delete sessions. Bulk-delete terminated sessions.
 - **Command Execution**: Run shell commands on running sessions over SSH in a forced-interactive login shell (`bash -i -l -c`), so the template's PATH, brew tools, git-lfs, and language version managers are all visible. Local SSH agent is forwarded so git-over-SSH uses the caller's keys.
 - **File Transfer**: Upload local files/folders to sessions and download artifacts back.
@@ -71,7 +71,7 @@ The server runs over **stdio** (above) for local use. It can also run over **HTT
 |------|-------------|
 | `bitrise_devenv_list` | List sessions with their status, name, labels, owner, and template info; filterable server-side by `key=value` label selectors, and scopeable to your own sessions (default) or workspace-owned sessions |
 | `bitrise_devenv_get` | Get details of a specific session including status, machine info, and SSH/VNC credentials |
-| `bitrise_devenv_create` | Create a new session, either from a template (with template ID, session inputs, and feature flags) or without one by supplying a stack and machine type directly; optionally attach key/value labels |
+| `bitrise_devenv_create` | Create a new session, either from a template (with template ID, session inputs, and feature flags) or without one by supplying a stack and machine type directly; optionally boot a virtual device with it (`device_spec`: iOS simulator / Android emulator, optional `artifact` to pre-install) and attach key/value labels. A template that declares a device boots it by default — pass `device_spec` to override it or `no_device` to skip it |
 | `bitrise_devenv_update` | Update a session's name, description, or labels |
 | `bitrise_devenv_restore` | Restore a terminated (or failed/drained) session |
 | `bitrise_devenv_terminate` | Terminate a running session but keep it for a later restore (stops the VM, preserves its disk; the session stays listed as terminated) |
@@ -83,10 +83,10 @@ The server runs over **stdio** (above) for local use. It can also run over **HTT
 
 | Tool | Description |
 |------|-------------|
-| `bitrise_devenv_list_templates` | List all available templates |
-| `bitrise_devenv_get_template` | Get template details including scripts, stack, template variables, session inputs, and feature flags |
-| `bitrise_devenv_create_template` | Create a new template with stack, machine type, scripts, and inputs |
-| `bitrise_devenv_update_template` | Update an existing template |
+| `bitrise_devenv_list_templates` | List all available templates, including the `device_spec` each one declares (if any) |
+| `bitrise_devenv_get_template` | Get template details including scripts, stack, template variables, session inputs, feature flags, and the declared `device_spec` |
+| `bitrise_devenv_create_template` | Create a new template with stack, machine type, scripts, inputs, and optionally a `device_spec` that every session created from it boots |
+| `bitrise_devenv_update_template` | Update an existing template; `device_spec` replaces the declared device, `clear_device_spec` removes it |
 | `bitrise_devenv_delete_template` | Delete a template |
 
 ### Saved Inputs
@@ -124,7 +124,7 @@ The server runs over **stdio** (above) for local use. It can also run over **HTT
 
 | Tool | Description |
 |------|-------------|
-| `bitrise_devenv_screenshot` | Capture the session's macOS display (1920x1080 resolution) |
+| `bitrise_devenv_screenshot` | Capture the session's macOS display (1920x1080 resolution) — the desktop, not the way to look at a device session's simulator/emulator |
 | `bitrise_devenv_click` | Click at coordinates on the display (left/right/middle, single/double) |
 | `bitrise_devenv_mouse_drag` | Drag the mouse between two points |
 | `bitrise_devenv_type` | Type text as keyboard input |
@@ -140,9 +140,31 @@ The server runs over **stdio** (above) for local use. It can also run over **HTT
 |------|-------------|
 | `bitrise_devenv_open_remote_access` | Open SSH/VNC remote access tunnel and get connection details |
 
+### Guides
+
+| Tool | Description |
+|------|-------------|
+| `bitrise_devenv_device_guide` | Returns a device-session guide (`device-sessions`, `ios` or `android`) as markdown — read `device-sessions` before creating or driving a session with a device; the same content is also served as the [resources](#resources) below |
+
+## Resources
+
+Besides tools, the server exposes read-only **resources** (markdown guides an
+agent reads on demand — they cost no context until requested):
+
+| URI | Description |
+|-----|-------------|
+| `bitrise-devenv://guides/device-sessions` | Device sessions: create a session that boots an iOS simulator / Android emulator (`bitrise_devenv_create` with `device_spec`), wait for `device.state` READY, connect, drive the device (accessibility tree first), let a human watch from the session page in the RDE web UI, do-nots and recovery |
+| `bitrise-devenv://guides/device-sessions/ios` | iOS simulator specifics: `xcrun simctl`, serve-sim CLI and `/ax` accessibility endpoint |
+| `bitrise-devenv://guides/device-sessions/android` | Android emulator specifics: adb, `uiautomator dump`, input, install |
+
+The guides mirror the RDE backend's device-session documentation (the source of truth) and are synced from it with the backend's `docs/device-sessions/sync-mirrors.sh` — never edited here. The `bitrise_devenv_device_guide` tool returns the same text for clients that cannot read resources.
+
 ## Usage Notes
 
 ### Sessions & Templates
+
+- **Device sessions**: Pass `device_spec` (`{"platform": "ios"|"android", …}`) to `bitrise_devenv_create` to boot a virtual device with the session — stack/machine type/cluster then default to the platform's known-good pair on a template-less session. A `running` session is **not** a ready device: poll `bitrise_devenv_get` until `device.state` is `PREVIEW_DEVICE_STATE_READY`, and touch nothing on the VM while it is `BOOTING`. Call `bitrise_devenv_device_guide` (or read the `bitrise-devenv://guides/device-sessions` resource) before creating or driving the device
+- **Templates can declare a device**: Give a template a `device_spec` (`bitrise_devenv_create_template` / `bitrise_devenv_update_template`; the template's stack and machine type must fit the platform) and every session created from it boots that device with no `device_spec` on the create call. Per session you can still override it — a `device_spec` without a `platform` tweaks it per field (only the fields you set change), one with a `platform` replaces it whole — or skip it with `no_device: true`. `bitrise_devenv_update_template` replaces the declared device as a whole (`device_spec`) or removes it (`clear_device_spec: true`); existing sessions keep the device they were created with
 
 - **Template-based or template-less**: Sessions can be created from a template that defines the stack, startup scripts, template variables, and session inputs, or without a template by supplying a stack and machine type directly (a base environment with no warmup/startup scripts)
 - **Session inputs**: When creating a session, provide values for session inputs (either direct values or references to saved inputs for secrets)

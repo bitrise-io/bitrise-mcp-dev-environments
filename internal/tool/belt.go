@@ -83,11 +83,16 @@ func NewBelt() *Belt {
 
 			// Remote Access
 			OpenRemoteAccess,
+
+			// Guides (fallback for clients without MCP resource support)
+			DeviceGuide,
 		},
 		// User-scoped tools hit /v1/me or /v1/saved-inputs (no workspace
-		// segment), or the main API (list_workspaces). Everything else is
+		// segment), or the main API (list_workspaces), or no API at all
+		// (device_guide serves embedded text). Everything else is
 		// workspace-scoped.
 		userScoped: map[string]bool{
+			"bitrise_devenv_device_guide":       true,
 			"bitrise_devenv_me":                 true,
 			"bitrise_devenv_list_workspaces":    true,
 			"bitrise_devenv_list_saved_inputs":  true,

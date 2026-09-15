@@ -28,6 +28,11 @@ var Download = devenv.Tool{
 
 The remote path is archived as tar.gz, uploaded to cloud storage, then downloaded and extracted locally.
 
+If the server answers "File download is not available…", this deployment has no file store behind the
+tool — do not retry. Copy the file with scp using the session's ssh_address / ssh_password from
+bitrise_devenv_get instead (the device guide, bitrise_devenv_device_guide, has the password-feeding
+recipe); do not base64 binaries through bitrise_devenv_execute output.
+
 Example: Download a build artifact:
   session_id: <uuid>
   source_path: /Users/vagrant/project/build/output

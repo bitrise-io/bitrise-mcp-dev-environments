@@ -192,7 +192,7 @@ Rules:
 			mcp.Description("Minutes before auto-termination. Default: 7200 (5 days). Set to 0 to disable."),
 		),
 		mcp.WithObject("device_spec",
-			deviceSpecSchema(`Optional virtual device to boot with the session (see C above; read the device guide first). `+deviceSpecFieldsDoc+` platform is required unless the session is created from a template that declares a device — then omit it to tweak that device per field (only the fields you set change), or name one to replace it whole. Prefer omitting stack_id/machine_type; if you pass them they must fit the platform (OS family, >= 4 vCPU / 6-8 GB) or the request is rejected with the reason.`)...,
+			deviceSpecSchema(`Optional virtual device to boot with the session (see 1 above; read the device guide first). `+deviceSpecFieldsDoc+` platform is required unless the session is created from a template that declares a device — then omit it to tweak that device per field (only the fields you set change), or name one to replace it whole. Prefer omitting stack_id/machine_type; if you pass them they must fit the platform (OS family, >= 4 vCPU / 6-8 GB) or the request is rejected with the reason.`)...,
 		),
 		mcp.WithBoolean("no_device",
 			mcp.Description("Create the session WITHOUT the device its template declares (see 1 above). Only meaningful with a template that has a device_spec; ignored otherwise. Cannot be combined with device_spec."),

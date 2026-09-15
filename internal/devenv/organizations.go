@@ -90,7 +90,7 @@ func SoleWorkspace(orgs []Organization) (Organization, error) {
 				fmt.Fprintf(&b, "\n  %s", o.Slug)
 			}
 		}
-		return Organization{}, fmt.Errorf("you belong to multiple Bitrise workspaces, so one can't be chosen automatically. ASK THE USER which workspace to use, then pass its slug as the workspace_id argument once — later calls in this MCP session inherit it (pass it again only if a call still complains). Do NOT retry across workspaces or list them one by one, and do NOT guess. Available workspaces:%s", b.String())
+		return Organization{}, fmt.Errorf("you belong to multiple Bitrise workspaces, so one can't be chosen automatically. ASK THE USER which workspace to use, then pass its slug as the workspace_id argument once — this server remembers the last value you passed for about 12 hours (per access token, per server instance); if a later call still asks, pass it again. Scripts and CI should always pass it explicitly. Do NOT retry across workspaces or list them one by one, and do NOT guess. Available workspaces:%s", b.String())
 	}
 }
 

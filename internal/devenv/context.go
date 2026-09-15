@@ -26,6 +26,16 @@ func AuthFromCtx(ctx context.Context) (headerName, headerValue string, err error
 	return "", "", fmt.Errorf("missing authentication - complete the OAuth flow, or set the BITRISE_TOKEN env var (stdio) / Authorization header (http) to a Bitrise personal access token")
 }
 
+// PATFromCtx returns the caller's raw Bitrise token from context, or "" when
+// none is attached. Callers must never log or persist the value; hash it when
+// a per-caller key is needed (see tool.callerKey).
+func PATFromCtx(ctx context.Context) string {
+	if v, ok := ctx.Value(keyPAT).(string); ok {
+		return v
+	}
+	return ""
+}
+
 // ContextWithWorkspace returns a new context with the resolved workspace ID
 // (slug) stored. Tools read it via WorkspaceFromCtx / WsPath.
 func ContextWithWorkspace(ctx context.Context, workspaceID string) context.Context {

@@ -107,7 +107,7 @@ and System Events, e.g.:
   timeout 15s osascript -e 'tell application "System Events" to keystroke "t" using {command down}'
 The "timeout 15s" prefix is cheap insurance — common TCC scopes are
 pre-approved on session images, but an unexpected permission prompt would
-otherwise hang the command until the 2-minute execute cap. Reach for this tool
+otherwise hang the command until the execute cap. Reach for this tool
 only when the target app can't be driven via AppleScript / shell commands.
 
 The text is typed character by character as keyboard input. Special characters and

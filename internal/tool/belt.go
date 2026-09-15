@@ -2,7 +2,11 @@ package tool
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/bitrise-io/bitrise-mcp-dev-environments/internal/devenv"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -25,11 +29,35 @@ type Belt struct {
 	// id), the workspace_id most recently passed explicitly, so a
 	// multi-workspace user states it once instead of on every call.
 	lastWorkspace sync.Map
+	// callerWorkspace is the same memory keyed by a hash of the caller's
+	// access token. The hosted server runs the streamable HTTP transport
+	// stateless, so every request is a fresh client session and lastWorkspace
+	// never repeats there; the token is the only thing that identifies the
+	// same caller across requests. Entries expire after callerWorkspaceTTL
+	// and are swept opportunistically so the map cannot grow without bound.
+	// The memory is per server instance: a replica that never saw the
+	// explicit value still asks. Scripts and CI should pass workspace_id.
+	callerWorkspace sync.Map
+	callerSweeps    atomic.Uint32
+}
+
+// callerWorkspaceTTL bounds how long a caller's last explicit workspace_id is
+// remembered. Long enough for a working day, short enough that a stale choice
+// does not follow a token forever.
+const callerWorkspaceTTL = 12 * time.Hour
+
+// callerSweepEvery is how many stores pass between expiry sweeps.
+const callerSweepEvery = 256
+
+// callerWorkspaceEntry is a remembered workspace plus when it was stored.
+type callerWorkspaceEntry struct {
+	workspace string
+	storedAt  time.Time
 }
 
 // workspaceIDParamDesc documents the optional workspace_id parameter injected
 // onto every workspace-scoped tool.
-const workspaceIDParamDesc = "Workspace ID (slug) to operate in. Optional. If omitted, the server reuses the workspace_id you last passed in this MCP session, then BITRISE_WORKSPACE_ID (local stdio) or the x-bitrise-workspace-id header (hosted), then auto-detects when you belong to a single workspace. If you belong to multiple workspaces, pass the chosen workspace's ID (from bitrise_devenv_list_workspaces) once; later calls in the same session inherit it."
+const workspaceIDParamDesc = "Workspace ID (slug) to operate in. Optional. If omitted, the server reuses the workspace_id you last passed (remembered for about 12 hours per access token, per server instance), then BITRISE_WORKSPACE_ID (local stdio) or the x-bitrise-workspace-id header (hosted), then auto-detects when you belong to a single workspace. If you belong to multiple workspaces, pass the chosen workspace's ID (from bitrise_devenv_list_workspaces) once; if a later call still asks, pass it again. Scripts and CI should always pass it explicitly."
 
 // NewBelt creates a new tool belt with all tools registered.
 func NewBelt() *Belt {
@@ -174,20 +202,31 @@ func (b *Belt) GateAndResolveWorkspace(ctx context.Context, request mcp.CallTool
 	}
 
 	// Resolve the workspace for workspace-scoped tools. Ladder (highest first):
-	//   1. an explicit workspace_id tool parameter (remembered for this client session)
+	//   1. an explicit workspace_id tool parameter (remembered for this client
+	//      session and for this caller's token)
 	//   2. the workspace_id last passed explicitly in this client session
-	//   3. the per-connection default (BITRISE_WORKSPACE_ID env / x-bitrise-workspace-id header)
-	//   4. auto-detection of the user's sole workspace (cached per PAT)
+	//   3. the workspace_id last passed explicitly by this caller (token hash),
+	//      within callerWorkspaceTTL — the rung that works on the stateless
+	//      hosted transport, where rung 2 never matches
+	//   4. the per-connection default (BITRISE_WORKSPACE_ID env / x-bitrise-workspace-id header)
+	//   5. auto-detection of the user's sole workspace (cached per PAT)
 	if !b.userScoped[name] {
 		sessionKey := clientSessionKey(ctx)
+		callerKey := callerKey(ctx)
 		ws := request.GetString("workspace_id", "")
-		if ws != "" && sessionKey != "" {
-			b.lastWorkspace.Store(sessionKey, ws)
+		if ws != "" {
+			if sessionKey != "" {
+				b.lastWorkspace.Store(sessionKey, ws)
+			}
+			b.rememberCallerWorkspace(callerKey, ws)
 		}
 		if ws == "" && sessionKey != "" {
 			if v, ok := b.lastWorkspace.Load(sessionKey); ok {
 				ws, _ = v.(string)
 			}
+		}
+		if ws == "" {
+			ws = b.callerWorkspaceFor(callerKey, time.Now())
 		}
 		if ws == "" {
 			ws = devenv.WorkspaceFromCtx(ctx)
@@ -203,6 +242,60 @@ func (b *Belt) GateAndResolveWorkspace(ctx context.Context, request mcp.CallTool
 	}
 
 	return ctx, nil
+}
+
+// callerKey identifies the caller across requests by a SHA-256 of the access
+// token in ctx, or "" when the request carries none. The raw token is never
+// stored or logged.
+func callerKey(ctx context.Context) string {
+	pat := devenv.PATFromCtx(ctx)
+	if pat == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(pat))
+	return hex.EncodeToString(sum[:])
+}
+
+// rememberCallerWorkspace stores ws for callerKey (no-op for an empty key) and
+// every callerSweepEvery stores drops entries older than callerWorkspaceTTL.
+func (b *Belt) rememberCallerWorkspace(callerKey, ws string) {
+	if callerKey == "" || ws == "" {
+		return
+	}
+	now := time.Now()
+	b.callerWorkspace.Store(callerKey, callerWorkspaceEntry{workspace: ws, storedAt: now})
+	if b.callerSweeps.Add(1)%callerSweepEvery == 0 {
+		b.sweepCallerWorkspaces(now)
+	}
+}
+
+// callerWorkspaceFor returns the workspace remembered for callerKey when it is
+// still within callerWorkspaceTTL at now, else "" (an expired entry is dropped).
+func (b *Belt) callerWorkspaceFor(callerKey string, now time.Time) string {
+	if callerKey == "" {
+		return ""
+	}
+	v, ok := b.callerWorkspace.Load(callerKey)
+	if !ok {
+		return ""
+	}
+	e, _ := v.(callerWorkspaceEntry)
+	if now.Sub(e.storedAt) > callerWorkspaceTTL {
+		b.callerWorkspace.Delete(callerKey)
+		return ""
+	}
+	return e.workspace
+}
+
+// sweepCallerWorkspaces drops every remembered caller workspace older than
+// callerWorkspaceTTL at now.
+func (b *Belt) sweepCallerWorkspaces(now time.Time) {
+	b.callerWorkspace.Range(func(k, v any) bool {
+		if e, ok := v.(callerWorkspaceEntry); !ok || now.Sub(e.storedAt) > callerWorkspaceTTL {
+			b.callerWorkspace.Delete(k)
+		}
+		return true
+	})
 }
 
 // clientSessionKey identifies the MCP client session a call belongs to, or ""

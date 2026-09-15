@@ -3,6 +3,7 @@ package tool
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/bitrise-io/bitrise-mcp-dev-environments/internal/devenv"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -173,4 +174,76 @@ func TestGateAndResolveWorkspace_RemembersParamPerClientSession(t *testing.T) {
 	_, _ = b.GateAndResolveWorkspace(base, newReqWithArgs("bitrise_devenv_list", map[string]any{"workspace_id": "anon-ws"}))
 	gotCtx, _ = b.GateAndResolveWorkspace(base, newReq("bitrise_devenv_list"))
 	assert.Equal(t, "default-ws", devenv.WorkspaceFromCtx(gotCtx))
+}
+
+// The hosted transport is stateless: every request is a fresh client session,
+// so only the caller's token can tie requests together.
+func TestGateAndResolveWorkspace_RemembersParamPerCallerToken(t *testing.T) {
+	b := NewBelt()
+	srv := server.NewMCPServer("test", "0.0.0")
+	base := devenv.ContextWithWorkspace(context.Background(), "default-ws")
+	alice := devenv.ContextWithPAT(base, "pat-alice")
+	bob := devenv.ContextWithPAT(base, "pat-bob")
+
+	// Alice names the workspace in one client session…
+	ctx1 := srv.WithContext(alice, server.NewInProcessSession("req-1", nil))
+	gotCtx, errRes := b.GateAndResolveWorkspace(ctx1, newReqWithArgs("bitrise_devenv_list", map[string]any{"workspace_id": "alice-ws"}))
+	assert.Nil(t, errRes)
+	assert.Equal(t, "alice-ws", devenv.WorkspaceFromCtx(gotCtx))
+
+	// …and inherits it in a DIFFERENT client session (stateless HTTP shape)…
+	ctx2 := srv.WithContext(alice, server.NewInProcessSession("req-2", nil))
+	gotCtx, errRes = b.GateAndResolveWorkspace(ctx2, newReq("bitrise_devenv_get"))
+	assert.Nil(t, errRes)
+	assert.Equal(t, "alice-ws", devenv.WorkspaceFromCtx(gotCtx))
+
+	// …and with no client session at all.
+	gotCtx, errRes = b.GateAndResolveWorkspace(alice, newReq("bitrise_devenv_get"))
+	assert.Nil(t, errRes)
+	assert.Equal(t, "alice-ws", devenv.WorkspaceFromCtx(gotCtx))
+
+	// Bob's token shares nothing with Alice's and falls through to the default.
+	gotCtx, errRes = b.GateAndResolveWorkspace(bob, newReq("bitrise_devenv_list"))
+	assert.Nil(t, errRes)
+	assert.Equal(t, "default-ws", devenv.WorkspaceFromCtx(gotCtx))
+
+	// A client-session memory still wins over the caller memory.
+	sess := server.NewInProcessSession("sess-x", nil)
+	ctxS := srv.WithContext(alice, sess)
+	_, _ = b.GateAndResolveWorkspace(ctxS, newReqWithArgs("bitrise_devenv_list", map[string]any{"workspace_id": "session-ws"}))
+	gotCtx, _ = b.GateAndResolveWorkspace(ctxS, newReq("bitrise_devenv_get"))
+	assert.Equal(t, "session-ws", devenv.WorkspaceFromCtx(gotCtx))
+
+	// The raw token is never used as the key.
+	b.callerWorkspace.Range(func(k, _ any) bool {
+		assert.NotContains(t, k.(string), "pat-")
+		assert.Len(t, k.(string), 64)
+		return true
+	})
+}
+
+func TestCallerWorkspaceExpiresAndSweeps(t *testing.T) {
+	b := NewBelt()
+	now := time.Now()
+	b.rememberCallerWorkspace("k-fresh", "ws-fresh")
+	b.callerWorkspace.Store("k-old", callerWorkspaceEntry{workspace: "ws-old", storedAt: now.Add(-callerWorkspaceTTL - time.Minute)})
+
+	assert.Equal(t, "ws-fresh", b.callerWorkspaceFor("k-fresh", now))
+	// Expired on read: dropped and not returned.
+	assert.Equal(t, "", b.callerWorkspaceFor("k-old", now))
+	_, still := b.callerWorkspace.Load("k-old")
+	assert.False(t, still)
+
+	// The periodic sweep drops expired entries without a read.
+	b.callerWorkspace.Store("k-old2", callerWorkspaceEntry{workspace: "ws-old", storedAt: now.Add(-2 * callerWorkspaceTTL)})
+	b.sweepCallerWorkspaces(now)
+	_, still = b.callerWorkspace.Load("k-old2")
+	assert.False(t, still)
+	assert.Equal(t, "ws-fresh", b.callerWorkspaceFor("k-fresh", now))
+
+	// Empty keys and values are ignored.
+	b.rememberCallerWorkspace("", "ws")
+	b.rememberCallerWorkspace("k-empty", "")
+	assert.Equal(t, "", b.callerWorkspaceFor("", now))
+	assert.Equal(t, "", b.callerWorkspaceFor("k-empty", now))
 }

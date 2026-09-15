@@ -140,6 +140,12 @@ The server runs over **stdio** (above) for local use. It can also run over **HTT
 |------|-------------|
 | `bitrise_devenv_open_remote_access` | Open SSH/VNC remote access tunnel and get connection details |
 
+### Device Preview Links
+
+| Tool | Description |
+|------|-------------|
+| `bitrise_devenv_create_preview_link` | Turn an app build into a shareable link that opens it on a live iOS simulator / Android emulator in someone else's browser — no Bitrise login needed. For handing a build to a reviewer; to drive a device yourself use `bitrise_devenv_create` with `device_spec` |
+
 ### Guides
 
 | Tool | Description |

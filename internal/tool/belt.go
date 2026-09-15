@@ -117,6 +117,9 @@ func NewBelt() *Belt {
 			// Remote Access
 			OpenRemoteAccess,
 
+			// Device preview links
+			CreatePreviewLink,
+
 			// Guides (fallback for clients without MCP resource support)
 			DeviceGuide,
 		},

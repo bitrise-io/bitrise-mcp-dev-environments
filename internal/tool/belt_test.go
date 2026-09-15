@@ -6,6 +6,7 @@ import (
 
 	"github.com/bitrise-io/bitrise-mcp-dev-environments/internal/devenv"
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -133,4 +134,43 @@ func TestGateAndResolveWorkspace_ParamWins(t *testing.T) {
 	gotCtx, errRes := b.GateAndResolveWorkspace(ctx, req)
 	assert.Nil(t, errRes)
 	assert.Equal(t, "param-ws", devenv.WorkspaceFromCtx(gotCtx))
+}
+
+// TestGateAndResolveWorkspace_RemembersParamPerClientSession asserts an
+// explicit workspace_id is remembered for the MCP client session that passed
+// it, beats the per-connection default on later calls, is scoped to that
+// session, and is not remembered when no client session is attached.
+func TestGateAndResolveWorkspace_RemembersParamPerClientSession(t *testing.T) {
+	b := NewBelt()
+	srv := server.NewMCPServer("test", "0.0.0")
+	sessA := server.NewInProcessSession("sess-a", nil)
+	sessB := server.NewInProcessSession("sess-b", nil)
+	base := devenv.ContextWithWorkspace(context.Background(), "default-ws")
+	ctxA := srv.WithContext(base, sessA)
+	ctxB := srv.WithContext(base, sessB)
+
+	// First call in session A names the workspace explicitly.
+	gotCtx, errRes := b.GateAndResolveWorkspace(ctxA, newReqWithArgs("bitrise_devenv_list", map[string]any{"workspace_id": "param-ws"}))
+	assert.Nil(t, errRes)
+	assert.Equal(t, "param-ws", devenv.WorkspaceFromCtx(gotCtx))
+
+	// A later call in session A without the parameter inherits it.
+	gotCtx, errRes = b.GateAndResolveWorkspace(ctxA, newReq("bitrise_devenv_get"))
+	assert.Nil(t, errRes)
+	assert.Equal(t, "param-ws", devenv.WorkspaceFromCtx(gotCtx))
+
+	// Passing a different value later replaces the remembered one.
+	_, _ = b.GateAndResolveWorkspace(ctxA, newReqWithArgs("bitrise_devenv_list", map[string]any{"workspace_id": "other-ws"}))
+	gotCtx, _ = b.GateAndResolveWorkspace(ctxA, newReq("bitrise_devenv_get"))
+	assert.Equal(t, "other-ws", devenv.WorkspaceFromCtx(gotCtx))
+
+	// Session B never passed one and falls through to the connection default.
+	gotCtx, errRes = b.GateAndResolveWorkspace(ctxB, newReq("bitrise_devenv_list"))
+	assert.Nil(t, errRes)
+	assert.Equal(t, "default-ws", devenv.WorkspaceFromCtx(gotCtx))
+
+	// Without a client session nothing is remembered: the next call falls back.
+	_, _ = b.GateAndResolveWorkspace(base, newReqWithArgs("bitrise_devenv_list", map[string]any{"workspace_id": "anon-ws"}))
+	gotCtx, _ = b.GateAndResolveWorkspace(base, newReq("bitrise_devenv_list"))
+	assert.Equal(t, "default-ws", devenv.WorkspaceFromCtx(gotCtx))
 }

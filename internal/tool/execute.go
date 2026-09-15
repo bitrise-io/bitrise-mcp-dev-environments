@@ -12,7 +12,22 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
-const executeTimeout = 2 * time.Minute
+// executeTimeoutLocal caps one execute call on a locally-run (stdio) server.
+const executeTimeoutLocal = 2 * time.Minute
+
+// executeTimeoutHosted caps one execute call on the hosted HTTP server. The
+// hosted server sits behind a proxy that answers 504 at roughly 100 s, so a
+// longer server-side deadline only produces a gateway error the client cannot
+// interpret (the command may have finished) instead of this tool's own error.
+const executeTimeoutHosted = 90 * time.Second
+
+// executeTimeoutFor returns the per-call deadline for the transport in ctx.
+func executeTimeoutFor(ctx context.Context) time.Duration {
+	if devenv.HostedModeFromCtx(ctx) {
+		return executeTimeoutHosted
+	}
+	return executeTimeoutLocal
+}
 
 // getSessionResponse mirrors the minimal shape of GetSessionResponse from the
 // codespaces backend: the session object is wrapped under a top-level
@@ -66,8 +81,14 @@ IMPORTANT:
 - The session must be in "running" status with SSH remote access available.
   SSH remote access is provisioned automatically; if credentials aren't populated
   yet, the session is likely still starting up — wait briefly and retry.
-- Long-running commands may time out (2 minute limit).
+- Time cap per call: 90 seconds on the hosted server, 2 minutes on a locally-run
+  one. Past it the call fails and the command is cancelled. Chunk work to the cap;
+  background anything longer and poll its log (see next point).
+- A gateway timeout / 504 does NOT mean the command did not run — it may have
+  completed or still be running on the VM. Before retrying anything that mutates
+  state (installs, boots, file writes), verify with a read-only command.
 - For background processes, redirect output: "nohup ./server &>/dev/null &"
+  and poll: "tail -n 50 /tmp/x.log"
 - For large outputs, pipe through head: "find / -name '*.log' | head -100"
 - Commands run as the session user (vagrant on macOS, ubuntu on Linux).
 
@@ -150,7 +171,7 @@ short timeout so you fail fast and can fall back to the GUI tools:
 		}
 		target.Password = s.SSHPassword
 
-		execCtx, cancel := context.WithTimeout(ctx, executeTimeout)
+		execCtx, cancel := context.WithTimeout(ctx, executeTimeoutFor(ctx))
 		defer cancel()
 
 		client, err := dialSSH(execCtx, target)

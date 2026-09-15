@@ -28,14 +28,18 @@ var Upload = devenv.Tool{
 		mcp.WithDescription(`Upload a local file or directory to a running devenv session.
 
 The local path is compressed into a tar.gz archive, uploaded to cloud storage via a signed URL,
-then extracted on the remote machine at the specified destination folder.
+then extracted on the remote machine INTO destination_folder, which must be a directory
+(created if missing). A directory source lands as its contents inside destination_folder;
+a single file lands as destination_folder/<basename>. To replace one remote file, upload
+it into its parent directory — a destination that is an existing file is rejected.
+Extracted files are owned by the session user.
 
 Example: Upload a local project directory to the VM:
   source_path: /Users/me/project
   destination_folder: /Users/vagrant/project`),
 		mcp.WithString("session_id", mcp.Description("The unique identifier of the running session"), mcp.Required()),
 		mcp.WithString("source_path", mcp.Description("Local file or directory path to upload"), mcp.Required()),
-		mcp.WithString("destination_folder", mcp.Description("Absolute path on the remote machine where files will be extracted"), mcp.Required()),
+		mcp.WithString("destination_folder", mcp.Description("Absolute DIRECTORY path on the remote machine to extract into (created if missing; must not be an existing file)"), mcp.Required()),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		sessionID, err := requireUUID(request, "session_id")
@@ -123,6 +127,7 @@ func createTarGz(sourcePath string) ([]byte, error) {
 		if err != nil {
 			return fmt.Errorf("file info header: %w", err)
 		}
+		clearTarOwner(header)
 
 		relPath, err := filepath.Rel(baseDir, path)
 		if err != nil {
@@ -160,6 +165,7 @@ func createTarGz(sourcePath string) ([]byte, error) {
 		if err != nil {
 			return nil, fmt.Errorf("file info header: %w", err)
 		}
+		clearTarOwner(header)
 		header.Name = filepath.Base(sourcePath)
 		if err := tw.WriteHeader(header); err != nil {
 			return nil, fmt.Errorf("write header: %w", err)
@@ -203,4 +209,12 @@ func uploadToGCS(ctx context.Context, signedURL string, data []byte) error {
 		return fmt.Errorf("upload failed (status %d): %s", resp.StatusCode, string(body))
 	}
 	return nil
+}
+
+// clearTarOwner drops the local owner from an archive entry. The archive is
+// extracted on the VM; the caller's numeric uid/gid means nothing there and,
+// when honoured, leaves files the session user cannot write.
+func clearTarOwner(h *tar.Header) {
+	h.Uid, h.Gid = 0, 0
+	h.Uname, h.Gname = "", ""
 }

@@ -2,6 +2,7 @@ package tool
 
 import (
 	"context"
+	"sync"
 
 	"github.com/bitrise-io/bitrise-mcp-dev-environments/internal/devenv"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -20,11 +21,15 @@ type Belt struct {
 	// local filesystem). They are hidden and rejected on the hosted HTTP
 	// transport, where "local" would mean the server, not the user's machine.
 	localOnly map[string]bool
+	// lastWorkspace remembers, per MCP client session (keyed by the session
+	// id), the workspace_id most recently passed explicitly, so a
+	// multi-workspace user states it once instead of on every call.
+	lastWorkspace sync.Map
 }
 
 // workspaceIDParamDesc documents the optional workspace_id parameter injected
 // onto every workspace-scoped tool.
-const workspaceIDParamDesc = "Workspace ID (slug) to operate in. Optional. If omitted, the server uses BITRISE_WORKSPACE_ID (local stdio) or the x-bitrise-workspace-id header (hosted), then auto-detects when you belong to a single workspace. If you belong to multiple workspaces, pass the chosen workspace's ID (from bitrise_devenv_list_workspaces) and keep passing the same value on subsequent calls."
+const workspaceIDParamDesc = "Workspace ID (slug) to operate in. Optional. If omitted, the server reuses the workspace_id you last passed in this MCP session, then BITRISE_WORKSPACE_ID (local stdio) or the x-bitrise-workspace-id header (hosted), then auto-detects when you belong to a single workspace. If you belong to multiple workspaces, pass the chosen workspace's ID (from bitrise_devenv_list_workspaces) once; later calls in the same session inherit it."
 
 // NewBelt creates a new tool belt with all tools registered.
 func NewBelt() *Belt {
@@ -169,11 +174,21 @@ func (b *Belt) GateAndResolveWorkspace(ctx context.Context, request mcp.CallTool
 	}
 
 	// Resolve the workspace for workspace-scoped tools. Ladder (highest first):
-	//   1. an explicit workspace_id tool parameter
-	//   2. the per-connection default (BITRISE_WORKSPACE_ID env / x-bitrise-workspace-id header)
-	//   3. auto-detection of the user's sole workspace (cached per PAT)
+	//   1. an explicit workspace_id tool parameter (remembered for this client session)
+	//   2. the workspace_id last passed explicitly in this client session
+	//   3. the per-connection default (BITRISE_WORKSPACE_ID env / x-bitrise-workspace-id header)
+	//   4. auto-detection of the user's sole workspace (cached per PAT)
 	if !b.userScoped[name] {
+		sessionKey := clientSessionKey(ctx)
 		ws := request.GetString("workspace_id", "")
+		if ws != "" && sessionKey != "" {
+			b.lastWorkspace.Store(sessionKey, ws)
+		}
+		if ws == "" && sessionKey != "" {
+			if v, ok := b.lastWorkspace.Load(sessionKey); ok {
+				ws, _ = v.(string)
+			}
+		}
 		if ws == "" {
 			ws = devenv.WorkspaceFromCtx(ctx)
 		}
@@ -188,4 +203,14 @@ func (b *Belt) GateAndResolveWorkspace(ctx context.Context, request mcp.CallTool
 	}
 
 	return ctx, nil
+}
+
+// clientSessionKey identifies the MCP client session a call belongs to, or ""
+// when the transport attached none (nothing is remembered then).
+func clientSessionKey(ctx context.Context) string {
+	cs := server.ClientSessionFromContext(ctx)
+	if cs == nil {
+		return ""
+	}
+	return cs.SessionID()
 }

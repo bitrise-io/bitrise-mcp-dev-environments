@@ -120,22 +120,22 @@ var CreateSession = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_create",
 		mcp.WithDescription(`Create a new devenv session (a remote macOS or Linux machine you drive with bitrise_devenv_execute).
 
-DOES YOUR TASK TOUCH A MOBILE APP? If it involves an iOS or Android app, a phone/tablet, a simulator or emulator, screenshots, UI tests, screen sizes, orientations or OS versions: create the session WITH device_spec (platform "ios" or "android") and READ THE GUIDE FIRST — bitrise_devenv_device_guide with guide="device-sessions", then "ios" or "android" (clients that read MCP resources can read bitrise-devenv://guides/device-sessions instead; same text). The platform boots and manages the simulator/emulator for you, streams it, and reports when it is ready. A device session is also the right choice for UNATTENDED and batch work — nobody has to watch it; the device stays fully drivable through xcrun simctl / adb / serve-sim from bitrise_devenv_execute. Never build your own simulator/emulator lifecycle on a bare machine (A/B below without device_spec): that path is not supported for device work and loses readiness reporting, streaming and the viewer.
+DOES YOUR TASK TOUCH A MOBILE APP? If it involves an iOS or Android app, a phone/tablet, a simulator or emulator, screenshots, UI tests, screen sizes, orientations or OS versions: create the session WITH device_spec (platform "ios" or "android") and READ THE GUIDE FIRST — bitrise_devenv_device_guide with guide="device-sessions", then "ios" or "android" (clients that read MCP resources can read bitrise-devenv://guides/device-sessions instead; same text). The platform boots and manages the simulator/emulator for you, streams it, and reports when it is ready. A device session is also the right choice for UNATTENDED and batch work — nobody has to watch it; the device stays fully drivable through xcrun simctl / adb / serve-sim from bitrise_devenv_execute. Never build your own simulator/emulator lifecycle on a bare machine (2/3 below without device_spec): that path is not supported for device work and loses readiness reporting, streaming and the viewer.
 
 Three ways to create a session:
 
-C) With a virtual device (device_spec set, or a template that declares one) — the default for anything mobile:
+1) With a virtual device (device_spec set, or a template that declares one) — the default for anything mobile:
 Boots an iOS simulator (platform "ios") or Android emulator (platform "android") alongside the session and streams it — ready for adb / xcrun simctl / serve-sim; optionally a human can watch and drive it from the session's page in the RDE web UI ("Open device view"). Zero-config rule: OMIT BOTH stack_id and machine_type (and cluster) — the deployment's known-good per-platform defaults apply; giving exactly one of the two is rejected. Name them only when you must (the guide says which stacks fit); with a template, its stack and machine type are used and must fit. Optionally pass artifact to pre-install an app build. Delete the session when done.
 "running" is NOT "device ready": poll bitrise_devenv_get until session.device.state is PREVIEW_DEVICE_STATE_READY (and install_status is PREVIEW_INSTALL_STATUS_OK if you passed an artifact). While it is PREVIEW_DEVICE_STATE_BOOTING touch nothing on the VM — do not run recovery scripts, do not recreate. On PREVIEW_DEVICE_STATE_FAILED read device.device_notes: a stream-only failure leaves the device fully drivable over adb / simctl (guide §6).
 Templates can declare a device (device_spec on bitrise_devenv_get_template). Creating from one: omit device_spec to boot it as declared; pass a device_spec WITHOUT a platform to tweak it per field (empty fields inherit the template's); WITH a platform it is the complete device to boot (the template's is ignored); no_device=true skips the device (not combinable with device_spec; ignored when the template declares none).
 
-A) From a template (template_id set), no device unless the template declares one:
+2) From a template (template_id set), no device unless the template declares one:
 1. List templates with bitrise_devenv_list_templates to find available templates and their session inputs
 2. Optionally list saved inputs with bitrise_devenv_list_saved_inputs to find saved credentials
 3. Provide values for session inputs (either direct values or references to saved inputs), or set map_saved_to_session_inputs=true to auto-fill session inputs from the user's saved inputs by key match
 The session inherits the template's stack, machine type, scripts, feature flags, and workspace links. You may optionally pass stack_id and/or machine_type to override the template's values for this session only.
 
-B) Without a template (template_id omitted) and without a device — a bare build machine:
+3) Without a template (template_id omitted) and without a device — a bare build machine:
 Supply stack_id and machine_type directly to get a base environment with no warmup/startup scripts and no template configuration (no session inputs, feature flags, or workspace links). Use bitrise_devenv_list_stacks and bitrise_devenv_list_machine_types to discover valid values. This is the quickest way to spin up an environment for a repo when no template and no device is needed.
 
 The session will start provisioning immediately after creation.`),
@@ -195,7 +195,7 @@ Rules:
 			deviceSpecSchema(`Optional virtual device to boot with the session (see C above; read the device guide first). `+deviceSpecFieldsDoc+` platform is required unless the session is created from a template that declares a device — then omit it to tweak that device per field (only the fields you set change), or name one to replace it whole. Prefer omitting stack_id/machine_type; if you pass them they must fit the platform (OS family, >= 4 vCPU / 6-8 GB) or the request is rejected with the reason.`)...,
 		),
 		mcp.WithBoolean("no_device",
-			mcp.Description("Create the session WITHOUT the device its template declares (see C above). Only meaningful with a template that has a device_spec; ignored otherwise. Cannot be combined with device_spec."),
+			mcp.Description("Create the session WITHOUT the device its template declares (see 1 above). Only meaningful with a template that has a device_spec; ignored otherwise. Cannot be combined with device_spec."),
 		),
 		mcp.WithObject("artifact",
 			mcp.Description(`Optional app build to install on the device once it is READY (requires device_spec). url is an absolute http(s) URL the VM downloads directly (a signed URL is fine; it is never returned) — iOS: a zipped simulator .app, Android: an .apk. app_name / build_number / commit_sha are display metadata (shown in the viewer). Progress: session.device.install_status; a FAILED install (install_reason says why) leaves the device usable — install the app yourself.`),

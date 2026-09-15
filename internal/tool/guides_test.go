@@ -43,6 +43,29 @@ func TestGuideResources(t *testing.T) {
 	}
 }
 
+// The mirror files carry a maintainer-only HTML comment on line 1; the guide
+// an agent receives must start at its title, not at a note about syncing.
+func TestGuidesDoNotServeTheMirrorHeader(t *testing.T) {
+	for _, g := range guides {
+		if strings.HasPrefix(g.body, "<!--") || strings.Contains(g.body, "do not edit here") {
+			t.Errorf("guide %s still serves the mirror header:\n%.120s", g.key, g.body)
+		}
+		if !strings.HasPrefix(g.body, "# ") {
+			t.Errorf("guide %s must start at its title, got %.80q", g.key, g.body)
+		}
+	}
+	for _, tc := range []struct{ in, want string }{
+		{"<!-- note -->\n\n# Title\n", "# Title\n"},
+		{"<!-- note -->\n# Title\n", "# Title\n"},
+		{"# Title\n", "# Title\n"},
+		{"<!-- unterminated\n# Title\n", "<!-- unterminated\n# Title\n"},
+	} {
+		if got := stripMirrorHeader(tc.in); got != tc.want {
+			t.Errorf("stripMirrorHeader(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
 // The tool is the resource for clients that cannot read resources: for every
 // guide it must return byte-for-byte what the resource returns, and nothing
 // else is accepted.

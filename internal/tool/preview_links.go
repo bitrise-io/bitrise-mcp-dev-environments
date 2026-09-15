@@ -27,9 +27,9 @@ LIMITS: ttl_seconds defaults to 24 hours, capped at 72. At most 5 devices alive 
 
 Returns url (the shareable link — this is what you hand over), token (the same credential bare), jti (the link's id, recorded on every session it spawns) and expires_at.
 
-Device preview is enabled per workspace and per platform. PermissionDenied means the workspace does not have it yet — tell the user to ask Bitrise support, do not retry.`),
+PermissionDenied means this workspace cannot use device preview: report it and stop, do not retry.`),
 		mcp.WithObject("device_spec",
-			deviceSpecSchema(`The virtual device each open boots. `+deviceSpecFieldsDoc+` platform is required. Stick to platform alone unless the user asked for a specific device or OS — the deployment's defaults are known-good, and a device_model or os_version the stack lacks is silently substituted.`, "platform")...,
+			deviceSpecSchema(`The virtual device each open boots. `+deviceSpecFieldsDoc+` platform is required. Stick to platform alone unless the user asked for a specific device or OS — the platform defaults are known-good, and a device_model or os_version the stack lacks is silently substituted.`, "platform")...,
 		),
 		mcp.WithObject("artifact",
 			mcp.Description(`The app build installed on every device this link opens (required — a preview link without an app has nothing to preview). url is an absolute http(s) URL fetched by anonymous GET; a presigned URL is fine and is never shown to viewers. iOS: a zipped simulator .app. Android: an .apk. app_name / build_number / commit_sha are display metadata shown on the viewer page — fill them in when you know them, so the reviewer can see which build they are looking at.`),
@@ -45,7 +45,7 @@ Device preview is enabled per workspace and per platform. PermissionDenied means
 			mcp.Description("How long the link stays openable, in seconds. Omit for the default (24 hours); the maximum is 72 hours (259200). Prefer the shortest lifetime that covers the review — there is no way to revoke a link early."),
 		),
 		mcp.WithNumber("session_auto_terminate_minutes",
-			mcp.Description("How long a device stays alive after its last viewer disconnects. Omit for the deployment default (60). At least 10 — a shorter window would reap devices mid-boot — and it can be tuned but never turned off."),
+			mcp.Description("How long a device stays alive after its last viewer disconnects. Omit for the default of 60. At least 10 — a shorter window would reap devices mid-boot — and it can be tuned but never turned off."),
 		),
 		mcp.WithString("stack_id",
 			mcp.Description("Stack the link's devices run on. Omit for the platform default, which is what you want in almost every case. If you pass it, it must fit the platform: an Android-flavored dockerless Linux stack for android, a macOS 26+ stack for ios. Rejected at mint with the reason if it does not."),

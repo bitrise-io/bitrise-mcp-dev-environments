@@ -48,14 +48,23 @@ Each guide covers the **hosted (OAuth)** setup first — recommended and fastest
 
 | Variable | Required | Description |
 |---|---|---|
-| `BITRISE_TOKEN` | Yes | Personal access token or dev token |
-| `BITRISE_WORKSPACE_ID` | Recommended | Bitrise workspace ID (slug) for workspace-scoped API calls. If omitted and you belong to exactly one workspace, it is auto-detected; with multiple workspaces it is required. |
+| `BITRISE_TOKEN` | Yes | Personal access token, Workspace API Token (`bitwat_…`, created with Remote Dev Environments access) or dev token. See [Workspace API Tokens](#workspace-api-tokens) for what changes with one. |
+| `BITRISE_WORKSPACE_ID` | Recommended | Bitrise workspace ID (slug) for workspace-scoped API calls. If omitted and you belong to exactly one workspace, it is auto-detected; with multiple workspaces it is required. Required with a Workspace API Token (auto-detection needs a user). |
 | `BITRISE_API_BASE_URL` | No | Backend API base URL (default: `https://codespaces-api.services.bitrise.io`) |
 | `LOG_LEVEL` | No | `debug`, `info` (default), `warn`, `error` |
 
 ### Transports
 
 The server runs over **stdio** (above) for local use. It can also run over **HTTP with OAuth** for a hosted deployment — set `ADDR` (e.g. `0.0.0.0:8000`) to switch transports. In HTTP mode `BITRISE_TOKEN` must not be set; clients authenticate per-request via OAuth (or an `Authorization` bearer header), and the workspace comes from the `x-bitrise-workspace-id` header (or auto-detection). OAuth is enabled by setting `EXTERNAL_OAUTH_ISSUER`, `OIDC_TOKEN_ENDPOINT`, and `SERVER_BASE_URL`. The file-transfer tools (`upload`/`download`) are local-only and are hidden on the hosted server.
+
+## Workspace API Tokens
+
+`BITRISE_TOKEN` (or the HTTP bearer header) may be a **Workspace API Token** instead of a personal access token — the right credential for CI and other unattended callers, since it belongs to the workspace rather than a person. With one:
+
+- every session the token creates is **owned by the workspace** (`owner` is implied `workspace`; `owner="user"` is rejected), visible to and manageable by every workspace member, and listed with `scope="workspace"` — which is also the token's default and only scope for `bitrise_devenv_list` / `bitrise_devenv_delete_terminated`;
+- the token fully manages those sessions (get, update, terminate, restore, delete, execute, screenshots, computer use, file transfer) and reads templates, stacks and machine types, but never sees a member's personal session;
+- template session inputs must be given as plain values in `session_inputs` — saved inputs are personal, so `saved_input_id` / `map_saved_to_session_inputs` are rejected, as is `ai_prompt`;
+- the user-scoped tools (`bitrise_devenv_me`, `bitrise_devenv_list_workspaces`, the saved-input tools) and template authoring are unavailable, and `BITRISE_WORKSPACE_ID` must be set.
 
 ## Available Tools
 

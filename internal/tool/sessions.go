@@ -535,9 +535,9 @@ Sessions created without a template have nothing to compare against, so the curr
 // DeleteTerminatedSessions deletes all terminated sessions.
 var DeleteTerminatedSessions = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_delete_terminated",
-		mcp.WithDescription(`Delete all terminated devenv sessions in the given ownership scope. By default (scope="mine") deletes the current user's terminated sessions; set scope="workspace" to delete terminated workspace-owned sessions instead. Returns the number of deleted sessions. Running sessions are left alone — use bitrise_devenv_delete to delete a specific session regardless of its state.`),
+		mcp.WithDescription(`Delete all terminated devenv sessions in the given ownership scope. By default (scope="mine") deletes the current user's terminated sessions; set scope="workspace" to delete terminated workspace-owned sessions instead. With a Workspace API Token pass scope="workspace" (the token has no personal sessions, so "mine" is rejected). Returns the number of deleted sessions. Running sessions are left alone — use bitrise_devenv_delete to delete a specific session regardless of its state.`),
 		mcp.WithString("scope",
-			mcp.Description(`Ownership scope of the cleanup. "mine" (default) deletes the calling user's own terminated sessions. "workspace" deletes terminated sessions owned by the workspace itself — e.g. device-preview sessions started from workspace preview links.`),
+			mcp.Description(`Ownership scope of the cleanup. "mine" (default) deletes the calling user's own terminated sessions. "workspace" deletes terminated sessions owned by the workspace itself — created with owner="workspace" or by a Workspace API Token, or started from workspace preview links. Use "workspace" when the server runs with a Workspace API Token.`),
 			mcp.Enum("mine", "workspace"),
 			mcp.DefaultString("mine"),
 		),

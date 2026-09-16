@@ -30,7 +30,7 @@ To check if a session's template has been updated, look at the template_outdated
 			mcp.WithStringItems(),
 		),
 		mcp.WithString("scope",
-			mcp.Description(`Ownership scope of the listing. "mine" (default) returns the calling user's own sessions. "workspace" returns sessions owned by the workspace itself — e.g. device-preview sessions started from workspace preview links — which are visible to every workspace member.`),
+			mcp.Description(`Ownership scope of the listing. "mine" (default) returns the calling user's own sessions. "workspace" returns sessions owned by the workspace itself — created with owner="workspace" (or by a Workspace API Token, which always creates workspace-owned sessions) or started from workspace preview links — which are visible to every workspace member. With a Workspace API Token the default is "workspace" and "mine" is rejected (the token has no personal sessions).`),
 			mcp.Enum("mine", "workspace"),
 			mcp.DefaultString("mine"),
 		),
@@ -138,6 +138,8 @@ The session inherits the template's stack, machine type, scripts, feature flags,
 3) Without a template (template_id omitted) and without a device — a bare build machine:
 Supply stack_id and machine_type directly to get a base environment with no warmup/startup scripts and no template configuration (no session inputs, feature flags, or workspace links). Use bitrise_devenv_list_stacks and bitrise_devenv_list_machine_types to discover valid values. This is the quickest way to spin up an environment for a repo when no template and no device is needed.
 
+Who owns the session (owner): "user" (default) is a personal session of the authenticated user. "workspace" creates a session owned by the workspace itself — visible to and manageable by every member, listed with bitrise_devenv_list scope="workspace". A workspace-owned session carries no personal state: give every template session input as a plain value in session_inputs (saved_input_id references and map_saved_to_session_inputs are rejected), and ai_prompt is not available. When the server is authenticated with a Workspace API Token (bitwat_…, e.g. from CI) every session it creates is workspace-owned — omit owner or set "workspace"; "user" is rejected.
+
 The session will start provisioning immediately after creation.`),
 		mcp.WithString("name",
 			mcp.Description("Human-readable name for the session"),
@@ -206,6 +208,10 @@ Rules:
 				"commit_sha":   map[string]any{"type": "string"},
 			}),
 			requiredProperties("url"),
+		),
+		mcp.WithString("owner",
+			mcp.Description(`Who owns the session. "user" (default): a personal session of the authenticated user. "workspace": owned by the workspace itself — shared with every member, listed under bitrise_devenv_list scope="workspace"; session inputs must then be plain values (no saved_input_id, no map_saved_to_session_inputs) and ai_prompt is unavailable. Required to be omitted or "workspace" when the server runs with a Workspace API Token.`),
+			mcp.Enum("user", "workspace"),
 		),
 		mcp.WithObject("labels",
 			mcp.Description(`Optional key/value string labels to attach to the session, e.g. {"team": "mobile", "branch": "main"}. At most 32 labels; keys are 1-63 characters of [a-zA-Z0-9._/-] starting and ending alphanumeric; values are 1-255 bytes of [a-zA-Z0-9._/:+-] with no positional rules (timestamps with offsets, branch names, paths, and semver all fit; spaces, '@', '=', newlines, and non-ASCII are rejected). The "bitrise.io/" key prefix is reserved for system-owned labels and rejected. Labels are returned on session reads and filterable in bitrise_devenv_list via label_selectors.`),
@@ -296,6 +302,11 @@ Rules:
 		}
 		if labels, ok := request.GetArguments()["labels"]; ok {
 			body["labels"] = labels
+		}
+		// Sent only when set: an absent owner_type is the backend's default
+		// (personal for a user, workspace-owned for a Workspace API Token).
+		if owner := request.GetString("owner", ""); owner != "" {
+			body["owner_type"] = owner
 		}
 		if hasDevice {
 			body["device_spec"] = deviceSpec

@@ -132,8 +132,8 @@ stored session configuration (template + input values + flags + optional
 machine/device overrides) plus an owner (`user` = private to its creator,
 `workspace` = shared with every member) and a `desired_count`. Create one
 with `bitrise_devenv_create_warm_pool` / `bitrise-cli rde warm-pool create
---template T --count N`, then create sessions **from the pool** instead of
-the template:
+NAME --template T --count N`, then create sessions **from the pool** instead
+of the template:
 
 ```json
 { "name": "ios-check", "warm_pool_id": "<pool id>" }

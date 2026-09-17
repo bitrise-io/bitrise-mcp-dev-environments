@@ -85,6 +85,13 @@ func NewBelt() *Belt {
 			UpdateTemplate,
 			DeleteTemplate,
 
+			// Warm Pools
+			ListWarmPools,
+			GetWarmPool,
+			CreateWarmPool,
+			UpdateWarmPool,
+			DeleteWarmPool,
+
 			// Saved Inputs
 			ListSavedInputs,
 			GetSavedInput,

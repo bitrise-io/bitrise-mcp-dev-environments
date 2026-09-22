@@ -100,14 +100,14 @@ The server runs over **stdio** (above) for local use. It can also run over **HTT
 
 ### Warm Pools
 
-A warm pool is a stored session configuration (template, session input values, feature flags, optional stack / machine type / cluster overrides) plus an owner and a `desired_count`. The backend keeps that many sessions booted and idle; `bitrise_devenv_create` with `warm_pool_id` is handed one of them instantly (`warm_state: "claimed"`) or, when none is available, gets a session built from the pool's configuration (`"cold"`). `desired_count: 0` drains a pool but keeps it usable as a preset — a scheduler can scale it up for business hours and down at night.
+A warm pool is a stored session configuration (template, session input values, feature flags, optional stack / machine type / cluster overrides) plus an owner and a `pool_size`. The backend keeps that many sessions booted and idle; `bitrise_devenv_create` with `warm_pool_id` is handed one of them instantly (`warm_state: "claimed"`) or, when none is available, gets a session built from the pool's configuration (`"cold"`). `pool_size: 0` drains a pool but keeps it usable as a preset — a scheduler can scale it up for business hours and down at night.
 
 | Tool | Description |
 |------|-------------|
 | `bitrise_devenv_list_warm_pools` | List the warm pools you can see (the workspace's plus your own), optionally for one template; `all: true` lists every pool in the workspace read-only (needs billing-view permission) |
 | `bitrise_devenv_get_warm_pool` | Get a warm pool with its live status — ready / warming counts, claimed and cold totals, errors — and its per-session inventory |
 | `bitrise_devenv_create_warm_pool` | Create a warm pool from a template with session inputs, feature flags, optional stack / machine type / cluster overrides and the device its sessions boot (`device_spec` / `no_device`, as on `bitrise_devenv_create`); `owner_type` `"user"` (private) or `"workspace"` (shared, required for preview links) |
-| `bitrise_devenv_update_warm_pool` | Scale a pool (`desired_count`; 0 drains it), rename it, or change its stored configuration (arrays replace all entries; a redacted secret sent back empty keeps the stored value; `""` clears a machine override, `device_spec: {}` the device override) |
+| `bitrise_devenv_update_warm_pool` | Scale a pool (`pool_size`; 0 drains it), rename it, or change its stored configuration (arrays replace all entries; a redacted secret sent back empty keeps the stored value; `""` clears a machine override, `device_spec: {}` the device override) |
 | `bitrise_devenv_delete_warm_pool` | Delete a warm pool; its unclaimed warm sessions are terminated, claimed sessions are untouched |
 
 ### Saved Inputs
@@ -195,7 +195,7 @@ The guides mirror the RDE backend's device-session documentation (the source of 
 
 - **Template-based or template-less**: Sessions can be created from a template that defines the stack, startup scripts, template variables, and session inputs, or without a template by supplying a stack and machine type directly (a base environment with no warmup/startup scripts)
 - **Session inputs**: When creating a session, provide values for session inputs (either direct values or references to saved inputs for secrets)
-- **Warm pools skip the boot**: When the same configuration is created repeatedly, store it once as a warm pool (`bitrise_devenv_create_warm_pool`) and claim from it with `bitrise_devenv_create` `warm_pool_id` — a booted session is handed over instantly when one is ready, and a cold one is built from the pool's configuration otherwise. Pass only the per-session fields (`name`, `description`, `labels`, `auto_terminate_minutes`, `artifact`) with a claim; configuration fields are rejected. Scale with `bitrise_devenv_update_warm_pool` `desired_count` (0 drains the pool but keeps the preset)
+- **Warm pools skip the boot**: When the same configuration is created repeatedly, store it once as a warm pool (`bitrise_devenv_create_warm_pool`) and claim from it with `bitrise_devenv_create` `warm_pool_id` — a booted session is handed over instantly when one is ready, and a cold one is built from the pool's configuration otherwise. Pass only the per-session fields (`name`, `description`, `labels`, `auto_terminate_minutes`, `artifact`) with a claim; configuration fields are rejected. Scale with `bitrise_devenv_update_warm_pool` `pool_size` (0 drains the pool but keeps the preset)
 - **Done with a session? Delete it**: `bitrise_devenv_delete` works on running sessions too — the VM is stopped and discarded along with its disk. Only use `bitrise_devenv_terminate` when you intend to `bitrise_devenv_restore` the same session later; terminated sessions keep using disk until deleted
 - **Always check first**: Call `bitrise_devenv_list` before creating to reuse existing sessions
 

@@ -114,7 +114,7 @@ func TestWarmPoolToolsRegistered(t *testing.T) {
 // neither is sent when not asked. The backend's JSON is passed through.
 func TestListWarmPools(t *testing.T) {
 	const path = "/v1/workspaces/ws/warm-pools"
-	response := `{"warm_pools":[{"id":"` + testWarmPoolID + `","name":"ios lab","desired_count":2,"status":{"ready":1,"warming":1}}]}`
+	response := `{"warm_pools":[{"id":"` + testWarmPoolID + `","name":"ios lab","pool_size":2,"status":{"ready":1,"warming":1}}]}`
 
 	t.Run("default lists visible pools", func(t *testing.T) {
 		ctx, got := captureRequest(t, response)
@@ -129,7 +129,7 @@ func TestListWarmPools(t *testing.T) {
 		var decoded struct {
 			WarmPools []struct {
 				ID           string `json:"id"`
-				DesiredCount int    `json:"desired_count"`
+				PoolSize int    `json:"pool_size"`
 				Status       struct {
 					Ready int `json:"ready"`
 				} `json:"status"`
@@ -138,8 +138,8 @@ func TestListWarmPools(t *testing.T) {
 		if err := json.Unmarshal([]byte(text), &decoded); err != nil {
 			t.Fatalf("result is not JSON: %v", err)
 		}
-		if len(decoded.WarmPools) != 1 || decoded.WarmPools[0].ID != testWarmPoolID || decoded.WarmPools[0].DesiredCount != 2 || decoded.WarmPools[0].Status.Ready != 1 {
-			t.Errorf("decoded %+v, want one pool %s with desired_count 2 and 1 ready", decoded.WarmPools, testWarmPoolID)
+		if len(decoded.WarmPools) != 1 || decoded.WarmPools[0].ID != testWarmPoolID || decoded.WarmPools[0].PoolSize != 2 || decoded.WarmPools[0].Status.Ready != 1 {
+			t.Errorf("decoded %+v, want one pool %s with pool_size 2 and 1 ready", decoded.WarmPools, testWarmPoolID)
 		}
 	})
 	t.Run("template_id and all become query parameters", func(t *testing.T) {
@@ -208,10 +208,10 @@ func TestGetWarmPool(t *testing.T) {
 // Create posts the stored configuration: the scalars the backend cannot
 // default are always sent, the optional ones only when given (an absent
 // owner_type is the backend's default, an absent override is the template's
-// value), and desired_count arrives as a JSON number.
+// value), and pool_size arrives as a JSON number.
 func TestCreateWarmPool(t *testing.T) {
 	const path = "/v1/workspaces/ws/warm-pools"
-	response := `{"warm_pool":{"id":"` + testWarmPoolID + `","name":"ios lab","owner_type":"workspace","desired_count":3}}`
+	response := `{"warm_pool":{"id":"` + testWarmPoolID + `","name":"ios lab","owner_type":"workspace","pool_size":3}}`
 
 	t.Run("full configuration", func(t *testing.T) {
 		ctx, got := captureRequest(t, response)
@@ -223,7 +223,7 @@ func TestCreateWarmPool(t *testing.T) {
 		text := callText(t, CreateWarmPool, ctx, map[string]any{
 			"name":                       "ios lab",
 			"template_id":                testTemplateID,
-			"desired_count":              float64(3),
+			"pool_size":              float64(3),
 			"owner_type":                 "workspace",
 			"session_inputs":             inputs,
 			"enabled_feature_flag_names": flags,
@@ -235,7 +235,7 @@ func TestCreateWarmPool(t *testing.T) {
 		want := map[string]any{
 			"name":                       "ios lab",
 			"template_id":                testTemplateID,
-			"desired_count":              float64(3),
+			"pool_size":              float64(3),
 			"owner_type":                 "workspace",
 			"session_inputs":             inputs,
 			"enabled_feature_flag_names": flags,
@@ -250,26 +250,26 @@ func TestCreateWarmPool(t *testing.T) {
 			WarmPool struct {
 				ID           string `json:"id"`
 				OwnerType    string `json:"owner_type"`
-				DesiredCount int    `json:"desired_count"`
+				PoolSize int    `json:"pool_size"`
 			} `json:"warm_pool"`
 		}
 		if err := json.Unmarshal([]byte(text), &decoded); err != nil {
 			t.Fatalf("result is not JSON: %v", err)
 		}
-		if decoded.WarmPool.ID != testWarmPoolID || decoded.WarmPool.OwnerType != "workspace" || decoded.WarmPool.DesiredCount != 3 {
-			t.Errorf("decoded %+v, want pool %s owned by workspace with desired_count 3", decoded.WarmPool, testWarmPoolID)
+		if decoded.WarmPool.ID != testWarmPoolID || decoded.WarmPool.OwnerType != "workspace" || decoded.WarmPool.PoolSize != 3 {
+			t.Errorf("decoded %+v, want pool %s owned by workspace with pool_size 3", decoded.WarmPool, testWarmPoolID)
 		}
 	})
 	t.Run("device fields are forwarded like a session create's", func(t *testing.T) {
 		ctx, got := captureRequest(t, response)
 		spec := map[string]any{"platform": "ios", "device_model": "iPhone 16"}
-		callText(t, CreateWarmPool, ctx, map[string]any{"name": "ios lab", "template_id": testTemplateID, "desired_count": float64(1), "device_spec": spec})
-		want := map[string]any{"name": "ios lab", "template_id": testTemplateID, "desired_count": float64(1), "device_spec": spec}
+		callText(t, CreateWarmPool, ctx, map[string]any{"name": "ios lab", "template_id": testTemplateID, "pool_size": float64(1), "device_spec": spec})
+		want := map[string]any{"name": "ios lab", "template_id": testTemplateID, "pool_size": float64(1), "device_spec": spec}
 		if !reflect.DeepEqual(got.Body, want) {
 			t.Errorf("body = %v, want %v", got.Body, want)
 		}
 		ctx, got = captureRequest(t, response)
-		callText(t, CreateWarmPool, ctx, map[string]any{"name": "headless", "template_id": testTemplateID, "desired_count": float64(1), "no_device": true})
+		callText(t, CreateWarmPool, ctx, map[string]any{"name": "headless", "template_id": testTemplateID, "pool_size": float64(1), "no_device": true})
 		if got.Body["no_device"] != true {
 			t.Errorf("no_device = %v, want true", got.Body["no_device"])
 		}
@@ -279,11 +279,11 @@ func TestCreateWarmPool(t *testing.T) {
 	})
 	t.Run("minimal pool sends only the required fields", func(t *testing.T) {
 		ctx, got := captureRequest(t, response)
-		callText(t, CreateWarmPool, ctx, map[string]any{"name": "preset", "template_id": testTemplateID, "desired_count": float64(0)})
+		callText(t, CreateWarmPool, ctx, map[string]any{"name": "preset", "template_id": testTemplateID, "pool_size": float64(0)})
 		assertRequest(t, got, http.MethodPost, path)
-		want := map[string]any{"name": "preset", "template_id": testTemplateID, "desired_count": float64(0)}
+		want := map[string]any{"name": "preset", "template_id": testTemplateID, "pool_size": float64(0)}
 		if !reflect.DeepEqual(got.Body, want) {
-			t.Errorf("body = %v, want %v (desired_count 0 is a drained preset pool and must be sent)", got.Body, want)
+			t.Errorf("body = %v, want %v (pool_size 0 is a drained preset pool and must be sent)", got.Body, want)
 		}
 	})
 	t.Run("rejected before the API call", func(t *testing.T) {
@@ -292,13 +292,13 @@ func TestCreateWarmPool(t *testing.T) {
 			args map[string]any
 			want string
 		}{
-			{"missing template_id", map[string]any{"name": "p", "desired_count": float64(1)}, "template_id"},
-			{"malformed template_id", map[string]any{"name": "p", "template_id": "tpl", "desired_count": float64(1)}, "invalid template_id"},
-			{"missing desired_count", map[string]any{"name": "p", "template_id": testTemplateID}, "desired_count is required"},
-			{"negative desired_count", map[string]any{"name": "p", "template_id": testTemplateID, "desired_count": float64(-1)}, "desired_count must be >= 0"},
-			{"desired_count not a number", map[string]any{"name": "p", "template_id": testTemplateID, "desired_count": "2"}, "desired_count must be a number"},
-			{"device_spec with no_device", map[string]any{"name": "p", "template_id": testTemplateID, "desired_count": float64(1), "device_spec": map[string]any{"platform": "ios"}, "no_device": true}, "no_device cannot be combined"},
-			{"device_spec not an object", map[string]any{"name": "p", "template_id": testTemplateID, "desired_count": float64(1), "device_spec": "ios"}, "device_spec must be an object"},
+			{"missing template_id", map[string]any{"name": "p", "pool_size": float64(1)}, "template_id"},
+			{"malformed template_id", map[string]any{"name": "p", "template_id": "tpl", "pool_size": float64(1)}, "invalid template_id"},
+			{"missing pool_size", map[string]any{"name": "p", "template_id": testTemplateID}, "pool_size is required"},
+			{"negative pool_size", map[string]any{"name": "p", "template_id": testTemplateID, "pool_size": float64(-1)}, "pool_size must be >= 0"},
+			{"pool_size not a number", map[string]any{"name": "p", "template_id": testTemplateID, "pool_size": "2"}, "pool_size must be a number"},
+			{"device_spec with no_device", map[string]any{"name": "p", "template_id": testTemplateID, "pool_size": float64(1), "device_spec": map[string]any{"platform": "ios"}, "no_device": true}, "no_device cannot be combined"},
+			{"device_spec not an object", map[string]any{"name": "p", "template_id": testTemplateID, "pool_size": float64(1), "device_spec": "ios"}, "device_spec must be an object"},
 		}
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
@@ -315,13 +315,13 @@ func TestCreateWarmPool(t *testing.T) {
 // including as "" to clear the override — and omitted otherwise.
 func TestUpdateWarmPool(t *testing.T) {
 	path := "/v1/workspaces/ws/warm-pools/" + testWarmPoolID
-	response := `{"warm_pool":{"id":"` + testWarmPoolID + `","desired_count":0}}`
+	response := `{"warm_pool":{"id":"` + testWarmPoolID + `","pool_size":0}}`
 
-	t.Run("scale to zero sends desired_count alone", func(t *testing.T) {
+	t.Run("scale to zero sends pool_size alone", func(t *testing.T) {
 		ctx, got := captureRequest(t, response)
-		text := callText(t, UpdateWarmPool, ctx, map[string]any{"warm_pool_id": testWarmPoolID, "desired_count": float64(0)})
+		text := callText(t, UpdateWarmPool, ctx, map[string]any{"warm_pool_id": testWarmPoolID, "pool_size": float64(0)})
 		assertRequest(t, got, http.MethodPatch, path)
-		want := map[string]any{"desired_count": float64(0)}
+		want := map[string]any{"pool_size": float64(0)}
 		if !reflect.DeepEqual(got.Body, want) {
 			t.Errorf("body = %v, want %v", got.Body, want)
 		}
@@ -400,7 +400,7 @@ func TestUpdateWarmPool(t *testing.T) {
 			{"device_spec not an object", map[string]any{"warm_pool_id": testWarmPoolID, "device_spec": "ios"}, "device_spec must be an object"},
 			{"malformed id", map[string]any{"warm_pool_id": "pool", "name": "x"}, "invalid warm_pool_id"},
 			{"nothing to update", map[string]any{"warm_pool_id": testWarmPoolID}, "nothing to update"},
-			{"negative desired_count", map[string]any{"warm_pool_id": testWarmPoolID, "desired_count": float64(-2)}, "desired_count must be >= 0"},
+			{"negative pool_size", map[string]any{"warm_pool_id": testWarmPoolID, "pool_size": float64(-2)}, "pool_size must be >= 0"},
 		}
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {

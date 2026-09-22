@@ -12,7 +12,7 @@ import (
 
 // warmPoolConceptDoc explains what a warm pool is. It is shared by the tool
 // descriptions so an agent reads the same model wherever a pool is mentioned.
-const warmPoolConceptDoc = `A warm pool is a stored session configuration — a template, its session input values, feature flags and optional stack / machine type / cluster overrides — plus an owner and a desired_count. The RDE backend keeps desired_count sessions of that configuration booted and idle ("warm sessions", status.ready / status.warming). Creating a session with bitrise_devenv_create warm_pool_id hands out a warm session instantly (Session.warm_state "claimed") or, when none is available, builds one from the pool's configuration (warm_state "cold") — so a pool with desired_count 0 still works as a configuration preset. Owner "user" makes the pool private to its creator; "workspace" shares it with every member and Workspace API Tokens.`
+const warmPoolConceptDoc = `A warm pool is a stored session configuration — a template, its session input values, feature flags and optional stack / machine type / cluster overrides — plus an owner and a pool_size. The RDE backend keeps pool_size sessions of that configuration booted and idle ("warm sessions", status.ready / status.warming). Creating a session with bitrise_devenv_create warm_pool_id hands out a warm session instantly (Session.warm_state "claimed") or, when none is available, builds one from the pool's configuration (warm_state "cold") — so a pool with pool_size 0 still works as a configuration preset. Owner "user" makes the pool private to its creator; "workspace" shares it with every member and Workspace API Tokens.`
 
 // warmPoolSessionInputsSchema is the session_inputs array a pool stores — the
 // same shape bitrise_devenv_create takes, since a pool is a stored session
@@ -40,9 +40,9 @@ var ListWarmPools = devenv.Tool{
 
 WHEN TO USE THIS: before creating a session, to find a pool that already has your configuration booted (then pass its id as warm_pool_id to bitrise_devenv_create); before creating a pool, to avoid a duplicate; or to review what is kept warm — and paid for — in the workspace.
 
-By default returns the workspace's pools plus your own user pools, never another user's. Set all=true to list every pool in the workspace read-only (cost visibility; requires the workspace's view_billing_data permission). Optionally restrict to one template with template_id.
+By default returns the workspace's pools plus your own personal pools, never another user's. Set all=true to list every pool in the workspace read-only (cost visibility; requires the workspace's view_billing_data permission). Optionally restrict to one template with template_id.
 
-Each pool carries its configuration (secret input values redacted), desired_count and a status with ready / warming counts, lifetime claimed_total / cold_total (a high cold_total means desired_count is too low for the demand), last_error, config_error (the stored configuration no longer builds — fix it with bitrise_devenv_update_warm_pool) and paused_until. The list view omits the per-session inventory; use bitrise_devenv_get_warm_pool for status.sessions.`),
+Each pool carries its configuration (secret input values redacted), pool_size and a status with ready / warming counts, lifetime claimed_total / cold_total (a high cold_total means pool_size is too low for the demand), last_error, config_error (the stored configuration no longer builds — fix it with bitrise_devenv_update_warm_pool) and paused_until. The list view omits the per-session inventory; use bitrise_devenv_get_warm_pool for status.sessions.`),
 		mcp.WithString("template_id",
 			mcp.Description("Optional: only list pools created from this template (UUID)."),
 		),
@@ -106,7 +106,7 @@ Secret session input values are redacted in the response.`),
 }
 
 // CreateWarmPool creates a warm pool: a stored session configuration the
-// backend keeps desired_count sessions of booted.
+// backend keeps pool_size sessions of booted.
 var CreateWarmPool = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_create_warm_pool",
 		mcp.WithDescription(`Create a warm pool. `+warmPoolConceptDoc+`
@@ -117,13 +117,13 @@ The configuration fields are those of bitrise_devenv_create, validated the same 
 
 Ownership: owner_type "user" (default for a personal token) keeps the pool and its sessions private to you and allows saved_input_id references in session_inputs. "workspace" shares the pool with every member and Workspace API Tokens, its sessions are workspace-owned, session inputs must be plain values, and it is the only kind a preview link (bitrise_devenv_create_preview_link warm_pool_id) may serve from. With a Workspace API Token omit owner_type or set "workspace".
 
-Sizing: desired_count is how many warm sessions to keep booted — each one is a running machine you pay for while idle, so start small and watch status.cold_total (claims that found no warm session) to tune it. 0 creates an inert pool that still serves as a configuration preset for claims.`),
+Sizing: pool_size is how many warm sessions to keep booted — each one is a running machine you pay for while idle, so start small and watch status.cold_total (claims that found no warm session) to tune it. 0 creates an inert pool that still serves as a configuration preset for claims.`),
 		mcp.WithString("name", mcp.Description("Human-readable name of the pool"), mcp.Required()),
 		mcp.WithString("template_id",
 			mcp.Description("ID (UUID) of the template every warm session is created from. Use bitrise_devenv_list_templates to find one and read its session inputs."),
 			mcp.Required(),
 		),
-		mcp.WithNumber("desired_count",
+		mcp.WithNumber("pool_size",
 			mcp.Description("How many warm sessions to keep booted and idle. 0 creates a drained pool that only serves as a configuration preset. Each warm session is a running machine, so keep it to the concurrency you actually need."),
 			mcp.Required(),
 		),
@@ -132,7 +132,7 @@ Sizing: desired_count is how many warm sessions to keep booted — each one is a
 			mcp.Enum("user", "workspace"),
 		),
 		mcp.WithArray("session_inputs",
-			warmPoolSessionInputsSchema("Values for the template's session inputs that every warm session is created with. Required inputs must have a value (direct, or saved_input_id on a user pool); optional inputs fall back to their default_value.")...,
+			warmPoolSessionInputsSchema("Values for the template's session inputs that every warm session is created with. Required inputs must have a value (direct, or saved_input_id on a personal pool); optional inputs fall back to their default_value.")...,
 		),
 		mcp.WithArray("enabled_feature_flag_names",
 			mcp.Description("Names of the template's feature flags to enable on every warm session"),
@@ -159,18 +159,18 @@ Sizing: desired_count is how many warm sessions to keep booted — each one is a
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
-		desiredCount, ok, err := getOptionalInt(request, "desired_count")
+		poolSize, ok, err := getOptionalInt(request, "pool_size")
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 		if !ok {
-			return mcp.NewToolResultError("desired_count is required — how many warm sessions to keep booted (0 for a drained preset pool)"), nil
+			return mcp.NewToolResultError("pool_size is required — how many warm sessions to keep booted (0 for a drained preset pool)"), nil
 		}
 
 		body := map[string]any{
 			"name":          request.GetString("name", ""),
 			"template_id":   templateID,
-			"desired_count": desiredCount,
+			"pool_size": poolSize,
 		}
 		if owner := request.GetString("owner_type", ""); owner != "" {
 			body["owner_type"] = owner
@@ -214,23 +214,23 @@ Sizing: desired_count is how many warm sessions to keep booted — each one is a
 	},
 }
 
-// UpdateWarmPool updates a warm pool's name, desired count or configuration.
+// UpdateWarmPool updates a warm pool's name, pool size or configuration.
 var UpdateWarmPool = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_update_warm_pool",
 		mcp.WithDescription(`Update a warm pool. Only provided fields change.
 
 WHEN TO USE THIS:
-- Scale a pool: set desired_count. Raise it when status.cold_total keeps growing (claims are not finding warm sessions); set it to 0 to drain the pool while keeping it usable as a configuration preset — the natural move for a scheduler that scales up for business hours and down at night. Scaling touches no claimed session.
+- Scale a pool: set pool_size. Raise it when status.cold_total keeps growing (claims are not finding warm sessions); set it to 0 to drain the pool while keeping it usable as a configuration preset — the natural move for a scheduler that scales up for business hours and down at night. Scaling touches no claimed session.
 - Fix a pool whose status.config_error says the stored configuration no longer builds (an input was removed from the template, a saved input was deleted, a stack was retired): correct session_inputs / enabled_feature_flag_names / stack_id / machine_type / cluster / device_spec.
 - Change the device the warm sessions boot: device_spec (a new device, or a per-field tweak of the template's when it has no platform), device_spec {} to drop the pool's device override and boot the template's device as declared, or no_device true/false to skip or restore the template's device.
 - Rename it: name.
 
 Array fields: passing session_inputs or enabled_feature_flag_names replaces ALL existing entries (pass an empty array to clear); omit to leave unchanged. Secrets survive a resend: the session_inputs that bitrise_devenv_get_warm_pool returns has every secret value redacted to "", and sending that list back as is keeps each stored secret — only an input whose key is left out is removed, and a new value or a saved_input_id replaces the stored one. So to change one input, read the pool, edit that entry and send the whole list; nothing needs retyping. Override fields: pass stack_id, machine_type or cluster to set the override, an empty string "" to clear it back to the template's value; omit to leave unchanged.
 
-A configuration change (anything but name and desired_count) invalidates the current warm sessions: the backend replaces them with sessions of the new configuration.`),
+A configuration change (anything but name and pool_size) invalidates the current warm sessions: the backend replaces them with sessions of the new configuration.`),
 		mcp.WithString("warm_pool_id", mcp.Description("The unique identifier (UUID) of the warm pool to update"), mcp.Required()),
 		mcp.WithString("name", mcp.Description("New name of the pool")),
-		mcp.WithNumber("desired_count",
+		mcp.WithNumber("pool_size",
 			mcp.Description("New number of warm sessions to keep booted. 0 drains the pool but keeps it as a preset."),
 		),
 		mcp.WithArray("session_inputs",
@@ -260,10 +260,10 @@ A configuration change (anything but name and desired_count) invalidates the cur
 		if _, ok := request.GetArguments()["name"]; ok {
 			body["name"] = request.GetString("name", "")
 		}
-		if count, ok, err := getOptionalInt(request, "desired_count"); err != nil {
+		if count, ok, err := getOptionalInt(request, "pool_size"); err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		} else if ok {
-			body["desired_count"] = count
+			body["pool_size"] = count
 		}
 		// Array fields: auto-set the corresponding update_* switch when the
 		// array is provided. The backend replaces the list only with the switch
@@ -306,7 +306,7 @@ A configuration change (anything but name and desired_count) invalidates the cur
 			return mcp.NewToolResultError("no_device cannot be true together with a device_spec — either boot a device or skip it"), nil
 		}
 		if len(body) == 0 {
-			return mcp.NewToolResultError("nothing to update — pass at least one of name, desired_count, session_inputs, enabled_feature_flag_names, stack_id, machine_type, cluster, device_spec or no_device"), nil
+			return mcp.NewToolResultError("nothing to update — pass at least one of name, pool_size, session_inputs, enabled_feature_flag_names, stack_id, machine_type, cluster, device_spec or no_device"), nil
 		}
 
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
@@ -326,7 +326,7 @@ var DeleteWarmPool = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_delete_warm_pool",
 		mcp.WithDescription(`Delete a warm pool. Its warm (unclaimed) sessions are terminated and deleted by the backend; sessions already claimed from it are untouched and keep running.
 
-WHEN TO USE THIS: the configuration is no longer needed at all. To stop paying for idle machines while keeping the configuration around as a preset, prefer bitrise_devenv_update_warm_pool with desired_count 0 instead. Preview links minted against the pool keep working after deletion, degraded to the ordinary cold boot path.`),
+WHEN TO USE THIS: the configuration is no longer needed at all. To stop paying for idle machines while keeping the configuration around as a preset, prefer bitrise_devenv_update_warm_pool with pool_size 0 instead. Preview links minted against the pool keep working after deletion, degraded to the ordinary cold boot path.`),
 		mcp.WithString("warm_pool_id", mcp.Description("The unique identifier (UUID) of the warm pool to delete"), mcp.Required()),
 		mcp.WithDestructiveHintAnnotation(true),
 	),

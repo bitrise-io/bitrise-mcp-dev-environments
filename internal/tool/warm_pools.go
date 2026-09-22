@@ -202,7 +202,7 @@ WHEN TO USE THIS:
 - Fix a pool whose status.config_error says the stored configuration no longer builds (an input was removed from the template, a saved input was deleted, a stack was retired): correct session_inputs / enabled_feature_flag_names / stack_id / machine_type / cluster.
 - Rename it: name.
 
-Array fields: passing session_inputs or enabled_feature_flag_names replaces ALL existing entries (pass an empty array to clear); omit to leave unchanged. Override fields: pass stack_id, machine_type or cluster to set the override, an empty string "" to clear it back to the template's value; omit to leave unchanged.
+Array fields: passing session_inputs or enabled_feature_flag_names replaces ALL existing entries (pass an empty array to clear); omit to leave unchanged. Secrets survive a resend: the session_inputs that bitrise_devenv_get_warm_pool returns has every secret value redacted to "", and sending that list back as is keeps each stored secret — only an input whose key is left out is removed, and a new value or a saved_input_id replaces the stored one. So to change one input, read the pool, edit that entry and send the whole list; nothing needs retyping. Override fields: pass stack_id, machine_type or cluster to set the override, an empty string "" to clear it back to the template's value; omit to leave unchanged.
 
 A configuration change (anything but name and desired_count) invalidates the current warm sessions: the backend replaces them with sessions of the new configuration.`),
 		mcp.WithString("warm_pool_id", mcp.Description("The unique identifier (UUID) of the warm pool to update"), mcp.Required()),
@@ -211,7 +211,7 @@ A configuration change (anything but name and desired_count) invalidates the cur
 			mcp.Description("New number of warm sessions to keep booted. 0 drains the pool but keeps it as a preset."),
 		),
 		mcp.WithArray("session_inputs",
-			warmPoolSessionInputsSchema("Replace ALL session input values with this list. Omit to leave unchanged. Pass an empty array to clear all. Secret values already stored are not returned — resend them when replacing the list.")...,
+			warmPoolSessionInputsSchema("Replace ALL session input values with this list. Omit to leave unchanged. Pass an empty array to clear all. A secret entry sent with an empty value keeps the stored secret (the redacted list from bitrise_devenv_get_warm_pool can be sent back as is); a new value or a saved_input_id replaces it, leaving the key out removes it.")...,
 		),
 		mcp.WithArray("enabled_feature_flag_names",
 			mcp.Description("Replace ALL enabled feature flags with this list. Omit to leave unchanged. Pass an empty array to clear all."),

@@ -260,6 +260,23 @@ func TestCreateWarmPool(t *testing.T) {
 			t.Errorf("decoded %+v, want pool %s owned by workspace with desired_count 3", decoded.WarmPool, testWarmPoolID)
 		}
 	})
+	t.Run("device fields are forwarded like a session create's", func(t *testing.T) {
+		ctx, got := captureRequest(t, response)
+		spec := map[string]any{"platform": "ios", "device_model": "iPhone 16"}
+		callText(t, CreateWarmPool, ctx, map[string]any{"name": "ios lab", "template_id": testTemplateID, "desired_count": float64(1), "device_spec": spec})
+		want := map[string]any{"name": "ios lab", "template_id": testTemplateID, "desired_count": float64(1), "device_spec": spec}
+		if !reflect.DeepEqual(got.Body, want) {
+			t.Errorf("body = %v, want %v", got.Body, want)
+		}
+		ctx, got = captureRequest(t, response)
+		callText(t, CreateWarmPool, ctx, map[string]any{"name": "headless", "template_id": testTemplateID, "desired_count": float64(1), "no_device": true})
+		if got.Body["no_device"] != true {
+			t.Errorf("no_device = %v, want true", got.Body["no_device"])
+		}
+		if _, present := got.Body["device_spec"]; present {
+			t.Errorf("device_spec present in body, want absent")
+		}
+	})
 	t.Run("minimal pool sends only the required fields", func(t *testing.T) {
 		ctx, got := captureRequest(t, response)
 		callText(t, CreateWarmPool, ctx, map[string]any{"name": "preset", "template_id": testTemplateID, "desired_count": float64(0)})
@@ -280,6 +297,8 @@ func TestCreateWarmPool(t *testing.T) {
 			{"missing desired_count", map[string]any{"name": "p", "template_id": testTemplateID}, "desired_count is required"},
 			{"negative desired_count", map[string]any{"name": "p", "template_id": testTemplateID, "desired_count": float64(-1)}, "desired_count must be >= 0"},
 			{"desired_count not a number", map[string]any{"name": "p", "template_id": testTemplateID, "desired_count": "2"}, "desired_count must be a number"},
+			{"device_spec with no_device", map[string]any{"name": "p", "template_id": testTemplateID, "desired_count": float64(1), "device_spec": map[string]any{"platform": "ios"}, "no_device": true}, "no_device cannot be combined"},
+			{"device_spec not an object", map[string]any{"name": "p", "template_id": testTemplateID, "desired_count": float64(1), "device_spec": "ios"}, "device_spec must be an object"},
 		}
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
@@ -347,6 +366,29 @@ func TestUpdateWarmPool(t *testing.T) {
 			}
 		}
 	})
+	t.Run("device_spec switches update_device_spec on; {} clears the override", func(t *testing.T) {
+		ctx, got := captureRequest(t, response)
+		spec := map[string]any{"platform": "android", "system_image": "system-images;android-35;google_apis;x86_64"}
+		callText(t, UpdateWarmPool, ctx, map[string]any{"warm_pool_id": testWarmPoolID, "device_spec": spec})
+		want := map[string]any{"device_spec": spec, "update_device_spec": true}
+		if !reflect.DeepEqual(got.Body, want) {
+			t.Errorf("body = %v, want %v", got.Body, want)
+		}
+		ctx, got = captureRequest(t, response)
+		callText(t, UpdateWarmPool, ctx, map[string]any{"warm_pool_id": testWarmPoolID, "device_spec": map[string]any{}})
+		want = map[string]any{"update_device_spec": true}
+		if !reflect.DeepEqual(got.Body, want) {
+			t.Errorf("body = %v, want %v (the switch alone clears the override)", got.Body, want)
+		}
+	})
+	t.Run("no_device is sent as given, false included", func(t *testing.T) {
+		ctx, got := captureRequest(t, response)
+		callText(t, UpdateWarmPool, ctx, map[string]any{"warm_pool_id": testWarmPoolID, "no_device": false})
+		want := map[string]any{"no_device": false}
+		if !reflect.DeepEqual(got.Body, want) {
+			t.Errorf("body = %v, want %v", got.Body, want)
+		}
+	})
 	t.Run("rejected before the API call", func(t *testing.T) {
 		cases := []struct {
 			name string
@@ -354,6 +396,8 @@ func TestUpdateWarmPool(t *testing.T) {
 			want string
 		}{
 			{"missing id", map[string]any{"name": "x"}, "warm_pool_id"},
+			{"device_spec with no_device true", map[string]any{"warm_pool_id": testWarmPoolID, "device_spec": map[string]any{"platform": "ios"}, "no_device": true}, "no_device cannot be true together"},
+			{"device_spec not an object", map[string]any{"warm_pool_id": testWarmPoolID, "device_spec": "ios"}, "device_spec must be an object"},
 			{"malformed id", map[string]any{"warm_pool_id": "pool", "name": "x"}, "invalid warm_pool_id"},
 			{"nothing to update", map[string]any{"warm_pool_id": testWarmPoolID}, "nothing to update"},
 			{"negative desired_count", map[string]any{"warm_pool_id": testWarmPoolID, "desired_count": float64(-2)}, "desired_count must be >= 0"},

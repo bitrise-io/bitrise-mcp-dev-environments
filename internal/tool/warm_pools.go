@@ -113,7 +113,7 @@ var CreateWarmPool = devenv.Tool{
 
 WHEN TO USE THIS: the same session configuration is created over and over and the boot time (machine + warmup script + device) is in the way — for example a team's daily dev sessions, an agent fleet that spins up a session per task, or a device configuration that preview links should open instantly. Create the pool once; afterwards every bitrise_devenv_create with warm_pool_id is handed a booted session.
 
-The configuration fields are those of bitrise_devenv_create, validated the same way (a pool can only store what a session request could send): template_id (required — a pool is always template-based), session_inputs (required inputs must be given; secret values are stored encrypted and redacted in responses), enabled_feature_flag_names, and optional stack_id / machine_type / cluster overrides of the template's values. The pool boots the device its template declares, if any. Per-session fields (name, description, labels, auto_terminate_minutes, artifact) are NOT part of the pool — they are given at claim time.
+The configuration fields are those of bitrise_devenv_create, validated the same way (a pool can only store what a session request could send): template_id (required — a pool is always template-based), session_inputs (required inputs must be given; secret values are stored encrypted and redacted in responses), enabled_feature_flag_names, optional stack_id / machine_type / cluster overrides of the template's values, and the device every warm session boots: omit device_spec to boot the template's declared device as is, pass one to tweak it per field (no platform) or replace it whole (with a platform), or no_device=true to boot none. Per-session fields (name, description, labels, auto_terminate_minutes, artifact) are NOT part of the pool — they are given at claim time.
 
 Ownership: owner_type "user" (default for a personal token) keeps the pool and its sessions private to you and allows saved_input_id references in session_inputs. "workspace" shares the pool with every member and Workspace API Tokens, its sessions are workspace-owned, session inputs must be plain values, and it is the only kind a preview link (bitrise_devenv_create_preview_link warm_pool_id) may serve from. With a Workspace API Token omit owner_type or set "workspace".
 
@@ -147,6 +147,12 @@ Sizing: desired_count is how many warm sessions to keep booted — each one is a
 		mcp.WithString("cluster",
 			mcp.Description("Optional target cluster name; omit to resolve it from stack + machine type. Needed only when that pair is available in multiple clusters."),
 		),
+		mcp.WithObject("device_spec",
+			deviceSpecSchema(`Optional virtual device every warm session boots (same shape as bitrise_devenv_create's). `+deviceSpecFieldsDoc+` Omit to boot the template's declared device as is; without a platform the fields you set tweak that device (a template without a device needs a platform); with a platform it is the complete device to boot. A claimed session's artifact still comes at claim time.`)...,
+		),
+		mcp.WithBoolean("no_device",
+			mcp.Description("Boot the warm sessions WITHOUT the device the template declares. Only meaningful with a template that has a device_spec; ignored otherwise. Cannot be combined with device_spec."),
+		),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		templateID, err := requireUUID(request, "template_id")
@@ -179,6 +185,22 @@ Sizing: desired_count is how many warm sessions to keep booted — each one is a
 				body[key] = v
 			}
 		}
+		// The device knobs follow bitrise_devenv_create: a spec object, or
+		// no_device, never both.
+		deviceSpec, hasDevice := request.GetArguments()["device_spec"]
+		noDevice := request.GetBool("no_device", false)
+		if hasDevice {
+			if _, ok := deviceSpec.(map[string]any); !ok {
+				return mcp.NewToolResultError("device_spec must be an object (see the parameter description for its fields)"), nil
+			}
+			if noDevice {
+				return mcp.NewToolResultError("no_device cannot be combined with device_spec — either boot a device or skip it"), nil
+			}
+			body["device_spec"] = deviceSpec
+		}
+		if noDevice {
+			body["no_device"] = true
+		}
 
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodPost,
@@ -199,7 +221,8 @@ var UpdateWarmPool = devenv.Tool{
 
 WHEN TO USE THIS:
 - Scale a pool: set desired_count. Raise it when status.cold_total keeps growing (claims are not finding warm sessions); set it to 0 to drain the pool while keeping it usable as a configuration preset — the natural move for a scheduler that scales up for business hours and down at night. Scaling touches no claimed session.
-- Fix a pool whose status.config_error says the stored configuration no longer builds (an input was removed from the template, a saved input was deleted, a stack was retired): correct session_inputs / enabled_feature_flag_names / stack_id / machine_type / cluster.
+- Fix a pool whose status.config_error says the stored configuration no longer builds (an input was removed from the template, a saved input was deleted, a stack was retired): correct session_inputs / enabled_feature_flag_names / stack_id / machine_type / cluster / device_spec.
+- Change the device the warm sessions boot: device_spec (a new device, or a per-field tweak of the template's when it has no platform), device_spec {} to drop the pool's device override and boot the template's device as declared, or no_device true/false to skip or restore the template's device.
 - Rename it: name.
 
 Array fields: passing session_inputs or enabled_feature_flag_names replaces ALL existing entries (pass an empty array to clear); omit to leave unchanged. Secrets survive a resend: the session_inputs that bitrise_devenv_get_warm_pool returns has every secret value redacted to "", and sending that list back as is keeps each stored secret — only an input whose key is left out is removed, and a new value or a saved_input_id replaces the stored one. So to change one input, read the pool, edit that entry and send the whole list; nothing needs retyping. Override fields: pass stack_id, machine_type or cluster to set the override, an empty string "" to clear it back to the template's value; omit to leave unchanged.
@@ -220,6 +243,12 @@ A configuration change (anything but name and desired_count) invalidates the cur
 		mcp.WithString("stack_id", mcp.Description(`New stack override; "" clears it (the template's stack applies). Omit to leave unchanged.`)),
 		mcp.WithString("machine_type", mcp.Description(`New machine type override; "" clears it (the template's machine type applies). Omit to leave unchanged.`)),
 		mcp.WithString("cluster", mcp.Description(`New cluster override; "" clears it (resolved from stack + machine type). Omit to leave unchanged.`)),
+		mcp.WithObject("device_spec",
+			deviceSpecSchema(`New device override for the warm sessions. `+deviceSpecFieldsDoc+` Without a platform the fields you set tweak the template's declared device; with a platform it is the complete device to boot. Pass an empty object {} to drop the pool's override (the template's device applies as declared). Omit to leave unchanged. Cannot be combined with no_device=true.`)...,
+		),
+		mcp.WithBoolean("no_device",
+			mcp.Description("true: the warm sessions boot WITHOUT the device the template declares; false: they boot it again. Omit to leave unchanged. Cannot be true together with a non-empty device_spec."),
+		),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		warmPoolID, err := requireUUID(request, "warm_pool_id")
@@ -257,8 +286,27 @@ A configuration change (anything but name and desired_count) invalidates the cur
 				body[key] = request.GetString(key, "")
 			}
 		}
+		// Device: a spec object switches update_device_spec on; an EMPTY object
+		// sends the switch alone, which the backend reads as "clear the
+		// override". no_device is a presence-based bool like the overrides.
+		if v, ok := request.GetArguments()["device_spec"]; ok {
+			spec, isObj := v.(map[string]any)
+			if !isObj {
+				return mcp.NewToolResultError("device_spec must be an object (see the parameter description for its fields); pass {} to drop the pool's device override"), nil
+			}
+			if len(spec) > 0 {
+				body["device_spec"] = spec
+			}
+			body["update_device_spec"] = true
+		}
+		if _, ok := request.GetArguments()["no_device"]; ok {
+			body["no_device"] = request.GetBool("no_device", false)
+		}
+		if _, hasSpec := body["device_spec"]; hasSpec && body["no_device"] == true {
+			return mcp.NewToolResultError("no_device cannot be true together with a device_spec — either boot a device or skip it"), nil
+		}
 		if len(body) == 0 {
-			return mcp.NewToolResultError("nothing to update — pass at least one of name, desired_count, session_inputs, enabled_feature_flag_names, stack_id, machine_type or cluster"), nil
+			return mcp.NewToolResultError("nothing to update — pass at least one of name, desired_count, session_inputs, enabled_feature_flag_names, stack_id, machine_type, cluster, device_spec or no_device"), nil
 		}
 
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{

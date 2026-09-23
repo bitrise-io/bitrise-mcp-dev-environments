@@ -27,6 +27,8 @@ FASTER OPENS FROM A WARM POOL: pass warm_pool_id to serve the link's opens from 
 
 LIMITS: ttl_seconds defaults to 24 hours, capped at 72. At most 5 devices alive per link and 20 per workspace; opens past the cap are refused. Each device auto-terminates after its idle window (session_auto_terminate_minutes, at least 10, default 60).
 
+WHO OWNS THE DEVICES: every open spawns a session, and it is always owned by the workspace — also when you are logged in as yourself. You are recorded as its creator, but it is not one of your personal sessions: it is visible to and manageable by every workspace member, and you find it with bitrise_devenv_list scope="workspace", not in the default "mine" listing. A Workspace API Token (bitwat_…, e.g. from CI) mints the same kind of link.
+
 Returns url (the shareable link — this is what you hand over), token (the same credential bare), jti (the link's id, recorded on every session it spawns) and expires_at.
 
 Device preview is enabled per workspace and per platform. PermissionDenied means the workspace does not have it yet — tell the user to ask Bitrise support, do not retry.`),

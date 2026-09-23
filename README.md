@@ -61,7 +61,7 @@ The server runs over **stdio** (above) for local use. It can also run over **HTT
 
 `BITRISE_TOKEN` (or the HTTP bearer header) may be a **Workspace API Token** instead of a personal access token — the right credential for CI and other unattended callers, since it belongs to the workspace rather than a person. With one:
 
-- every session the token creates is **owned by the workspace** (`owner` is implied `workspace`; `owner="user"` is rejected), visible to and manageable by every workspace member, and listed with `scope="workspace"` — which is also the token's default and only scope for `bitrise_devenv_list` / `bitrise_devenv_delete_terminated`;
+- every session the token creates is **owned by the workspace** (as are the devices opened from any preview link, whichever token minted it) (`owner` is implied `workspace`; `owner="user"` is rejected), visible to and manageable by every workspace member, and listed with `scope="workspace"` — which is also the token's default and only scope for `bitrise_devenv_list` / `bitrise_devenv_delete_terminated`;
 - the token fully manages those sessions (get, update, terminate, restore, delete, execute, screenshots, computer use, file transfer) and reads templates, stacks and machine types, but never sees a member's personal session;
 - template session inputs must be given as plain values in `session_inputs` — saved inputs are personal, so `saved_input_id` / `map_saved_to_session_inputs` are rejected, as is `ai_prompt`;
 - the user-scoped tools (`bitrise_devenv_me`, `bitrise_devenv_list_workspaces`, the saved-input tools) and template authoring are unavailable, and `BITRISE_WORKSPACE_ID` must be set.
@@ -165,7 +165,7 @@ A warm pool is a stored session configuration (template, session input values, f
 
 | Tool | Description |
 |------|-------------|
-| `bitrise_devenv_create_preview_link` | Turn an app build into a shareable link that opens it on a live iOS simulator / Android emulator in someone else's browser — no Bitrise login needed. For handing a build to a reviewer; to drive a device yourself use `bitrise_devenv_create` with `device_spec`. `warm_pool_id` serves the link's opens from a workspace-owned warm pool whose configuration boots a device (omit `device_spec`, `stack_id` and `machine_type` then) |
+| `bitrise_devenv_create_preview_link` | Turn an app build into a shareable link that opens it on a live iOS simulator / Android emulator in someone else's browser — no Bitrise login needed. For handing a build to a reviewer; to drive a device yourself use `bitrise_devenv_create` with `device_spec`. The devices it opens are always workspace-owned (listed with `scope="workspace"`), whoever mints the link. `warm_pool_id` serves the link's opens from a workspace-owned warm pool whose configuration boots a device (omit `device_spec`, `stack_id` and `machine_type` then) |
 
 ### Guides
 

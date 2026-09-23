@@ -16,6 +16,7 @@ bitrise-mcp-dev-environments/
         ├── validate.go        # UUID validation helper
         ├── sessions.go        # Session CRUD + lifecycle
         ├── templates.go       # Template CRUD
+        ├── warm_pools.go      # Warm pool CRUD (pre-booted session inventory)
         ├── saved_inputs.go     # Saved input/credential CRUD
         ├── stacks.go          # List stacks + machine types
         ├── execute.go         # Remote command execution

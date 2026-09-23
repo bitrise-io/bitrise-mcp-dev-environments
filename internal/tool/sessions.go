@@ -138,6 +138,9 @@ The session inherits the template's stack, machine type, scripts, feature flags,
 3) Without a template (template_id omitted) and without a device — a bare build machine:
 Supply stack_id and machine_type directly to get a base environment with no warmup/startup scripts and no template configuration (no session inputs, feature flags, or workspace links). Use bitrise_devenv_list_stacks and bitrise_devenv_list_machine_types to discover valid values. This is the quickest way to spin up an environment for a repo when no template and no device is needed.
 
+4) From a warm pool (warm_pool_id set) — the fastest path when a pool exists:
+A warm pool (bitrise_devenv_list_warm_pools) keeps sessions of one stored configuration booted and idle. Pass its id as warm_pool_id and the backend hands you one of them, renamed to your name, with no machine to boot (the response's warm_state is "claimed"); when none is available it creates a session from the pool's configuration instead (warm_state "cold"), so the call always succeeds. The pool fixes the configuration: do NOT pass template_id, session_inputs, map_saved_to_session_inputs, enabled_feature_flag_names, stack_id, machine_type, cluster, device_spec, no_device or ai_prompt — they are rejected, not ignored. Only name, description, labels, auto_terminate_minutes and artifact (pools whose configuration boots a device) apply to the claimed session; owner, if given, must be the pool's owner_type. Check bitrise_devenv_list_warm_pools before creating a session from a template that a pool already covers.
+
 Who owns the session (owner): "user" (default) is a personal session of the authenticated user. "workspace" creates a session owned by the workspace itself — visible to and manageable by every member, listed with bitrise_devenv_list scope="workspace". A workspace-owned session carries no personal state: give every template session input as a plain value in session_inputs (saved_input_id references and map_saved_to_session_inputs are rejected), and ai_prompt is not available. When the server is authenticated with a Workspace API Token (bitwat_…, e.g. from CI) every session it creates is workspace-owned — omit owner or set "workspace"; "user" is rejected.
 
 The session will start provisioning immediately after creation.`),
@@ -149,7 +152,10 @@ The session will start provisioning immediately after creation.`),
 			mcp.Description("Description of the session"),
 		),
 		mcp.WithString("template_id",
-			mcp.Description("ID of the template to use. Optional: omit to create a session without a template, in which case either device_spec (platform defaults pick the machine) or both stack_id and machine_type are required, and no warmup/startup scripts run."),
+			mcp.Description("ID of the template to use. Optional: omit to create a session without a template, in which case either device_spec (platform defaults pick the machine) or both stack_id and machine_type are required, and no warmup/startup scripts run. Not allowed with warm_pool_id (the pool fixes the template)."),
+		),
+		mcp.WithString("warm_pool_id",
+			mcp.Description("Claim a warm session from this pool (UUID, from bitrise_devenv_list_warm_pools) instead of building one — see 4 above. When set, do not pass template_id, session_inputs, map_saved_to_session_inputs, enabled_feature_flag_names, stack_id, machine_type, cluster, device_spec, no_device or ai_prompt: the pool fixes them and the request is rejected otherwise. name, description, labels, auto_terminate_minutes and artifact still apply to the claimed session."),
 		),
 		mcp.WithString("stack_id",
 			mcp.Description("Stack ID (e.g. 'osx-xcode-16.0.x-edge'). Required when template_id is omitted — unless device_spec is set, then omit it (and machine_type) for the platform defaults. When a template is given, optionally overrides the template's stack for this session. Use bitrise_devenv_list_stacks to find valid IDs."),
@@ -225,22 +231,49 @@ Rules:
 		deviceSpec, hasDevice := request.GetArguments()["device_spec"]
 		artifact, hasArtifact := request.GetArguments()["artifact"]
 		noDevice := request.GetBool("no_device", false)
+		warmPoolID, err := optionalUUID(request, "warm_pool_id")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+
+		// A claim takes its whole configuration from the pool: the backend
+		// rejects (does not ignore) every configuration field sent alongside
+		// warm_pool_id, so name the offenders before spending the round trip.
+		// The per-session fields (name, description, labels, auto-terminate,
+		// artifact, owner) pass through untouched.
+		if warmPoolID != "" {
+			var conflicting []string
+			for _, key := range []string{"template_id", "session_inputs", "map_saved_to_session_inputs", "enabled_feature_flag_names", "stack_id", "machine_type", "cluster", "device_spec", "no_device", "ai_prompt"} {
+				if v, present := request.GetArguments()[key]; present && !isZeroArgument(v) {
+					conflicting = append(conflicting, key)
+				}
+			}
+			if len(conflicting) > 0 {
+				return mcp.NewToolResultError(fmt.Sprintf("warm_pool_id cannot be combined with %s — the pool fixes the session's configuration; pass only name, description, labels, auto_terminate_minutes, artifact and owner", strings.Join(conflicting, ", "))), nil
+			}
+			// Whatever configuration keys remain are blank, and a blank key
+			// means "absent" on a claim — so treat the device knobs as unset
+			// too, instead of validating an empty device_spec.
+			hasDevice, noDevice = false, false
+		}
+		claim := warmPoolID != ""
 
 		// Without a template the session is built directly from a stack and
 		// machine type, so both must be supplied — unless a device_spec is
 		// set, in which case the backend fills whatever is missing from the
-		// deployment's per-platform device defaults.
-		if templateID == "" && !hasDevice && (stackID == "" || machineType == "") {
+		// deployment's per-platform device defaults, or the session is
+		// claimed from a warm pool, which fixes the configuration itself.
+		if warmPoolID == "" && templateID == "" && !hasDevice && (stackID == "" || machineType == "") {
 			return mcp.NewToolResultError("either template_id, device_spec, or both stack_id and machine_type (to create a session without a template), must be provided"), nil
 		}
 		if hasDevice && noDevice {
 			return mcp.NewToolResultError("no_device cannot be combined with device_spec — either boot a device or skip it"), nil
 		}
 		// An artifact needs a device to land on: either a device_spec on the
-		// request, or a template-declared device that no_device does not
-		// suppress (whether the template really declares one is the
-		// backend's call).
-		if hasArtifact && !hasDevice && (templateID == "" || noDevice) {
+		// request, a template-declared device that no_device does not
+		// suppress, or a warm pool whose configuration boots one (whether the
+		// template or pool really declares one is the backend's call).
+		if hasArtifact && !hasDevice && warmPoolID == "" && (templateID == "" || noDevice) {
 			return mcp.NewToolResultError("artifact requires a device — pass device_spec, or create from a template that declares one without no_device"), nil
 		}
 		// The nested "required" lists above are advisory to the client; check
@@ -271,6 +304,9 @@ Rules:
 		if templateID != "" {
 			body["template_id"] = templateID
 		}
+		if warmPoolID != "" {
+			body["warm_pool_id"] = warmPoolID
+		}
 		if stackID != "" {
 			body["stack_id"] = stackID
 		}
@@ -280,13 +316,15 @@ Rules:
 		if desc := request.GetString("description", ""); desc != "" {
 			body["description"] = desc
 		}
-		if inputs, ok := request.GetArguments()["session_inputs"]; ok {
+		// On a claim these keys are known to be blank (checked above) and
+		// belong to the pool, so they stay off the wire entirely.
+		if inputs, ok := request.GetArguments()["session_inputs"]; ok && !claim {
 			body["session_inputs"] = inputs
 		}
-		if mapSaved, ok := request.GetArguments()["map_saved_to_session_inputs"]; ok {
+		if mapSaved, ok := request.GetArguments()["map_saved_to_session_inputs"]; ok && !claim {
 			body["map_saved_to_session_inputs"] = mapSaved
 		}
-		if flags, ok := request.GetArguments()["enabled_feature_flag_names"]; ok {
+		if flags, ok := request.GetArguments()["enabled_feature_flag_names"]; ok && !claim {
 			body["enabled_feature_flag_names"] = flags
 		}
 		if cluster := request.GetString("cluster", ""); cluster != "" {
@@ -568,6 +606,26 @@ func requiredProperties(names ...string) mcp.PropertyOption {
 	return func(schema map[string]any) {
 		schema["required"] = names
 	}
+}
+
+// isZeroArgument reports whether a tool argument carries no information — an
+// empty string, false, an empty array or an empty object — so a client that
+// sends every parameter it knows with a blank value is not mistaken for one
+// that asked for something.
+func isZeroArgument(v any) bool {
+	switch x := v.(type) {
+	case nil:
+		return true
+	case string:
+		return strings.TrimSpace(x) == ""
+	case bool:
+		return !x
+	case []any:
+		return len(x) == 0
+	case map[string]any:
+		return len(x) == 0
+	}
+	return false
 }
 
 // requireNonEmptyString checks that an object-typed argument carries a

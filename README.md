@@ -106,7 +106,7 @@ A warm pool is a stored session configuration (template, session input values, f
 |------|-------------|
 | `bitrise_devenv_list_warm_pools` | List the warm pools you can see (the workspace's plus your own), optionally for one template; `all: true` lists every pool in the workspace read-only (needs billing-view permission) |
 | `bitrise_devenv_get_warm_pool` | Get a warm pool with its live status — ready / warming counts, claimed and cold totals, errors — and its per-session inventory |
-| `bitrise_devenv_create_warm_pool` | Create a warm pool from a template with session inputs, feature flags, optional stack / machine type / cluster overrides and the device its sessions boot (`device_spec` / `no_device`, as on `bitrise_devenv_create`); `owner_type` `"user"` (private) or `"workspace"` (shared, required for preview links) |
+| `bitrise_devenv_create_warm_pool` | Create a warm pool from a template with session inputs (`map_saved_to_session_inputs` fills a personal pool's from your saved inputs), feature flags, optional stack / machine type / cluster overrides and the device its sessions boot (`device_spec` / `no_device`, as on `bitrise_devenv_create`); `owner_type` `"user"` (private) or `"workspace"` (shared, required for preview links) |
 | `bitrise_devenv_update_warm_pool` | Scale a pool (`pool_size`; 0 drains it), rename it, or change its stored configuration (arrays replace all entries; a redacted secret sent back empty keeps the stored value; `""` clears a machine override, `device_spec: {}` the device override) |
 | `bitrise_devenv_delete_warm_pool` | Delete a warm pool; its unclaimed warm sessions are terminated, claimed sessions are untouched |
 

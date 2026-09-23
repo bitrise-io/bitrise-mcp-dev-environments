@@ -277,6 +277,19 @@ func TestCreateWarmPool(t *testing.T) {
 			t.Errorf("device_spec present in body, want absent")
 		}
 	})
+	t.Run("map_saved_to_session_inputs is forwarded only when true", func(t *testing.T) {
+		ctx, got := captureRequest(t, response)
+		callText(t, CreateWarmPool, ctx, map[string]any{"name": "mine", "template_id": testTemplateID, "pool_size": float64(1), "map_saved_to_session_inputs": true})
+		want := map[string]any{"name": "mine", "template_id": testTemplateID, "pool_size": float64(1), "map_saved_to_session_inputs": true}
+		if !reflect.DeepEqual(got.Body, want) {
+			t.Errorf("body = %v, want %v", got.Body, want)
+		}
+		ctx, got = captureRequest(t, response)
+		callText(t, CreateWarmPool, ctx, map[string]any{"name": "mine", "template_id": testTemplateID, "pool_size": float64(1), "map_saved_to_session_inputs": false})
+		if _, present := got.Body["map_saved_to_session_inputs"]; present {
+			t.Errorf("map_saved_to_session_inputs present in body, want absent")
+		}
+	})
 	t.Run("minimal pool sends only the required fields", func(t *testing.T) {
 		ctx, got := captureRequest(t, response)
 		callText(t, CreateWarmPool, ctx, map[string]any{"name": "preset", "template_id": testTemplateID, "pool_size": float64(0)})

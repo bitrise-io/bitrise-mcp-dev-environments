@@ -134,6 +134,9 @@ Sizing: pool_size is how many warm sessions to keep booted — each one is a run
 		mcp.WithArray("session_inputs",
 			warmPoolSessionInputsSchema("Values for the template's session inputs that every warm session is created with. Required inputs must have a value (direct, or saved_input_id on a personal pool); optional inputs fall back to their default_value.")...,
 		),
+		mcp.WithBoolean("map_saved_to_session_inputs",
+			mcp.Description(`Personal pools only. When true, the backend fills template session inputs that session_inputs does not supply from your saved inputs, matched by key — the same shortcut as on bitrise_devenv_create. The matches are resolved once, now, and stored on the pool as saved_input_id references: a saved input you add later is not picked up, while a rotated value of a referenced saved input is. Entries in session_inputs always win. Rejected on a workspace pool (saved inputs are personal).`),
+		),
 		mcp.WithArray("enabled_feature_flag_names",
 			mcp.Description("Names of the template's feature flags to enable on every warm session"),
 			mcp.WithStringItems(),
@@ -179,6 +182,9 @@ Sizing: pool_size is how many warm sessions to keep booted — each one is a run
 			if v, ok := request.GetArguments()[key]; ok {
 				body[key] = v
 			}
+		}
+		if request.GetBool("map_saved_to_session_inputs", false) {
+			body["map_saved_to_session_inputs"] = true
 		}
 		for _, key := range []string{"stack_id", "machine_type", "cluster"} {
 			if v := request.GetString(key, ""); v != "" {

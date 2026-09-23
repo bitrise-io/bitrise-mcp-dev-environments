@@ -168,9 +168,9 @@ Sizing: pool_size is how many warm sessions to keep booted — each one is a run
 		}
 
 		body := map[string]any{
-			"name":          request.GetString("name", ""),
-			"template_id":   templateID,
-			"pool_size": poolSize,
+			"name":        request.GetString("name", ""),
+			"template_id": templateID,
+			"pool_size":   poolSize,
 		}
 		if owner := request.GetString("owner_type", ""); owner != "" {
 			body["owner_type"] = owner

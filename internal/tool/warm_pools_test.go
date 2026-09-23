@@ -128,9 +128,9 @@ func TestListWarmPools(t *testing.T) {
 		}
 		var decoded struct {
 			WarmPools []struct {
-				ID           string `json:"id"`
+				ID       string `json:"id"`
 				PoolSize int    `json:"pool_size"`
-				Status       struct {
+				Status   struct {
 					Ready int `json:"ready"`
 				} `json:"status"`
 			} `json:"warm_pools"`
@@ -223,7 +223,7 @@ func TestCreateWarmPool(t *testing.T) {
 		text := callText(t, CreateWarmPool, ctx, map[string]any{
 			"name":                       "ios lab",
 			"template_id":                testTemplateID,
-			"pool_size":              float64(3),
+			"pool_size":                  float64(3),
 			"owner_type":                 "workspace",
 			"session_inputs":             inputs,
 			"enabled_feature_flag_names": flags,
@@ -235,7 +235,7 @@ func TestCreateWarmPool(t *testing.T) {
 		want := map[string]any{
 			"name":                       "ios lab",
 			"template_id":                testTemplateID,
-			"pool_size":              float64(3),
+			"pool_size":                  float64(3),
 			"owner_type":                 "workspace",
 			"session_inputs":             inputs,
 			"enabled_feature_flag_names": flags,
@@ -248,9 +248,9 @@ func TestCreateWarmPool(t *testing.T) {
 		}
 		var decoded struct {
 			WarmPool struct {
-				ID           string `json:"id"`
-				OwnerType    string `json:"owner_type"`
-				PoolSize int    `json:"pool_size"`
+				ID        string `json:"id"`
+				OwnerType string `json:"owner_type"`
+				PoolSize  int    `json:"pool_size"`
 			} `json:"warm_pool"`
 		}
 		if err := json.Unmarshal([]byte(text), &decoded); err != nil {

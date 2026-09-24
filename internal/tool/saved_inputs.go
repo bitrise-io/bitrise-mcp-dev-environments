@@ -12,6 +12,7 @@ import (
 // ListSavedInputs lists all saved inputs for the current user.
 var ListSavedInputs = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_list_saved_inputs",
+		mcp.WithTitleAnnotation("List saved inputs"),
 		mcp.WithDescription("List all saved inputs (credentials/values) for the current user. Saved inputs can be referenced when creating sessions to provide values for template session inputs. By default, secret values are redacted from the response; set include_secrets=true to receive plaintext values."),
 		mcp.WithBoolean("include_secrets",
 			mcp.Description("When true, secret values are returned in plaintext. Defaults to false (secret values are redacted)."),
@@ -38,6 +39,7 @@ var ListSavedInputs = devenv.Tool{
 // GetSavedInput retrieves a single saved input.
 var GetSavedInput = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_get_saved_input",
+		mcp.WithTitleAnnotation("Get saved input"),
 		mcp.WithDescription("Get details of a specific saved input. By default, the secret value is redacted from the response; set include_secrets=true to receive the plaintext value."),
 		mcp.WithString("saved_input_id", mcp.Description("The unique identifier of the saved input"), mcp.Required()),
 		mcp.WithBoolean("include_secrets",
@@ -69,10 +71,12 @@ var GetSavedInput = devenv.Tool{
 // CreateSavedInput creates a new saved input.
 var CreateSavedInput = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_create_saved_input",
+		mcp.WithTitleAnnotation("Create saved input"),
 		mcp.WithDescription("Create a new saved input (credential/value). The key should match a template's session input key for automatic pre-fill when creating sessions."),
 		mcp.WithString("key", mcp.Description("Key/name of the input"), mcp.Required()),
 		mcp.WithString("value", mcp.Description("Value of the input"), mcp.Required()),
 		mcp.WithBoolean("is_secret", mcp.Description("Whether this is a secret value (will be encrypted at rest)")),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		body := map[string]any{
@@ -98,10 +102,12 @@ var CreateSavedInput = devenv.Tool{
 // UpdateSavedInput updates an existing saved input.
 var UpdateSavedInput = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_update_saved_input",
+		mcp.WithTitleAnnotation("Update saved input"),
 		mcp.WithDescription("Update an existing saved input value."),
 		mcp.WithString("saved_input_id", mcp.Description("The unique identifier of the saved input to update"), mcp.Required()),
 		mcp.WithString("value", mcp.Description("Updated value"), mcp.Required()),
 		mcp.WithBoolean("is_secret", mcp.Description("Updated secret flag")),
+		mcp.WithDestructiveHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		id, err := requireUUID(request, "saved_input_id")
@@ -131,6 +137,7 @@ var UpdateSavedInput = devenv.Tool{
 // DeleteSavedInput deletes a saved input.
 var DeleteSavedInput = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_delete_saved_input",
+		mcp.WithTitleAnnotation("Delete saved input"),
 		mcp.WithDescription("Delete a saved input. Sessions that used this input are not affected (values are snapshotted at creation time)."),
 		mcp.WithString("saved_input_id", mcp.Description("The unique identifier of the saved input to delete"), mcp.Required()),
 		mcp.WithDestructiveHintAnnotation(true),

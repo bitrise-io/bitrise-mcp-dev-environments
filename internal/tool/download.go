@@ -24,6 +24,7 @@ type downloadResp struct {
 // Download downloads files from a session to the local machine.
 var Download = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_download",
+		mcp.WithTitleAnnotation("Download files from session"),
 		mcp.WithDescription(`Download a file or directory from a running devenv session to the local machine.
 
 The remote path is archived as tar.gz, uploaded to cloud storage, then downloaded and extracted locally.

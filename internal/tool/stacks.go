@@ -11,6 +11,7 @@ import (
 // ListStacks lists available development environment stacks.
 var ListStacks = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_list_stacks",
+		mcp.WithTitleAnnotation("List stacks"),
 		mcp.WithDescription(`List available stacks for devenv templates and sessions.
 
 Each stack describes a provisionable development environment:
@@ -40,6 +41,7 @@ Each stack describes a provisionable development environment:
 // ListMachineTypes lists available machine types.
 var ListMachineTypes = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_list_machine_types",
+		mcp.WithTitleAnnotation("List machine types"),
 		mcp.WithDescription(`List available machine types for devenv templates and sessions.
 
 Each machine type includes a name (use the name, not the ID, when creating or updating templates), a friendly title, cpu/ram specs, the os it runs, and the cluster_name it belongs to.

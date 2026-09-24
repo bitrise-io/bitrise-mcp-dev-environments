@@ -11,6 +11,7 @@ import (
 // GetWorkspaceUsage reports the workspace's active-session resource usage.
 var GetWorkspaceUsage = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_get_workspace_usage",
+		mcp.WithTitleAnnotation("Get workspace usage"),
 		mcp.WithDescription(`Get a point-in-time snapshot of the workspace's active devenv sessions: session counts and vCPU/memory totals split by OS, workspace-wide and per user.
 
 This reports sessions currently consuming resources (starting, running, terminating, or draining). It is NOT a historical or billing-period report — poll it over time if you need trends.

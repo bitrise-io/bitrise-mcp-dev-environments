@@ -156,6 +156,12 @@ func NewBelt() *Belt {
 	// (centralised so it isn't repeated across ~27 tool definitions). It is the
 	// top rung of the workspace-resolution ladder in GateAndResolveWorkspace.
 	for i := range b.tools {
+		// mcp.NewTool defaults destructiveHint to true and
+		// WithReadOnlyHintAnnotation leaves it set, so a read-only tool would
+		// advertise itself as destructive too. Clear it centrally.
+		if a := &b.tools[i].Definition.Annotations; a.ReadOnlyHint != nil && *a.ReadOnlyHint {
+			a.DestructiveHint = mcp.ToBoolPtr(false)
+		}
 		if b.userScoped[b.tools[i].Definition.Name] {
 			continue
 		}

@@ -11,6 +11,7 @@ import (
 // Me returns the currently authenticated user.
 var Me = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_me",
+		mcp.WithTitleAnnotation("Get current user"),
 		mcp.WithDescription("Get the currently authenticated Bitrise user information (email, user ID)."),
 		mcp.WithReadOnlyHintAnnotation(true),
 	),

@@ -30,6 +30,7 @@ func rescaleToScreen(sessionID string, x, y, maxX, maxY int) (int, int, *mcp.Cal
 // Click performs a mouse click at specified coordinates.
 var Click = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_click",
+		mcp.WithTitleAnnotation("Click on screen"),
 		mcp.WithDescription(`Click at specific coordinates on a running devenv session's macOS display.
 
 PREFER SCRIPTED AUTOMATION WHEN POSSIBLE: for scriptable UI actions (opening
@@ -57,6 +58,7 @@ NOTE: This tool only works on macOS sessions.`),
 		mcp.WithNumber("max_y", mcp.Description("Height of the screenshot view you reasoned about when picking y (e.g. the height of the image you're looking at)"), mcp.Required()),
 		mcp.WithString("button", mcp.Description("Mouse button: left (default), right, or middle"), mcp.Enum("left", "right", "middle"), mcp.DefaultString("left")),
 		mcp.WithBoolean("double_click", mcp.Description("Whether to perform a double-click (default: false)")),
+		mcp.WithDestructiveHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		sessionID, err := requireUUID(request, "session_id")
@@ -98,6 +100,7 @@ NOTE: This tool only works on macOS sessions.`),
 // Type types text on the session's machine.
 var Type = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_type",
+		mcp.WithTitleAnnotation("Type text"),
 		mcp.WithDescription(`Type text on a running devenv session's macOS display.
 
 PREFER SCRIPTED AUTOMATION WHEN POSSIBLE: for keystrokes, shortcuts, and text
@@ -115,6 +118,7 @@ control sequences are supported.
 NOTE: This tool only works on macOS sessions.`),
 		mcp.WithString("session_id", mcp.Description("The unique identifier of the running session"), mcp.Required()),
 		mcp.WithString("text", mcp.Description("The text to type"), mcp.Required()),
+		mcp.WithDestructiveHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		sessionID, err := requireUUID(request, "session_id")
@@ -141,6 +145,7 @@ NOTE: This tool only works on macOS sessions.`),
 // Scroll performs a scroll action at the current mouse position.
 var Scroll = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_scroll",
+		mcp.WithTitleAnnotation("Scroll screen"),
 		mcp.WithDescription(`Scroll at the current mouse position on a running devenv session's macOS display.
 
 PREFER SCRIPTED AUTOMATION WHEN POSSIBLE: many "scroll to reveal X" flows can
@@ -152,6 +157,7 @@ NOTE: This tool only works on macOS sessions.`),
 		mcp.WithString("session_id", mcp.Description("The unique identifier of the running session"), mcp.Required()),
 		mcp.WithString("direction", mcp.Description("Scroll direction"), mcp.Enum("up", "down"), mcp.Required()),
 		mcp.WithNumber("amount", mcp.Description("Number of lines to scroll (default: 3)"), mcp.DefaultNumber(3)),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		sessionID, err := requireUUID(request, "session_id")
@@ -177,6 +183,7 @@ NOTE: This tool only works on macOS sessions.`),
 // MouseDrag performs a mouse drag between two points.
 var MouseDrag = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_mouse_drag",
+		mcp.WithTitleAnnotation("Drag mouse"),
 		mcp.WithDescription(`Drag the mouse between two points on a running devenv session's macOS display.
 
 PREFER SCRIPTED AUTOMATION WHEN POSSIBLE: most drag-to-move, drag-to-select,
@@ -200,6 +207,7 @@ NOTE: This tool only works on macOS sessions.`),
 		mcp.WithNumber("end_y", mcp.Description("Ending Y coordinate in the screenshot view's coordinate space"), mcp.Required()),
 		mcp.WithNumber("max_x", mcp.Description("Width of the screenshot view you reasoned about when picking the coordinates"), mcp.Required()),
 		mcp.WithNumber("max_y", mcp.Description("Height of the screenshot view you reasoned about when picking the coordinates"), mcp.Required()),
+		mcp.WithDestructiveHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		sessionID, err := requireUUID(request, "session_id")

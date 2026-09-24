@@ -12,6 +12,7 @@ import (
 // ListTemplates lists all available templates.
 var ListTemplates = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_list_templates",
+		mcp.WithTitleAnnotation("List templates"),
 		mcp.WithDescription("List all available devenv templates. Each template defines the stack, startup/warmup scripts, template variables, session inputs (required and optional), feature flags, workspace links, and optionally a device_spec — the iOS simulator / Android emulator every session created from it boots unless the create request overrides it with its own device_spec or no_device. By default, secret template variable values are omitted from the response; set include_secrets=true to include them."),
 		mcp.WithBoolean("include_secrets",
 			mcp.Description("When true, secret template variable values are included in the response. Defaults to false (secret values are omitted)."),
@@ -38,6 +39,7 @@ var ListTemplates = devenv.Tool{
 // GetTemplate retrieves a template by ID.
 var GetTemplate = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_get_template",
+		mcp.WithTitleAnnotation("Get template"),
 		mcp.WithDescription("Get details of a specific template including startup/warmup scripts, stack, working directory, template variables, session inputs (with required/default_value/expose_as_env_var fields), feature flags, workspace links, and device_spec (the virtual device sessions created from it boot by default; absent when the template declares none — see bitrise_devenv_create for how a create request inherits, overrides or skips it). By default, secret template variable values are omitted from the response; set include_secrets=true to include them."),
 		mcp.WithString("template_id",
 			mcp.Description("The unique identifier (UUID) of the template"),
@@ -72,6 +74,7 @@ var GetTemplate = devenv.Tool{
 // CreateTemplate creates a new template.
 var CreateTemplate = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_create_template",
+		mcp.WithTitleAnnotation("Create template"),
 		mcp.WithDescription(`Create a new devenv template. Use bitrise_devenv_list_stacks to find a valid stack_id and bitrise_devenv_list_machine_types to find a valid machine_type name. IMPORTANT: Provide the stack id (the 'id' field from bitrise_devenv_list_stacks) for stack_id, and the machine type name (not UUID) for machine_type. Optionally declare a device_spec so every session created from the template boots an iOS simulator / Android emulator; the stack and machine type must then fit the platform (iOS: a macOS stack; Android: a dockerless Android Linux stack such as ubuntu-resolute-26.04-bitrise-2026-android, not linux-docker-*; both: >= 4 vCPU / 6-8 GB) or the request is rejected with a device_spec.* field violation.`),
 		mcp.WithString("name", mcp.Description("Template name"), mcp.Required()),
 		mcp.WithString("description", mcp.Description("Template description")),
@@ -133,6 +136,7 @@ var CreateTemplate = devenv.Tool{
 		mcp.WithObject("device_spec",
 			deviceSpecSchema(`Optional virtual device declared on the template: sessions created from this template boot this device unless the create request overrides it (a device_spec without a platform tweaks it per field; one with a platform replaces it whole) or skips it (no_device=true). `+deviceSpecFieldsDoc+` platform is required here. The template's stack_id and machine_type must fit the platform.`, "platform")...,
 		),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		body := map[string]any{
@@ -172,6 +176,7 @@ var CreateTemplate = devenv.Tool{
 // UpdateTemplate updates an existing template.
 var UpdateTemplate = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_update_template",
+		mcp.WithTitleAnnotation("Update template"),
 		mcp.WithDescription("Update an existing devenv template. Only provided fields are updated. For array fields (template_variables, session_inputs, feature_flags, workspace_links), providing a new array replaces ALL existing entries. Omit an array field to leave it unchanged. The template's device works the same way: pass device_spec to replace the declared device as a whole (there is no per-field merge on the template itself), pass clear_device_spec=true to remove it so sessions boot without a device, or omit both to leave it unchanged. Existing sessions keep the device they were created with."),
 		mcp.WithString("template_id", mcp.Description("The unique identifier of the template to update"), mcp.Required()),
 		mcp.WithString("name", mcp.Description("Updated template name")),
@@ -237,6 +242,7 @@ var UpdateTemplate = devenv.Tool{
 		mcp.WithBoolean("clear_device_spec",
 			mcp.Description("When true, remove the template's declared device so new sessions boot without one. Cannot be combined with device_spec."),
 		),
+		mcp.WithDestructiveHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		templateID, err := requireUUID(request, "template_id")
@@ -299,6 +305,7 @@ var UpdateTemplate = devenv.Tool{
 // DeleteTemplate soft-deletes a template.
 var DeleteTemplate = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_delete_template",
+		mcp.WithTitleAnnotation("Delete template"),
 		mcp.WithDescription("Delete a devenv template. Existing sessions continue to work from their snapshotted template configuration, but will be marked with template_deleted=true."),
 		mcp.WithString("template_id", mcp.Description("The unique identifier of the template to delete"), mcp.Required()),
 		mcp.WithDestructiveHintAnnotation(true),

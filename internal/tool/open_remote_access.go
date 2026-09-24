@@ -12,6 +12,7 @@ import (
 // OpenRemoteAccess opens remote access (SSH/VNC) for a session.
 var OpenRemoteAccess = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_open_remote_access",
+		mcp.WithTitleAnnotation("Open remote access"),
 		mcp.WithDescription(`Open remote access for a running devenv session.
 
 This establishes the remote access tunnel and returns connection details.
@@ -31,6 +32,7 @@ open "vnc://username:password@host:port"`),
 			mcp.Description("The unique identifier of the running session"),
 			mcp.Required(),
 		),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		sessionID, err := requireUUID(request, "session_id")

@@ -36,6 +36,7 @@ func warmPoolSessionInputsSchema(description string) []mcp.PropertyOption {
 // ListWarmPools lists the warm pools the caller may see.
 var ListWarmPools = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_list_warm_pools",
+		mcp.WithTitleAnnotation("List warm pools"),
 		mcp.WithDescription(`List warm pools. `+warmPoolConceptDoc+`
 
 WHEN TO USE THIS: before creating a session, to find a pool that already has your configuration booted (then pass its id as warm_pool_id to bitrise_devenv_create); before creating a pool, to avoid a duplicate; or to review what is kept warm — and paid for — in the workspace.
@@ -78,6 +79,7 @@ Each pool carries its configuration (secret input values redacted), pool_size an
 // GetWarmPool retrieves a warm pool with its live status and inventory.
 var GetWarmPool = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_get_warm_pool",
+		mcp.WithTitleAnnotation("Get warm pool"),
 		mcp.WithDescription(`Get one warm pool with its full live status. `+warmPoolConceptDoc+`
 
 WHEN TO USE THIS: to check whether a pool has a session ready before claiming from it (status.ready > 0 means bitrise_devenv_create with warm_pool_id returns instantly), to diagnose a pool that is not filling (status.last_error, status.config_error, status.paused_until), or to see its inventory — status.sessions lists every warming / ready session with session_id, state, created_at and ready_at, oldest first (this call only; the list view omits it).
@@ -109,6 +111,7 @@ Secret session input values are redacted in the response.`),
 // backend keeps pool_size sessions of booted.
 var CreateWarmPool = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_create_warm_pool",
+		mcp.WithTitleAnnotation("Create warm pool"),
 		mcp.WithDescription(`Create a warm pool. `+warmPoolConceptDoc+`
 
 WHEN TO USE THIS: the same session configuration is created over and over and the boot time (machine + warmup script + device) is in the way — for example a team's daily dev sessions, an agent fleet that spins up a session per task, or a device configuration that preview links should open instantly. Create the pool once; afterwards every bitrise_devenv_create with warm_pool_id is handed a booted session.
@@ -156,6 +159,7 @@ Sizing: pool_size is how many warm sessions to keep booted — each one is a run
 		mcp.WithBoolean("no_device",
 			mcp.Description("Boot the warm sessions WITHOUT the device the template declares. Only meaningful with a template that has a device_spec; ignored otherwise. Cannot be combined with device_spec."),
 		),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		templateID, err := requireUUID(request, "template_id")
@@ -223,6 +227,7 @@ Sizing: pool_size is how many warm sessions to keep booted — each one is a run
 // UpdateWarmPool updates a warm pool's name, pool size or configuration.
 var UpdateWarmPool = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_update_warm_pool",
+		mcp.WithTitleAnnotation("Update warm pool"),
 		mcp.WithDescription(`Update a warm pool. Only provided fields change.
 
 WHEN TO USE THIS:
@@ -255,6 +260,7 @@ A configuration change (anything but name and pool_size) invalidates the current
 		mcp.WithBoolean("no_device",
 			mcp.Description("true: the warm sessions boot WITHOUT the device the template declares; false: they boot it again. Omit to leave unchanged. Cannot be true together with a non-empty device_spec."),
 		),
+		mcp.WithDestructiveHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		warmPoolID, err := requireUUID(request, "warm_pool_id")
@@ -330,6 +336,7 @@ A configuration change (anything but name and pool_size) invalidates the current
 // DeleteWarmPool deletes a warm pool and drains its warm sessions.
 var DeleteWarmPool = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_delete_warm_pool",
+		mcp.WithTitleAnnotation("Delete warm pool"),
 		mcp.WithDescription(`Delete a warm pool. Its warm (unclaimed) sessions are terminated and deleted by the backend; sessions already claimed from it are untouched and keep running.
 
 WHEN TO USE THIS: the configuration is no longer needed at all. To stop paying for idle machines while keeping the configuration around as a preset, prefer bitrise_devenv_update_warm_pool with pool_size 0 instead. Preview links minted against the pool keep working after deletion, degraded to the ordinary cold boot path.`),

@@ -25,6 +25,7 @@ type startUploadResp struct {
 // Upload uploads a local file or directory to a session.
 var Upload = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_upload",
+		mcp.WithTitleAnnotation("Upload files to session"),
 		mcp.WithDescription(`Upload a local file or directory to a running devenv session.
 
 The local path is compressed into a tar.gz archive, uploaded to cloud storage via a signed URL,
@@ -40,6 +41,7 @@ Example: Upload a local project directory to the VM:
 		mcp.WithString("session_id", mcp.Description("The unique identifier of the running session"), mcp.Required()),
 		mcp.WithString("source_path", mcp.Description("Local file or directory path to upload"), mcp.Required()),
 		mcp.WithString("destination_folder", mcp.Description("Absolute DIRECTORY path on the remote machine to extract into (created if missing; must not be an existing file)"), mcp.Required()),
+		mcp.WithDestructiveHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		sessionID, err := requireUUID(request, "session_id")

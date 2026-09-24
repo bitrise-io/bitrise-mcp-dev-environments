@@ -13,6 +13,7 @@ import (
 // ListSessionNotifications retrieves notifications for a session.
 var ListSessionNotifications = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_list_session_notifications",
+		mcp.WithTitleAnnotation("List session notifications"),
 		mcp.WithDescription(`List notifications for a devenv session. Notifications are events sent by the VM (e.g., AI agent stopped, permission prompt, idle).
 
 Results are ordered by creation time (newest first by default). Supports cursor-based pagination via created_before/created_after timestamps.`),

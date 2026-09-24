@@ -40,6 +40,19 @@ func TestClassificationKeysAreRealTools(t *testing.T) {
 	}
 }
 
+// TestToolAnnotations enforces the Claude connectors directory requirement:
+// every tool has a title, and read-only and destructive tools are never
+// flagged as both.
+func TestToolAnnotations(t *testing.T) {
+	for _, tl := range NewBelt().tools {
+		a := tl.Definition.Annotations
+		assert.NotEmptyf(t, a.Title, "tool %q has no title annotation", tl.Definition.Name)
+		if a.ReadOnlyHint != nil && *a.ReadOnlyHint {
+			assert.Falsef(t, a.DestructiveHint != nil && *a.DestructiveHint, "read-only tool %q is also marked destructive", tl.Definition.Name)
+		}
+	}
+}
+
 func TestFilterTools(t *testing.T) {
 	b := NewBelt()
 	tools := []mcp.Tool{

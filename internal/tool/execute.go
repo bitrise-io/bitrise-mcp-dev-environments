@@ -55,6 +55,7 @@ type sessionSSHFields struct {
 // connection from the MCP server to the session VM.
 var Execute = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_execute",
+		mcp.WithTitleAnnotation("Run command in session"),
 		mcp.WithDescription(`Execute a bash command on a running devenv session's machine.
 
 The command runs over a direct SSH connection from the MCP server to the session VM,
@@ -135,6 +136,7 @@ short timeout so you fail fast and can fall back to the GUI tools:
 			mcp.Description("The bash command to execute"),
 			mcp.Required(),
 		),
+		mcp.WithDestructiveHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		sessionID, err := requireUUID(request, "session_id")

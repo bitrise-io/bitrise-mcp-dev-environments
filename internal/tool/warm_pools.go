@@ -341,7 +341,7 @@ var DeleteWarmPool = devenv.Tool{
 		mcp.WithTitleAnnotation("Delete warm pool"),
 		mcp.WithDescription(`Delete a warm pool. Its warm (unclaimed) sessions are terminated and deleted by the backend; sessions already claimed from it are untouched and keep running.
 
-WHEN TO USE THIS: the configuration is no longer needed at all. To stop paying for idle machines while keeping the configuration around as a preset, prefer bitrise_devenv_update_warm_pool with pool_size 0 instead. Preview links minted against the pool keep working after deletion, degraded to the ordinary cold boot path.`),
+WHEN TO USE THIS: the configuration is no longer needed at all. Deleting invalidates every preview link minted against the pool — later opens fail as an expired link would. To stop paying for idle machines while keeping the configuration (and its links) around as a preset, prefer bitrise_devenv_update_warm_pool with pool_size 0 instead.`),
 		mcp.WithString("warm_pool_id", mcp.Description("The unique identifier (UUID) of the warm pool to delete"), mcp.Required()),
 		mcp.WithDestructiveHintAnnotation(true),
 	),

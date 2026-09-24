@@ -18,6 +18,7 @@ var ListSavedInputs = devenv.Tool{
 			mcp.Description("When true, secret values are returned in plaintext. Defaults to false (secret values are redacted)."),
 		),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		params := map[string]string{}
@@ -46,6 +47,7 @@ var GetSavedInput = devenv.Tool{
 			mcp.Description("When true, the secret value is returned in plaintext. Defaults to false (secret value is redacted)."),
 		),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		id, err := requireUUID(request, "saved_input_id")

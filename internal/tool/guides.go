@@ -153,6 +153,7 @@ var DeviceGuide = devenv.Tool{
 
 The same text is also served as the MCP resources bitrise-devenv://guides/device-sessions, .../ios and .../android for clients that read resources; this tool works everywhere.`),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 		mcp.WithString("guide",
 			mcp.Description(`Which guide to return: "device-sessions" (platform-independent, read first), "ios" (simulator specifics: simctl, serve-sim CLI, /ax accessibility endpoint) or "android" (emulator specifics: adb, uiautomator dump, input, install).`),
 			mcp.Required(),

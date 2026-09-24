@@ -25,6 +25,7 @@ Each stack describes a provisionable development environment:
 - is_default: when true, this is the deployment's default stack — preselect it when the user has expressed no preference.
 - cluster_names: the clusters where the stack can be provisioned. A machine type is compatible with the stack when its cluster_name is one of these (see bitrise_devenv_list_machine_types).`),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
@@ -48,6 +49,7 @@ Each machine type includes a name (use the name, not the ID, when creating or up
 
 To pick a machine type compatible with a stack, choose one whose cluster_name is in that stack's cluster_names (from bitrise_devenv_list_stacks).`),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{

@@ -20,6 +20,7 @@ Use this to discover workspace IDs. Session, template, stack, and machine-type t
 
 If the user has multiple workspaces and none is configured, those tools return an error listing the available workspaces — configure one of these IDs as the default.`),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		orgs, err := devenv.ListOrganizations(ctx)

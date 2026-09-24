@@ -55,6 +55,7 @@ NOTE: This tool only works on macOS sessions. Linux sessions do not have a graph
 			mcp.Required(),
 		),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		sessionID, err := requireUUID(request, "session_id")

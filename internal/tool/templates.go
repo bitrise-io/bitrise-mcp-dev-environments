@@ -18,6 +18,7 @@ var ListTemplates = devenv.Tool{
 			mcp.Description("When true, secret template variable values are included in the response. Defaults to false (secret values are omitted)."),
 		),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		params := map[string]string{}
@@ -49,6 +50,7 @@ var GetTemplate = devenv.Tool{
 			mcp.Description("When true, secret template variable values are included in the response. Defaults to false (secret values are omitted)."),
 		),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		templateID, err := requireUUID(request, "template_id")

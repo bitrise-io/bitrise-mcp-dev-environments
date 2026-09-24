@@ -35,6 +35,7 @@ Results are ordered by creation time (newest first by default). Supports cursor-
 			mcp.Enum("DESC", "ASC"),
 		),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		sessionID, err := requireUUID(request, "session_id")

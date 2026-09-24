@@ -51,6 +51,7 @@ Each pool carries its configuration (secret input values redacted), pool_size an
 			mcp.Description("When true, list every pool in the workspace regardless of owner (read-only cost view; requires view_billing_data permission). Defaults to false: the workspace's pools plus your own."),
 		),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		templateID, err := optionalUUID(request, "template_id")
@@ -90,6 +91,7 @@ Secret session input values are redacted in the response.`),
 			mcp.Required(),
 		),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		warmPoolID, err := requireUUID(request, "warm_pool_id")

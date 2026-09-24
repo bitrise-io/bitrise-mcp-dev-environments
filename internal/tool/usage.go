@@ -31,6 +31,7 @@ Response shape (zero-valued fields and empty objects may be omitted from the JSO
   - totals: this row's usage, same linux/macos/unknown bucket shape as the workspace-wide totals.
 - unknownMachineTypeCount: number of active sessions whose machine type had no resolvable vCPU/RAM spec. Those sessions are counted in sessionCount but contribute 0 to the vcpu/memory sums, so totals undercount when this is non-zero — mention that caveat when presenting the numbers.`),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{

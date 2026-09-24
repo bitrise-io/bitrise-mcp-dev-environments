@@ -36,6 +36,7 @@ To check if a session's template has been updated, look at the template_outdated
 			mcp.DefaultString("mine"),
 		),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		var repeatedParams map[string][]string
@@ -94,6 +95,7 @@ By default, secret session input values are redacted from the snapshot; set incl
 			mcp.Description("When true, secret session input values are returned in plaintext. Defaults to false (secret values are redacted)."),
 		),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		sessionID, err := requireUUID(request, "session_id")
@@ -565,6 +567,7 @@ Sessions created without a template have nothing to compare against, so the curr
 			mcp.Required(),
 		),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		sessionID, err := requireUUID(request, "session_id")

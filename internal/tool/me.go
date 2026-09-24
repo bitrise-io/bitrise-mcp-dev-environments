@@ -14,6 +14,7 @@ var Me = devenv.Tool{
 		mcp.WithTitleAnnotation("Get current user"),
 		mcp.WithDescription("Get the currently authenticated Bitrise user information (email, user ID)."),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{

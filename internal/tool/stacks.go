@@ -11,6 +11,7 @@ import (
 // ListStacks lists available development environment stacks.
 var ListStacks = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_list_stacks",
+		mcp.WithTitleAnnotation("List stacks"),
 		mcp.WithDescription(`List available stacks for devenv templates and sessions.
 
 Each stack describes a provisionable development environment:
@@ -24,6 +25,7 @@ Each stack describes a provisionable development environment:
 - is_default: when true, this is the deployment's default stack — preselect it when the user has expressed no preference.
 - cluster_names: the clusters where the stack can be provisioned. A machine type is compatible with the stack when its cluster_name is one of these (see bitrise_devenv_list_machine_types).`),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
@@ -40,12 +42,14 @@ Each stack describes a provisionable development environment:
 // ListMachineTypes lists available machine types.
 var ListMachineTypes = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_list_machine_types",
+		mcp.WithTitleAnnotation("List machine types"),
 		mcp.WithDescription(`List available machine types for devenv templates and sessions.
 
 Each machine type includes a name (use the name, not the ID, when creating or updating templates), a friendly title, cpu/ram specs, the os it runs, and the cluster_name it belongs to.
 
 To pick a machine type compatible with a stack, choose one whose cluster_name is in that stack's cluster_names (from bitrise_devenv_list_stacks).`),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{

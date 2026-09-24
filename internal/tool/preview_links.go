@@ -11,6 +11,7 @@ import (
 // CreatePreviewLink mints a shareable device preview link for an app build.
 var CreatePreviewLink = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_create_preview_link",
+		mcp.WithTitleAnnotation("Create device preview link"),
 		mcp.WithDescription(`Turn an app build into a shareable link that opens the app on a live iOS simulator or Android emulator in the recipient's browser — no Bitrise login, no local tooling, nothing for them to install.
 
 WHEN TO USE THIS: you have built an app and want a HUMAN to try it — a reviewer on a pull request, a designer checking a screen, a PM signing off. Hand them the url from the response.
@@ -60,6 +61,7 @@ Device preview is enabled per workspace and per platform. PermissionDenied means
 		mcp.WithString("machine_type",
 			mcp.Description("Machine type the link's devices run on. Omit for the platform default. If you pass it, it must match the platform's OS family and clear the device minimum (>= 4 vCPU / 6-8 GB) — a smaller machine never finishes booting the device. Discover values with bitrise_devenv_list_machine_types."),
 		),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		deviceSpec, hasDevice := request.GetArguments()["device_spec"]

@@ -11,6 +11,7 @@ import (
 // ListWorkspaces lists the workspaces (organizations) the user can access.
 var ListWorkspaces = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_list_workspaces",
+		mcp.WithTitleAnnotation("List workspaces"),
 		mcp.WithDescription(`List the Bitrise workspaces (organizations) the authenticated user can access. Each workspace has a slug (ID) and a name.
 
 Use this to discover workspace IDs. Session, template, stack, and machine-type tools all operate within a single workspace, resolved in this order:
@@ -19,6 +20,7 @@ Use this to discover workspace IDs. Session, template, stack, and machine-type t
 
 If the user has multiple workspaces and none is configured, those tools return an error listing the available workspaces — configure one of these IDs as the default.`),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		orgs, err := devenv.ListOrganizations(ctx)

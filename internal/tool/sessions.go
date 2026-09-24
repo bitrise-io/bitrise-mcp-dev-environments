@@ -13,6 +13,7 @@ import (
 // ListSessions lists all sessions for the current user.
 var ListSessions = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_list",
+		mcp.WithTitleAnnotation("List sessions"),
 		mcp.WithDescription(`List devenv sessions. By default (scope="mine") returns the currently authenticated user's own sessions; set scope="workspace" to list sessions owned by the workspace itself instead.
 
 Returns a lightweight view of each session: ID, name, description, status, agent_session_status, labels, owner_type ("user" or "workspace"), owner_id (user UUID or workspace slug), template_id, template_deleted flag, SSH/VNC connection details, AI config, and a template_snapshot containing the template_name, stack_id, and machine_type.
@@ -35,6 +36,7 @@ To check if a session's template has been updated, look at the template_outdated
 			mcp.DefaultString("mine"),
 		),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		var repeatedParams map[string][]string
@@ -61,6 +63,7 @@ To check if a session's template has been updated, look at the template_outdated
 // GetSession retrieves a single session by ID.
 var GetSession = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_get",
+		mcp.WithTitleAnnotation("Get session"),
 		mcp.WithDescription(`Get full details of a specific devenv session.
 
 Returns status, SSH/VNC connection details, AI config, and the complete template_snapshot which contains:
@@ -92,6 +95,7 @@ By default, secret session input values are redacted from the snapshot; set incl
 			mcp.Description("When true, secret session input values are returned in plaintext. Defaults to false (secret values are redacted)."),
 		),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		sessionID, err := requireUUID(request, "session_id")
@@ -118,6 +122,7 @@ By default, secret session input values are redacted from the snapshot; set incl
 // a stack + machine type (template-less).
 var CreateSession = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_create",
+		mcp.WithTitleAnnotation("Create session"),
 		mcp.WithDescription(`Create a new devenv session (a remote macOS or Linux machine you drive with bitrise_devenv_execute).
 
 DOES YOUR TASK TOUCH A MOBILE APP? If it involves an iOS or Android app, a phone/tablet, a simulator or emulator, screenshots, UI tests, screen sizes, orientations or OS versions: create the session WITH device_spec (platform "ios" or "android") and READ THE GUIDE FIRST — bitrise_devenv_device_guide with guide="device-sessions", then "ios" or "android" (clients that read MCP resources can read bitrise-devenv://guides/device-sessions instead; same text). The platform boots and manages the simulator/emulator for you, streams it, and reports when it is ready. A device session is also the right choice for UNATTENDED and batch work — nobody has to watch it; the device stays fully drivable through xcrun simctl / adb / serve-sim from bitrise_devenv_execute. Never build your own simulator/emulator lifecycle on a bare machine (2/3 below without device_spec): that path is not supported for device work and loses readiness reporting, streaming and the viewer.
@@ -223,6 +228,7 @@ Rules:
 			mcp.Description(`Optional key/value string labels to attach to the session, e.g. {"team": "mobile", "branch": "main"}. At most 32 labels; keys are 1-63 characters of [a-zA-Z0-9._/-] starting and ending alphanumeric; values are 1-255 bytes of [a-zA-Z0-9._/:+-] with no positional rules (timestamps with offsets, branch names, paths, and semver all fit; spaces, '@', '=', newlines, and non-ASCII are rejected). The "bitrise.io/" key prefix is reserved for system-owned labels and rejected. Labels are returned on session reads and filterable in bitrise_devenv_list via label_selectors.`),
 			mcp.AdditionalProperties(map[string]any{"type": "string"}),
 		),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		templateID := request.GetString("template_id", "")
@@ -371,6 +377,7 @@ Rules:
 // RestoreSession restores a terminated (or restarts a failed) session.
 var RestoreSession = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_restore",
+		mcp.WithTitleAnnotation("Restore session"),
 		mcp.WithDescription(`Restore a devenv session that is not currently running. The session will begin provisioning and transition to running. Resets agent_session_status.
 
 Restorable statuses: SESSION_STATUS_TERMINATED (user terminated), SESSION_STATUS_DRAINED (node was reclaimed under the session), SESSION_STATUS_FAILED. All three are terminal-and-restorable — restoring recreates the VM.
@@ -382,6 +389,7 @@ Only sessions that were terminated (not deleted) can be restored: bitrise_devenv
 			mcp.Description("The unique identifier (UUID) of the session to restore"),
 			mcp.Required(),
 		),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		sessionID, err := requireUUID(request, "session_id")
@@ -404,6 +412,7 @@ Only sessions that were terminated (not deleted) can be restored: bitrise_devenv
 // session for later restore).
 var TerminateSession = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_terminate",
+		mcp.WithTitleAnnotation("Terminate session"),
 		mcp.WithDescription(`Terminate a running devenv session but KEEP it for a later restore: the VM is stopped, its disk is preserved, and the session stays listed as SESSION_STATUS_TERMINATED until it is restored (bitrise_devenv_restore) or deleted. Resets agent_session_status.
 
 Use this only when the user wants to come back to this exact session later (e.g. to keep uncommitted work or an expensive warm state). A terminated session keeps occupying disk until it is deleted, and forgotten terminated sessions are the main source of waste — so when the session is simply no longer needed, call bitrise_devenv_delete directly instead; it works on running sessions and does NOT require terminating first.
@@ -413,6 +422,7 @@ Asynchronous: returns while the session is still SESSION_STATUS_TERMINATING; pol
 			mcp.Description("The unique identifier (UUID) of the session to terminate"),
 			mcp.Required(),
 		),
+		mcp.WithDestructiveHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		sessionID, err := requireUUID(request, "session_id")
@@ -435,6 +445,7 @@ Asynchronous: returns while the session is still SESSION_STATUS_TERMINATING; pol
 // running VM is stopped and discarded by the backend, no terminate needed.
 var DeleteSession = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_delete",
+		mcp.WithTitleAnnotation("Delete session"),
 		mcp.WithDescription(`Permanently delete a devenv session in ANY state — running, starting, terminating, terminated or failed. This is the preferred way to get rid of a session you are done with: it does not have to be terminated first.
 
 The session disappears from the list immediately and cannot be restored. If its VM is still running, the backend stops it and then discards it together with its disk in the background — any unsaved work on the VM is lost, so make sure anything worth keeping (commits, pushes, uploads) is already off the machine.
@@ -471,6 +482,7 @@ Prefer this over bitrise_devenv_terminate unless the user explicitly wants to re
 // auto-terminate settings.
 var UpdateSession = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_update",
+		mcp.WithTitleAnnotation("Update session"),
 		mcp.WithDescription("Update a session's name, description, labels, or auto-terminate settings. Only provided fields are updated."),
 		mcp.WithString("session_id",
 			mcp.Description("The unique identifier (UUID) of the session to update"),
@@ -493,6 +505,7 @@ var UpdateSession = devenv.Tool{
 			mcp.Description("Label keys to remove from the session. Unknown keys are ignored."),
 			mcp.WithStringItems(),
 		),
+		mcp.WithDestructiveHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		sessionID, err := requireUUID(request, "session_id")
@@ -534,6 +547,7 @@ var UpdateSession = devenv.Tool{
 // CompareSessionTemplate compares a session's template snapshot with the current template.
 var CompareSessionTemplate = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_compare_template",
+		mcp.WithTitleAnnotation("Compare session with template"),
 		mcp.WithDescription(`Compare a session's template snapshot with the current template configuration.
 
 Returns both the snapshot (template config at session creation time) and the current template config side-by-side, including:
@@ -553,6 +567,7 @@ Sessions created without a template have nothing to compare against, so the curr
 			mcp.Required(),
 		),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		sessionID, err := requireUUID(request, "session_id")
@@ -573,6 +588,7 @@ Sessions created without a template have nothing to compare against, so the curr
 // DeleteTerminatedSessions deletes all terminated sessions.
 var DeleteTerminatedSessions = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_delete_terminated",
+		mcp.WithTitleAnnotation("Delete terminated sessions"),
 		mcp.WithDescription(`Delete all terminated devenv sessions in the given ownership scope. By default (scope="mine") deletes the current user's terminated sessions; set scope="workspace" to delete terminated workspace-owned sessions instead. With a Workspace API Token pass scope="workspace" (the token has no personal sessions, so "mine" is rejected). Returns the number of deleted sessions. Running sessions are left alone — use bitrise_devenv_delete to delete a specific session regardless of its state.`),
 		mcp.WithString("scope",
 			mcp.Description(`Ownership scope of the cleanup. "mine" (default) deletes the calling user's own terminated sessions. "workspace" deletes terminated sessions owned by the workspace itself — created with owner="workspace" or by a Workspace API Token, or started from a preview link. Use "workspace" when the server runs with a Workspace API Token.`),

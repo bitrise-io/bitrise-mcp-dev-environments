@@ -25,6 +25,7 @@ const screenRecordingPermissionHint = `If the screenshot shows a macOS system di
 // Screenshot takes a screenshot of the session's screen.
 var Screenshot = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_screenshot",
+		mcp.WithTitleAnnotation("Take screenshot"),
 		mcp.WithDescription(`Take a screenshot of a running devenv session's macOS display.
 
 Use this to verify the current state of the GUI, identify coordinates for click/drag operations,
@@ -54,6 +55,7 @@ NOTE: This tool only works on macOS sessions. Linux sessions do not have a graph
 			mcp.Required(),
 		),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		sessionID, err := requireUUID(request, "session_id")

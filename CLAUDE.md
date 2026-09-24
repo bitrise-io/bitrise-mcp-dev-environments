@@ -100,6 +100,7 @@ var ListSessions = devenv.Tool{
 
 - Tool names: `bitrise_devenv_<action>` (snake_case)
 - All tools registered in `belt.go` — add new tools there
+- Every tool sets `mcp.WithTitleAnnotation(...)` and an explicit `mcp.WithDestructiveHintAnnotation(true|false)`; reads also set `mcp.WithReadOnlyHintAnnotation(true)` with destructive `false` (mcp-go defaults every tool to destructive). Required for the Claude connectors directory; `TestToolAnnotations` enforces it.
 - UUID params validated with `requireUUID(request, "param_name")`
 - Errors returned as `mcp.NewToolResultErrorFromErr("action name", err)` (not Go errors)
 - Optional params: check with `request.GetString("name", "")` or `request.GetArguments()["name"]`

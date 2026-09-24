@@ -148,10 +148,12 @@ func (b *Belt) RegisterResources(s *server.MCPServer) {
 // tools-only client gets the same know-how, just paid for in context up front.
 var DeviceGuide = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_device_guide",
+		mcp.WithTitleAnnotation("Read device session guide"),
 		mcp.WithDescription(`Returns the device-session agent guide as markdown. Read "device-sessions" BEFORE creating or driving a session that boots an iOS simulator / Android emulator (bitrise_devenv_create with device_spec, or a template that declares one), then "ios" or "android" for the platform you boot. It is the know-how the tool descriptions cannot hold: create rules, the readiness contract ("running" is not "ready"; what a FAILED device really means), connecting, the accessibility tree, input, screenshots, getting files off the VM, optionally letting a human watch, recovery, and what never to do. It applies equally to unattended/batch runs — the device is driven from execute (simctl / adb / serve-sim); nobody needs to watch.
 
 The same text is also served as the MCP resources bitrise-devenv://guides/device-sessions, .../ios and .../android for clients that read resources; this tool works everywhere.`),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 		mcp.WithString("guide",
 			mcp.Description(`Which guide to return: "device-sessions" (platform-independent, read first), "ios" (simulator specifics: simctl, serve-sim CLI, /ax accessibility endpoint) or "android" (emulator specifics: adb, uiautomator dump, input, install).`),
 			mcp.Required(),

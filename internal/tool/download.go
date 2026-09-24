@@ -24,6 +24,7 @@ type downloadResp struct {
 // Download downloads files from a session to the local machine.
 var Download = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_download",
+		mcp.WithTitleAnnotation("Download files from session"),
 		mcp.WithDescription(`Download a file or directory from a running devenv session to the local machine.
 
 The remote path is archived as tar.gz, uploaded to cloud storage, then downloaded and extracted locally.
@@ -42,6 +43,7 @@ Example: Download a build artifact:
 		mcp.WithString("local_destination", mcp.Description("Local directory path where files will be extracted"), mcp.Required()),
 		mcp.WithBoolean("only_contents", mcp.Description("If true and source is a directory, extract only its contents (not the directory itself)")),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		sessionID, err := requireUUID(request, "session_id")

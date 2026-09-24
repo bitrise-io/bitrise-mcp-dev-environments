@@ -11,6 +11,7 @@ import (
 // GetWorkspaceUsage reports the workspace's active-session resource usage.
 var GetWorkspaceUsage = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_get_workspace_usage",
+		mcp.WithTitleAnnotation("Get workspace usage"),
 		mcp.WithDescription(`Get a point-in-time snapshot of the workspace's active devenv sessions: session counts and vCPU/memory totals split by OS, workspace-wide and per user.
 
 This reports sessions currently consuming resources (starting, running, terminating, or draining). It is NOT a historical or billing-period report — poll it over time if you need trends.
@@ -30,6 +31,7 @@ Response shape (zero-valued fields and empty objects may be omitted from the JSO
   - totals: this row's usage, same linux/macos/unknown bucket shape as the workspace-wide totals.
 - unknownMachineTypeCount: number of active sessions whose machine type had no resolvable vCPU/RAM spec. Those sessions are counted in sessionCount but contribute 0 to the vcpu/memory sums, so totals undercount when this is non-zero — mention that caveat when presenting the numbers.`),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{

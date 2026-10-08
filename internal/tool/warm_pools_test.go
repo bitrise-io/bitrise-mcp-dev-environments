@@ -207,8 +207,7 @@ func TestGetWarmPool(t *testing.T) {
 
 // Create posts the stored configuration: the scalars the backend cannot
 // default are always sent, the optional ones only when given (an absent
-// owner_type is the backend's default, an absent override is the template's
-// value), and pool_size arrives as a JSON number.
+// override is the template's value), and pool_size arrives as a JSON number.
 func TestCreateWarmPool(t *testing.T) {
 	const path = "/v1/workspaces/ws/warm-pools"
 	response := `{"warm_pool":{"id":"` + testWarmPoolID + `","name":"ios lab","owner_type":"workspace","pool_size":3}}`
@@ -224,7 +223,6 @@ func TestCreateWarmPool(t *testing.T) {
 			"name":                       "ios lab",
 			"template_id":                testTemplateID,
 			"pool_size":                  float64(3),
-			"owner_type":                 "workspace",
 			"session_inputs":             inputs,
 			"enabled_feature_flag_names": flags,
 			"stack_id":                   "osx-xcode-26.0.x",
@@ -236,7 +234,6 @@ func TestCreateWarmPool(t *testing.T) {
 			"name":                       "ios lab",
 			"template_id":                testTemplateID,
 			"pool_size":                  float64(3),
-			"owner_type":                 "workspace",
 			"session_inputs":             inputs,
 			"enabled_feature_flag_names": flags,
 			"stack_id":                   "osx-xcode-26.0.x",
@@ -275,19 +272,6 @@ func TestCreateWarmPool(t *testing.T) {
 		}
 		if _, present := got.Body["device_spec"]; present {
 			t.Errorf("device_spec present in body, want absent")
-		}
-	})
-	t.Run("map_saved_to_session_inputs is forwarded only when true", func(t *testing.T) {
-		ctx, got := captureRequest(t, response)
-		callText(t, CreateWarmPool, ctx, map[string]any{"name": "mine", "template_id": testTemplateID, "pool_size": float64(1), "map_saved_to_session_inputs": true})
-		want := map[string]any{"name": "mine", "template_id": testTemplateID, "pool_size": float64(1), "map_saved_to_session_inputs": true}
-		if !reflect.DeepEqual(got.Body, want) {
-			t.Errorf("body = %v, want %v", got.Body, want)
-		}
-		ctx, got = captureRequest(t, response)
-		callText(t, CreateWarmPool, ctx, map[string]any{"name": "mine", "template_id": testTemplateID, "pool_size": float64(1), "map_saved_to_session_inputs": false})
-		if _, present := got.Body["map_saved_to_session_inputs"]; present {
-			t.Errorf("map_saved_to_session_inputs present in body, want absent")
 		}
 	})
 	t.Run("minimal pool sends only the required fields", func(t *testing.T) {

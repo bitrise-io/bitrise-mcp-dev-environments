@@ -12,7 +12,7 @@ import (
 
 // warmPoolConceptDoc explains what a warm pool is. It is shared by the tool
 // descriptions so an agent reads the same model wherever a pool is mentioned.
-const warmPoolConceptDoc = `A warm pool is a stored session configuration — a template, its session input values, feature flags and optional stack / machine type / cluster overrides — plus an owner and a pool_size. The RDE backend keeps pool_size sessions of that configuration booted and idle ("warm sessions", status.ready / status.warming). Creating a session with bitrise_devenv_create warm_pool_id hands out a warm session instantly (Session.warm_state "claimed") or, when none is available, builds one from the pool's configuration (warm_state "cold") — so a pool with pool_size 0 still works as a configuration preset. Owner "user" makes the pool private to its creator; "workspace" shares it with every member and Workspace API Tokens.`
+const warmPoolConceptDoc = `A warm pool is a stored session configuration — a template, its session input values, feature flags and optional stack / machine type / cluster overrides — plus a pool_size, owned by the workspace. The RDE backend keeps pool_size sessions of that configuration booted and idle ("warm sessions", status.ready / status.warming). Creating a session with bitrise_devenv_create warm_pool_id hands out a warm session instantly (Session.warm_state "claimed") or, when none is available, builds one from the pool's configuration (warm_state "cold") — so a pool with pool_size 0 still works as a configuration preset. Every member and Workspace API Token sees, claims from and manages every pool. A session claimed from a pool is the claimant's (bitrise_devenv_create owner); it is the workspace's only while it waits in the pool.`
 
 // warmPoolSessionInputsSchema is the session_inputs array a pool stores — the
 // same shape bitrise_devenv_create takes, since a pool is a stored session
@@ -23,10 +23,9 @@ func warmPoolSessionInputsSchema(description string) []mcp.PropertyOption {
 		mcp.Items(map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"key":            map[string]any{"type": "string", "description": "Key name matching a session input on the template"},
-				"value":          map[string]any{"type": "string", "description": "Direct value (ignored if saved_input_id is set)"},
-				"is_secret":      map[string]any{"type": "boolean", "description": "Whether the value is secret (ignored if saved_input_id is set)"},
-				"saved_input_id": map[string]any{"type": "string", "description": "Optional: ID of a saved input to use instead of a direct value. User-owned pools only — a workspace pool must carry plain values."},
+				"key":       map[string]any{"type": "string", "description": "Key name matching a session input on the template"},
+				"value":     map[string]any{"type": "string", "description": "The value every warm session is created with. Saved inputs are personal and cannot be referenced from a pool."},
+				"is_secret": map[string]any{"type": "boolean", "description": "Whether the value is secret (stored encrypted, redacted in responses)"},
 			},
 			"required": []string{"key"},
 		}),
@@ -41,14 +40,14 @@ var ListWarmPools = devenv.Tool{
 
 WHEN TO USE THIS: before creating a session, to find a pool that already has your configuration booted (then pass its id as warm_pool_id to bitrise_devenv_create); before creating a pool, to avoid a duplicate; or to review what is kept warm — and paid for — in the workspace.
 
-By default returns the workspace's pools plus your own personal pools, never another user's. Set all=true to list every pool in the workspace read-only (cost visibility; requires the workspace's view_billing_data permission). Optionally restrict to one template with template_id.
+Every member sees every pool. all=true is the read-only cost view the Usage page uses (requires the workspace's view_billing_data permission). Optionally restrict to one template with template_id.
 
 Each pool carries its configuration (secret input values redacted), pool_size and a status with ready / warming counts, lifetime claimed_total / cold_total (a high cold_total means pool_size is too low for the demand), last_error, config_error (the stored configuration no longer builds — fix it with bitrise_devenv_update_warm_pool) and paused_until. The list view omits the per-session inventory; use bitrise_devenv_get_warm_pool for status.sessions.`),
 		mcp.WithString("template_id",
 			mcp.Description("Optional: only list pools created from this template (UUID)."),
 		),
 		mcp.WithBoolean("all",
-			mcp.Description("When true, list every pool in the workspace regardless of owner (read-only cost view; requires view_billing_data permission). Defaults to false: the workspace's pools plus your own."),
+			mcp.Description("When true, use the read-only cost view (requires the view_billing_data permission). Defaults to false."),
 		),
 		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithDestructiveHintAnnotation(false),
@@ -120,7 +119,7 @@ WHEN TO USE THIS: the same session configuration is created over and over and th
 
 The configuration fields are those of bitrise_devenv_create, validated the same way (a pool can only store what a session request could send): template_id (required — a pool is always template-based), session_inputs (required inputs must be given; secret values are stored encrypted and redacted in responses), enabled_feature_flag_names, optional stack_id / machine_type / cluster overrides of the template's values, and the device every warm session boots: omit device_spec to boot the template's declared device as is, pass one to tweak it per field (no platform) or replace it whole (with a platform), or no_device=true to boot none. Per-session fields (name, description, labels, auto_terminate_minutes, artifact) are NOT part of the pool — they are given at claim time.
 
-Ownership: owner_type "user" (default for a personal token) keeps the pool and its sessions private to you and allows saved_input_id references in session_inputs. "workspace" shares the pool with every member and Workspace API Tokens, its sessions are workspace-owned, session inputs must be plain values, and it is the only kind a preview link (bitrise_devenv_create_preview_link warm_pool_id) may serve from. With a Workspace API Token omit owner_type or set "workspace".
+Ownership: every pool belongs to the workspace — shared with every member and Workspace API Tokens, and the kind a preview link (bitrise_devenv_create_preview_link warm_pool_id) serves from. Session inputs must be plain values: saved inputs are personal and never reach a pool. A session claimed from the pool is the claimant's by default (see bitrise_devenv_create owner).
 
 Sizing: pool_size is how many warm sessions to keep booted — each one is a running machine you pay for while idle, so start small and watch status.cold_total (claims that found no warm session) to tune it. 0 creates an inert pool that still serves as a configuration preset for claims.`),
 		mcp.WithString("name", mcp.Description("Human-readable name of the pool"), mcp.Required()),
@@ -132,15 +131,8 @@ Sizing: pool_size is how many warm sessions to keep booted — each one is a run
 			mcp.Description("How many warm sessions to keep booted and idle. 0 creates a drained pool that only serves as a configuration preset. Each warm session is a running machine, so keep it to the concurrency you actually need."),
 			mcp.Required(),
 		),
-		mcp.WithString("owner_type",
-			mcp.Description(`Who owns the pool and the sessions claimed from it. "user" (default with a personal token): private to you; saved_input_id references allowed. "workspace": shared with every member and Workspace API Tokens, plain-value inputs only, required for pools that serve preview links. Omit or "workspace" with a Workspace API Token.`),
-			mcp.Enum("user", "workspace"),
-		),
 		mcp.WithArray("session_inputs",
-			warmPoolSessionInputsSchema("Values for the template's session inputs that every warm session is created with. Required inputs must have a value (direct, or saved_input_id on a personal pool); optional inputs fall back to their default_value.")...,
-		),
-		mcp.WithBoolean("map_saved_to_session_inputs",
-			mcp.Description(`Personal pools only. When true, the backend fills template session inputs that session_inputs does not supply from your saved inputs, matched by key — the same shortcut as on bitrise_devenv_create. The matches are resolved once, now, and stored on the pool as saved_input_id references: a saved input you add later is not picked up, while a rotated value of a referenced saved input is. Entries in session_inputs always win. Rejected on a workspace pool (saved inputs are personal).`),
+			warmPoolSessionInputsSchema("Values for the template's session inputs that every warm session is created with. Required inputs must have a value; optional inputs fall back to their default_value.")...,
 		),
 		mcp.WithArray("enabled_feature_flag_names",
 			mcp.Description("Names of the template's feature flags to enable on every warm session"),
@@ -181,16 +173,10 @@ Sizing: pool_size is how many warm sessions to keep booted — each one is a run
 			"template_id": templateID,
 			"pool_size":   poolSize,
 		}
-		if owner := request.GetString("owner_type", ""); owner != "" {
-			body["owner_type"] = owner
-		}
 		for _, key := range []string{"session_inputs", "enabled_feature_flag_names"} {
 			if v, ok := request.GetArguments()[key]; ok {
 				body[key] = v
 			}
-		}
-		if request.GetBool("map_saved_to_session_inputs", false) {
-			body["map_saved_to_session_inputs"] = true
 		}
 		for _, key := range []string{"stack_id", "machine_type", "cluster"} {
 			if v := request.GetString(key, ""); v != "" {

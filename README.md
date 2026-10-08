@@ -80,7 +80,7 @@ The server runs over **stdio** (above) for local use. It can also run over **HTT
 |------|-------------|
 | `bitrise_devenv_list` | List sessions with their status, name, labels, owner, and template info; filterable server-side by `key=value` label selectors, and scopeable to your own sessions (default) or workspace-owned sessions |
 | `bitrise_devenv_get` | Get details of a specific session including status, machine info, and SSH/VNC credentials |
-| `bitrise_devenv_create` | Create a new session, either from a template (with template ID, session inputs, and feature flags) or without one by supplying a stack and machine type directly; optionally boot a virtual device with it (`device_spec`: iOS simulator / Android emulator, optional `artifact` to pre-install) and attach key/value labels. A template that declares a device boots it by default — pass `device_spec` to override it or `no_device` to skip it. `owner="workspace"` creates a session owned by the workspace (shared with every member; session inputs as plain values only) — the only kind a Workspace API Token creates. `warm_pool_id` claims a booted session from a warm pool instead (the pool fixes template, inputs, flags, machine and device) |
+| `bitrise_devenv_create` | Create a new session, either from a template (with template ID, session inputs, and feature flags) or without one by supplying a stack and machine type directly; optionally boot a virtual device with it (`device_spec`: iOS simulator / Android emulator, optional `artifact` to pre-install) and attach key/value labels. A template that declares a device boots it by default — pass `device_spec` to override it or `no_device` to skip it. `owner="workspace"` creates a session owned by the workspace (shared with every member; session inputs as plain values only) — the only kind a Workspace API Token creates. `warm_pool_id` claims a booted session from a warm pool instead (the pool fixes template, inputs, flags, machine and device; the claimed session is yours unless `owner="workspace"`) |
 | `bitrise_devenv_update` | Update a session's name, description, or labels |
 | `bitrise_devenv_restore` | Restore a terminated (or failed/drained) session |
 | `bitrise_devenv_terminate` | Terminate a running session but keep it for a later restore (stops the VM, preserves its disk; the session stays listed as terminated) |
@@ -100,13 +100,13 @@ The server runs over **stdio** (above) for local use. It can also run over **HTT
 
 ### Warm Pools
 
-A warm pool is a stored session configuration (template, session input values, feature flags, optional stack / machine type / cluster overrides) plus an owner and a `pool_size`. The backend keeps that many sessions booted and idle; `bitrise_devenv_create` with `warm_pool_id` is handed one of them instantly (`warm_state: "claimed"`) or, when none is available, gets a session built from the pool's configuration (`"cold"`). `pool_size: 0` drains a pool but keeps it usable as a preset — a scheduler can scale it up for business hours and down at night.
+A warm pool is a stored session configuration (template, session input values, feature flags, optional stack / machine type / cluster overrides) plus a `pool_size`, owned by the workspace: every member and Workspace API Token sees, claims from and manages it, and a session claimed from it is the claimant's. The backend keeps that many sessions booted and idle; `bitrise_devenv_create` with `warm_pool_id` is handed one of them instantly (`warm_state: "claimed"`) or, when none is available, gets a session built from the pool's configuration (`"cold"`). `pool_size: 0` drains a pool but keeps it usable as a preset — a scheduler can scale it up for business hours and down at night.
 
 | Tool | Description |
 |------|-------------|
 | `bitrise_devenv_list_warm_pools` | List the warm pools you can see (the workspace's plus your own), optionally for one template; `all: true` lists every pool in the workspace read-only (needs billing-view permission) |
 | `bitrise_devenv_get_warm_pool` | Get a warm pool with its live status — ready / warming counts, claimed and cold totals, errors — and its per-session inventory |
-| `bitrise_devenv_create_warm_pool` | Create a warm pool from a template with session inputs (`map_saved_to_session_inputs` fills a personal pool's from your saved inputs), feature flags, optional stack / machine type / cluster overrides and the device its sessions boot (`device_spec` / `no_device`, as on `bitrise_devenv_create`); `owner_type` `"user"` (private) or `"workspace"` (shared, required for preview links) |
+| `bitrise_devenv_create_warm_pool` | Create a warm pool from a template with session inputs (plain values; saved inputs are personal and never reach a pool), feature flags, optional stack / machine type / cluster overrides and the device its sessions boot (`device_spec` / `no_device`, as on `bitrise_devenv_create`) |
 | `bitrise_devenv_update_warm_pool` | Scale a pool (`pool_size`; 0 drains it), rename it, or change its stored configuration (arrays replace all entries; a redacted secret sent back empty keeps the stored value; `""` clears a machine override, `device_spec: {}` the device override) |
 | `bitrise_devenv_delete_warm_pool` | Delete a warm pool; its unclaimed warm sessions are terminated, claimed sessions are untouched |
 
@@ -165,7 +165,7 @@ A warm pool is a stored session configuration (template, session input values, f
 
 | Tool | Description |
 |------|-------------|
-| `bitrise_devenv_create_preview_link` | Turn an app build into a shareable link that opens it on a live iOS simulator / Android emulator in someone else's browser — no Bitrise login needed. For handing a build to a reviewer; to drive a device yourself use `bitrise_devenv_create` with `device_spec`. The devices it opens are always workspace-owned (listed with `scope="workspace"`), whoever mints the link. `warm_pool_id` serves the link's opens from a workspace-owned warm pool whose configuration boots a device (omit `device_spec`, `stack_id` and `machine_type` then) |
+| `bitrise_devenv_create_preview_link` | Turn an app build into a shareable link that opens it on a live iOS simulator / Android emulator in someone else's browser — no Bitrise login needed. For handing a build to a reviewer; to drive a device yourself use `bitrise_devenv_create` with `device_spec`. The devices it opens are always workspace-owned (listed with `scope="workspace"`), whoever mints the link. `warm_pool_id` serves the link's opens from a warm pool whose configuration boots a device (omit `device_spec`, `stack_id` and `machine_type` then) |
 
 ### Guides
 

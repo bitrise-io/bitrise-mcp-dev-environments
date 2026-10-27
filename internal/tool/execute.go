@@ -115,8 +115,8 @@ IMPORTANT:
 - The session must be in "running" status with SSH remote access available.
   SSH remote access is provisioned automatically; if credentials aren't populated
   yet, the session is likely still starting up — wait briefly and retry.
-- On a session that runs lifecycle hooks (bitrise_devenv_get returns a lifecycle
-  field) "running" means the machine is up, NOT that its setup finished: On create
+- On a session that runs lifecycle hooks (bitrise_devenv_get returns
+  lifecycle.mode "hooks") "running" means the machine is up, NOT that its setup finished: On create
   (the clone, installs, builds) runs on the machine AFTER it is running, and this
   tool is REFUSED while an On create run is pending or running — "Session is
   setting up: On create is still running. Access opens when it finishes." (so are

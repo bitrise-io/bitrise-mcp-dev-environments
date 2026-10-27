@@ -32,6 +32,7 @@ var Click = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_click",
 		mcp.WithTitleAnnotation("Click on screen"),
 		mcp.WithDescription(`Click at specific coordinates on a running devenv session's macOS display.
+Refused while On create is pending or running on a session with lifecycle hooks ("Session is setting up: On create is still running. Access opens when it finishes."): poll bitrise_devenv_get until lifecycle.phase is LIFECYCLE_PHASE_READY.
 
 PREFER SCRIPTED AUTOMATION WHEN POSSIBLE: for scriptable UI actions (opening
 System Settings panes, launching apps, menu navigation, keystrokes, defaults),
@@ -102,6 +103,7 @@ var Type = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_type",
 		mcp.WithTitleAnnotation("Type text"),
 		mcp.WithDescription(`Type text on a running devenv session's macOS display.
+Refused while On create is pending or running on a session with lifecycle hooks ("Session is setting up: On create is still running. Access opens when it finishes."): poll bitrise_devenv_get until lifecycle.phase is LIFECYCLE_PHASE_READY.
 
 PREFER SCRIPTED AUTOMATION WHEN POSSIBLE: for keystrokes, shortcuts, and text
 input you can drive programmatically, use bitrise_devenv_execute with osascript
@@ -147,6 +149,7 @@ var Scroll = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_scroll",
 		mcp.WithTitleAnnotation("Scroll screen"),
 		mcp.WithDescription(`Scroll at the current mouse position on a running devenv session's macOS display.
+Refused while On create is pending or running on a session with lifecycle hooks ("Session is setting up: On create is still running. Access opens when it finishes."): poll bitrise_devenv_get until lifecycle.phase is LIFECYCLE_PHASE_READY.
 
 PREFER SCRIPTED AUTOMATION WHEN POSSIBLE: many "scroll to reveal X" flows can
 be avoided entirely by driving the app directly via bitrise_devenv_execute
@@ -185,6 +188,7 @@ var MouseDrag = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_mouse_drag",
 		mcp.WithTitleAnnotation("Drag mouse"),
 		mcp.WithDescription(`Drag the mouse between two points on a running devenv session's macOS display.
+Refused while On create is pending or running on a session with lifecycle hooks ("Session is setting up: On create is still running. Access opens when it finishes."): poll bitrise_devenv_get until lifecycle.phase is LIFECYCLE_PHASE_READY.
 
 PREFER SCRIPTED AUTOMATION WHEN POSSIBLE: most drag-to-move, drag-to-select,
 and drag-to-resize actions can be done via bitrise_devenv_execute — e.g. "mv"

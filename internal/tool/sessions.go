@@ -16,7 +16,7 @@ var ListSessions = devenv.Tool{
 		mcp.WithTitleAnnotation("List sessions"),
 		mcp.WithDescription(`List devenv sessions. By default (scope="mine") returns the currently authenticated user's own sessions; set scope="workspace" to list sessions owned by the workspace itself instead.
 
-Returns a lightweight view of each session: ID, name, description, status, agent_session_status, labels, owner_type ("user" or "workspace"), owner_id (user UUID or workspace slug), template_id, template_deleted flag, SSH/VNC connection details, AI config, and a template_snapshot containing the template_name, stack_id, and machine_type.
+Returns a lightweight view of each session: ID, name, description, status, agent_session_status, labels, owner_type ("user" or "workspace"), owner_id (user UUID or workspace slug), template_id, template_deleted flag, SSH/VNC connection details, AI config, and a template_snapshot containing the template_name, stack_id, and machine_type. Sessions that run lifecycle hooks also carry lifecycle (mode, phase, runs, has_on_claim_hook, has_on_restore_hook): there status "running" alone does not mean the setup finished — see bitrise_devenv_get for how to read lifecycle.phase.
 
 agent_session_status reflects the current state of the AI agent running in the session (working, waiting_for_input, idle, or unspecified). It is reset whenever the session is stopped or started.
 
@@ -70,13 +70,17 @@ Returns status, SSH/VNC connection details, AI config, and the complete template
 - template_name: name of the template at creation time
 - stack_id: stack ID
 - machine_type: machine type name
-- session_inputs: input values (key, value, is_secret, expose_as_env_var) snapshotted at creation
+- session_inputs: input values (key, value, is_secret, expose_as_env_var, hook, supplied_by_pool) snapshotted at creation (and at claim for the on_claim / on_restore ones). On a session a warm pool handed out, the on_create values are the pool's and are never returned: those entries have supplied_by_pool=true and an empty value.
 - feature_flags: flag states (name, enabled) snapshotted at creation
 - workspace_links: IDE folder links (label, folder_path) filtered by enabled flags
 - working_directory: terminal working directory
-- has_warmup_script / has_startup_script: whether scripts were configured
+- has_warmup_script / has_startup_script: whether legacy scripts were configured
+- lifecycle_mode: "hooks" when the session runs lifecycle hooks (a template with hooks, or a legacy template mapped at creation in a workspace with lifecycle hooks enabled); empty on the legacy warmup/startup path
+- has_on_create_hook / has_on_claim_hook / has_on_restore_hook: which hooks the session's creation-time template copy has
+- session_inputs[].hook: the value's scope — "shared" (every hook), "on_create", "on_claim" or "on_restore" (that hook only); on_claim and on_restore values are the ones supplied at claim time
 
 Also includes:
+- lifecycle (only on sessions that run lifecycle hooks): mode "hooks", phase, runs, has_on_claim_hook, has_on_restore_hook. status "running" means the machine is up, NOT that its setup finished — read lifecycle.phase: LIFECYCLE_PHASE_SETTING_UP (on_create running — bitrise_devenv_execute and every other interactive tool are refused until it finishes: "Session is setting up: On create is still running. Access opens when it finishes."), LIFECYCLE_PHASE_PERSONALIZING (the system setup step or on_claim running), LIFECYCLE_PHASE_RESTORING (on_restore running), LIFECYCLE_PHASE_READY (every queued hook is done — start working), LIFECYCLE_PHASE_SETUP_FAILED / LIFECYCLE_PHASE_PERSONALIZATION_FAILED / LIFECYCLE_PHASE_RESTORE_FAILED (the last run failed or was interrupted: read its exit_code and the session logs; the machine stays usable), LIFECYCLE_PHASE_WARMING / LIFECYCLE_PHASE_READY_TO_CLAIM (warm pool inventory). lifecycle.runs lists every hook run oldest first: hook ("on_create", "personalize" — the platform's own system setup step (its injected scripts: Claude Code, device tooling), "on_claim", "on_restore"), attempt, state (HOOK_RUN_STATE_PENDING / RUNNING / SUCCEEDED — the script exited with code 0; background processes it started may keep running / FAILED — a non-zero exit, or RDE ended it because On create did not finish within its limit / INTERRUPTED — the machine was stopped mid-run / SKIPPED — an earlier run failed), exit_code (124 means RDE ended the run because On create did not finish within its 20-minute limit: the script has to exit, long-running work belongs in the background), triggered_by ("create", "claim", "restore", "run_again", "rebuild"), ran_in ("pool" or "session") and queued_at / started_at / finished_at.
 - template_deleted: true if the template was deleted after session creation (session still works from its snapshot)
 - template_outdated: true if the template has been updated since this session was created (use bitrise_devenv_compare_template to see what changed)
 - agent_session_status: current state of the AI agent running in the session (working, waiting_for_input, idle, or unspecified). Reset on terminate/restore.
@@ -127,6 +131,8 @@ var CreateSession = devenv.Tool{
 
 DOES YOUR TASK TOUCH A MOBILE APP? If it involves an iOS or Android app, a phone/tablet, a simulator or emulator, screenshots, UI tests, screen sizes, orientations or OS versions: create the session WITH device_spec (platform "ios" or "android") and READ THE GUIDE FIRST — bitrise_devenv_device_guide with guide="device-sessions", then "ios" or "android" (clients that read MCP resources can read bitrise-devenv://guides/device-sessions instead; same text). The platform boots and manages the simulator/emulator for you, streams it, and reports when it is ready. A device session is also the right choice for UNATTENDED and batch work — nobody has to watch it; the device stays fully drivable through xcrun simctl / adb / serve-sim from bitrise_devenv_execute. Never build your own simulator/emulator lifecycle on a bare machine (2/3 below without device_spec): that path is not supported for device work and loses readiness reporting, streaming and the viewer.
 
+"running" is NOT "set up" on a session that runs lifecycle hooks (the response carries a lifecycle field: a template with hooks, or any template in a workspace with lifecycle hooks enabled): the machine comes up first and the hooks run on it afterwards, and while On create is pending or running bitrise_devenv_execute and every other interactive tool are refused ("Session is setting up: On create is still running. Access opens when it finishes."). Poll bitrise_devenv_get until lifecycle.phase is LIFECYCLE_PHASE_READY before relying on the setup; a *_FAILED phase means the last hook failed — read lifecycle.runs and the session logs, the machine itself stays usable. A session without a lifecycle field runs the legacy warmup/startup scripts, and "running" is the whole story.
+
 Three ways to create a session:
 
 1) With a virtual device (device_spec set, or a template that declares one) — the default for anything mobile:
@@ -137,14 +143,14 @@ Templates can declare a device (device_spec on bitrise_devenv_get_template). Cre
 2) From a template (template_id set), no device unless the template declares one:
 1. List templates with bitrise_devenv_list_templates to find available templates and their session inputs
 2. Optionally list saved inputs with bitrise_devenv_list_saved_inputs to find saved credentials
-3. Provide values for session inputs (either direct values or references to saved inputs), or set map_saved_to_session_inputs=true to auto-fill session inputs from the user's saved inputs by key match
+3. Provide values for session inputs (either direct values or references to saved inputs), or set map_saved_to_session_inputs=true to auto-fill session inputs from the user's saved inputs by key match. On a template with lifecycle hooks every input has a scope (session_inputs[].hook on bitrise_devenv_get_template: shared, on_create, on_claim, on_restore) and a direct create needs every required input of EVERY scope — the error names the key and its scope ("missing required input: KEY (on_claim)"). One value covers its key on every scope that defines it. A typed value may be marked is_secret.
 The session inherits the template's stack, machine type, scripts, feature flags, and workspace links. You may optionally pass stack_id and/or machine_type to override the template's values for this session only.
 
 3) Without a template (template_id omitted) and without a device — a bare build machine:
 Supply stack_id and machine_type directly to get a base environment with no warmup/startup scripts and no template configuration (no session inputs, feature flags, or workspace links). Use bitrise_devenv_list_stacks and bitrise_devenv_list_machine_types to discover valid values. This is the quickest way to spin up an environment for a repo when no template and no device is needed.
 
 4) From a warm pool (warm_pool_id set) — the fastest path when a pool exists:
-A warm pool (bitrise_devenv_list_warm_pools) keeps sessions of one stored configuration booted and idle. Pass its id as warm_pool_id and the backend hands you one of them, renamed to your name, with no machine to boot (the response's warm_state is "claimed", and a device pool's session is usually READY at once — device.page_url opens it in the browser); when none is available it creates a session from the pool's configuration instead (warm_state "cold"), so the call always succeeds. The pool fixes the configuration: do NOT pass template_id, session_inputs, map_saved_to_session_inputs, enabled_feature_flag_names, stack_id, machine_type, cluster, device_spec, no_device or ai_prompt — they are rejected, not ignored. Only name, description, labels, auto_terminate_minutes, artifact (pools whose configuration boots a device) and owner apply to the claimed session: it is yours by default, and owner="workspace" keeps it workspace-owned (a Workspace API Token always gets that). Check bitrise_devenv_list_warm_pools before creating a session from a template that a pool already covers.
+A warm pool (bitrise_devenv_list_warm_pools) keeps sessions of one stored configuration booted and idle. Pass its id as warm_pool_id and the backend hands you one of them, renamed to your name, with no machine to boot (the response's warm_state is "claimed", and a device pool's session is usually READY at once — device.page_url opens it in the browser); when none is available it creates a session from the pool's configuration instead (warm_state "cold"), so the call always succeeds. The pool fixes the environment: do NOT pass template_id, enabled_feature_flag_names, stack_id, machine_type, cluster, device_spec or no_device — they are rejected, not ignored. What a claim may add is personal: session_inputs limited to the template's on_claim and on_restore inputs (a shared or on_create key is a 400 — those were set on the pool; see bitrise_devenv_get_template session_inputs[].hook), map_saved_to_session_inputs to fill those from your saved inputs (one saved input fills the same key on both scopes), and ai_prompt — the last two only on a personal claim; a workspace-owned claim and a Workspace API Token send plain values only (is_secret may still mark a typed value secret), and a missing required on_claim or on_restore input fails the claim. name, description, labels, auto_terminate_minutes and artifact (pools whose configuration boots a device) apply too. The claimed session is yours by default, and owner="workspace" keeps it workspace-owned (a Workspace API Token always gets that). It comes back in LIFECYCLE_PHASE_PERSONALIZING while the platform's system setup and the On claim hook run with your on_claim inputs (the on_restore ones wait for the first restore); poll bitrise_devenv_get until LIFECYCLE_PHASE_READY. Check bitrise_devenv_list_warm_pools before creating a session from a template that a pool already covers.
 
 Who owns the session (owner): "user" (default) is a personal session of the authenticated user. "workspace" creates a session owned by the workspace itself — visible to and manageable by every member, listed with bitrise_devenv_list scope="workspace". A workspace-owned session carries no personal state: give every template session input as a plain value in session_inputs (saved_input_id references and map_saved_to_session_inputs are rejected), and ai_prompt is not available. When the server is authenticated with a Workspace API Token (bitwat_…, e.g. from CI) every session it creates is workspace-owned — omit owner or set "workspace"; "user" is rejected.
 
@@ -160,7 +166,7 @@ The session will start provisioning immediately after creation.`),
 			mcp.Description("ID of the template to use. Optional: omit to create a session without a template, in which case either device_spec (platform defaults pick the machine) or both stack_id and machine_type are required, and no warmup/startup scripts run. Not allowed with warm_pool_id (the pool fixes the template)."),
 		),
 		mcp.WithString("warm_pool_id",
-			mcp.Description("Claim a warm session from this pool (UUID, from bitrise_devenv_list_warm_pools) instead of building one — see 4 above. When set, do not pass template_id, session_inputs, map_saved_to_session_inputs, enabled_feature_flag_names, stack_id, machine_type, cluster, device_spec, no_device or ai_prompt: the pool fixes them and the request is rejected otherwise. name, description, labels, auto_terminate_minutes and artifact still apply to the claimed session."),
+			mcp.Description("Claim a warm session from this pool (UUID, from bitrise_devenv_list_warm_pools) instead of building one — see 4 above. When set, do not pass template_id, enabled_feature_flag_names, stack_id, machine_type, cluster, device_spec or no_device: the pool fixes them and the request is rejected otherwise. session_inputs (on_claim and on_restore keys only), map_saved_to_session_inputs and ai_prompt are the personal additions a claim accepts. name, description, labels, auto_terminate_minutes and artifact still apply to the claimed session."),
 		),
 		mcp.WithString("stack_id",
 			mcp.Description("Stack ID (e.g. 'osx-xcode-16.0.x-edge'). Required when template_id is omitted — unless device_spec is set, then omit it (and machine_type) for the platform defaults. When a template is given, optionally overrides the template's stack for this session. Use bitrise_devenv_list_stacks to find valid IDs."),
@@ -169,14 +175,15 @@ The session will start provisioning immediately after creation.`),
 			mcp.Description("Machine type name (e.g. 'g2.mac.m2pro.4c'). Required when template_id is omitted — unless device_spec is set, then omit it (and stack_id) for the platform defaults. When a template is given, optionally overrides the template's machine type for this session. Use bitrise_devenv_list_machine_types to find valid names."),
 		),
 		mcp.WithArray("session_inputs",
-			mcp.Description("Values for the template's session inputs. Required inputs must have a value (direct or saved_input_id). Optional inputs use their default_value when omitted."),
+			mcp.Description("Values for the template's session inputs. Required inputs must have a value (direct or saved_input_id). Optional inputs use their default_value when omitted. A direct create takes every scope's inputs; a claim (warm_pool_id) takes the on_claim and on_restore ones. An entry without hook fills its key on every scope that defines it; set hook to give one scope its own value (the same key may then appear once per scope)."),
 			mcp.Items(map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"key":            map[string]any{"type": "string", "description": "Key name matching a session input on the template"},
+					"key":            map[string]any{"type": "string", "description": "Key name matching a session input on the template (on every scope that defines it, unless hook narrows it)"},
 					"value":          map[string]any{"type": "string", "description": "Direct value (ignored if saved_input_id is set)"},
-					"is_secret":      map[string]any{"type": "boolean", "description": "Whether the value is secret (ignored if saved_input_id is set)"},
+					"is_secret":      map[string]any{"type": "boolean", "description": "Mark the typed value secret: encrypted at rest and redacted in responses (ignored if saved_input_id is set — a saved input brings its own flag). Works on a direct create and on a claim."},
 					"saved_input_id": map[string]any{"type": "string", "description": "Optional: ID of a saved input to use instead of a direct value"},
+					"hook":           map[string]any{"type": "string", "enum": valueScopes, "description": "Optional: the scope this value is for; omitted, the value applies to every scope that defines the key, and a scoped value wins over an unscoped one for its scope."},
 				},
 				"required": []string{"key"},
 			}),
@@ -242,20 +249,22 @@ Rules:
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 
-		// A claim takes its whole configuration from the pool: the backend
-		// rejects (does not ignore) every configuration field sent alongside
+		// A claim takes its environment from the pool: the backend rejects
+		// (does not ignore) every environment field sent alongside
 		// warm_pool_id, so name the offenders before spending the round trip.
 		// The per-session fields (name, description, labels, auto-terminate,
-		// artifact, owner) pass through untouched.
+		// artifact, owner) and the personal inputs (session_inputs limited to
+		// the template's On claim keys, map_saved_to_session_inputs, ai_prompt)
+		// pass through — the backend validates those against the template.
 		if warmPoolID != "" {
 			var conflicting []string
-			for _, key := range []string{"template_id", "session_inputs", "map_saved_to_session_inputs", "enabled_feature_flag_names", "stack_id", "machine_type", "cluster", "device_spec", "no_device", "ai_prompt"} {
+			for _, key := range []string{"template_id", "enabled_feature_flag_names", "stack_id", "machine_type", "cluster", "device_spec", "no_device"} {
 				if v, present := request.GetArguments()[key]; present && !isZeroArgument(v) {
 					conflicting = append(conflicting, key)
 				}
 			}
 			if len(conflicting) > 0 {
-				return mcp.NewToolResultError(fmt.Sprintf("warm_pool_id cannot be combined with %s — the pool fixes the session's configuration; pass only name, description, labels, auto_terminate_minutes, artifact and owner", strings.Join(conflicting, ", "))), nil
+				return mcp.NewToolResultError(fmt.Sprintf("warm_pool_id cannot be combined with %s — the pool fixes the session's environment; a claim takes only name, description, labels, auto_terminate_minutes, artifact, owner and the personal inputs (session_inputs limited to On claim keys, map_saved_to_session_inputs, ai_prompt)", strings.Join(conflicting, ", "))), nil
 			}
 			// Whatever configuration keys remain are blank, and a blank key
 			// means "absent" on a claim — so treat the device knobs as unset
@@ -324,10 +333,10 @@ Rules:
 		}
 		// On a claim these keys are known to be blank (checked above) and
 		// belong to the pool, so they stay off the wire entirely.
-		if inputs, ok := request.GetArguments()["session_inputs"]; ok && !claim {
+		if inputs, ok := request.GetArguments()["session_inputs"]; ok {
 			body["session_inputs"] = inputs
 		}
-		if mapSaved, ok := request.GetArguments()["map_saved_to_session_inputs"]; ok && !claim {
+		if mapSaved, ok := request.GetArguments()["map_saved_to_session_inputs"]; ok {
 			body["map_saved_to_session_inputs"] = mapSaved
 		}
 		if flags, ok := request.GetArguments()["enabled_feature_flag_names"]; ok && !claim {
@@ -379,6 +388,8 @@ var RestoreSession = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_restore",
 		mcp.WithTitleAnnotation("Restore session"),
 		mcp.WithDescription(`Restore a devenv session that is not currently running. The session will begin provisioning and transition to running. Resets agent_session_status.
+
+"running" is NOT "restored" on a session that runs lifecycle hooks (the response carries a lifecycle field): the machine comes up first and the On restore hook runs on it afterwards (lifecycle.phase LIFECYCLE_PHASE_RESTORING), so a dev server or emulator the hook restarts is not up yet. Poll bitrise_devenv_get until lifecycle.phase is LIFECYCLE_PHASE_READY before relying on it; LIFECYCLE_PHASE_RESTORE_FAILED means the hook failed — read lifecycle.runs and the on_restore session logs, the machine itself stays usable (bitrise_devenv_run_hook re-runs it). A session without a lifecycle field runs the legacy startup script on every boot, and "running" is the whole story.
 
 Restorable statuses: SESSION_STATUS_TERMINATED (user terminated), SESSION_STATUS_DRAINED (node was reclaimed under the session), SESSION_STATUS_FAILED. All three are terminal-and-restorable — restoring recreates the VM.
 
@@ -552,10 +563,11 @@ var CompareSessionTemplate = devenv.Tool{
 
 Returns both the snapshot (template config at session creation time) and the current template config side-by-side, including:
 - template_name, stack_id, machine_type, working_directory
-- startup_script, warmup_script (full text)
+- startup_script, warmup_script (full text; legacy scripts)
+- lifecycle_mode ("legacy" or "hooks") and hooks (on_create, on_claim, on_restore — full text): the snapshot side is the session's creation-time copy — mapped from the legacy scripts when a legacy template created the session with lifecycle hooks enabled — and the current side is the template's current hooks
 - feature_flags (name, description, enabled)
-- session_inputs (key, description, required, default_value)
-- template_variables (key, is_secret — values never exposed)
+- session_inputs (key, description, required, default_value, expose_as_env_var, hook — the scope)
+- template_variables (key, is_secret, protected, expose_as_env_var, hook — the scope; values never exposed)
 - device_spec (the virtual device the template boots with its sessions; absent when it declares none)
 - changed_variable_keys: list of variable keys whose values differ (computed server-side)
 
@@ -688,4 +700,81 @@ func deviceSpecSchema(description string, requiredKeys ...string) []mcp.Property
 		opts = append(opts, requiredProperties(requiredKeys...))
 	}
 	return opts
+}
+
+// errOnCreateNotRunnable is the backend's answer (FAILED_PRECONDITION) to
+// running On create again on a session: On create runs once per machine, so
+// a fresh attempt needs a fresh machine (bitrise_devenv_rebuild). The tool
+// refuses it with the same words before any request.
+const errOnCreateNotRunnable = "On create cannot be run again on this machine. Use Rebuild to run it on a fresh one."
+
+// RunSessionHook queues one lifecycle hook (or the platform's system setup
+// step) to run again on a session — the "Run again" of a failed setup.
+var RunSessionHook = devenv.Tool{
+	Definition: mcp.NewTool("bitrise_devenv_run_hook",
+		mcp.WithTitleAnnotation("Run a lifecycle hook again"),
+		mcp.WithDescription(`Queue a lifecycle hook to run again on a session that runs lifecycle hooks (lifecycle.mode "hooks" in bitrise_devenv_get): the next poll of the session's hook runner executes it with the session's creation-time script and inputs, and lifecycle.runs gains a new attempt (triggered_by "run_again").
+
+WHEN TO USE THIS: lifecycle.phase is LIFECYCLE_PHASE_PERSONALIZATION_FAILED / RESTORE_FAILED and the cause was transient (a flaky download, a service that was not up yet) — the machine stays usable, so re-running the hook is cheaper than a rebuild. For a script bug fix the template first; a session keeps its creation-time copy of every hook, so an edited template changes nothing here — use bitrise_devenv_rebuild or create a new session for that.
+
+hook is "on_claim" or "on_restore" (only hooks the session was created with), or "personalize" — the platform's own system setup step — only on a session that already ran it. On create is NOT accepted: it runs once per machine, so after LIFECYCLE_PHASE_SETUP_FAILED use bitrise_devenv_rebuild, which discards the machine and runs the lifecycle again from On create ("On create cannot be run again on this machine. Use Rebuild to run it on a fresh one."). Refused with FAILED_PRECONDITION while a run is pending or running on the session (wait for lifecycle.phase to settle), on warm pool inventory, on a session without lifecycle hooks and on a session without a machine (restore it first).`),
+		mcp.WithString("session_id", mcp.Description("The unique identifier (UUID) of the session"), mcp.Required()),
+		mcp.WithString("hook",
+			mcp.Description(`Which run to queue again: "on_claim", "on_restore", or "personalize" (the platform's system setup step). "on_create" is refused — use bitrise_devenv_rebuild.`),
+			mcp.Enum("on_claim", "on_restore", "personalize"),
+			mcp.Required(),
+		),
+		mcp.WithDestructiveHintAnnotation(false),
+	),
+	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		sessionID, err := requireUUID(request, "session_id")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		hook := request.GetString("hook", "")
+		switch hook {
+		case "on_claim", "on_restore", "personalize":
+		case "on_create":
+			return mcp.NewToolResultError(errOnCreateNotRunnable + " (bitrise_devenv_rebuild)"), nil
+		default:
+			return mcp.NewToolResultError(`hook must be "on_claim", "on_restore" or "personalize" (On create cannot be run again: use bitrise_devenv_rebuild)`), nil
+		}
+		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
+			Method: http.MethodPost,
+			Path:   devenv.WsPath(ctx, fmt.Sprintf("/sessions/%s/hook-runs", sessionID)),
+			Body:   map[string]any{"hook": hook},
+		})
+		if err != nil {
+			return mcp.NewToolResultErrorFromErr("run hook again", err), nil
+		}
+		return mcp.NewToolResultText(res), nil
+	},
+}
+
+// RebuildSession replaces a session's machine and runs its whole lifecycle
+// again from On create.
+var RebuildSession = devenv.Tool{
+	Definition: mcp.NewTool("bitrise_devenv_rebuild",
+		mcp.WithTitleAnnotation("Rebuild session"),
+		mcp.WithDescription(`Rebuild a session that runs lifecycle hooks: its machine is discarded (like a delete would: the VM AND its disk, so anything unsaved on it is lost) and a fresh one boots for the same session — same id, name, labels and creation-time snapshot (scripts, inputs, feature flags, device) — running On create again from scratch, then the platform's system setup and On claim, with lifecycle.runs tagged triggered_by "rebuild". The session goes back through starting/running and LIFECYCLE_PHASE_SETTING_UP; poll bitrise_devenv_get until LIFECYCLE_PHASE_READY.
+
+WHEN TO USE THIS: On create failed (LIFECYCLE_PHASE_SETUP_FAILED) — this is the only way to run On create again; bitrise_devenv_run_hook does not accept it, On create runs once per machine — or you need a clean environment with the same configuration. Prefer bitrise_devenv_run_hook when a failed On claim, On restore or system setup step needs another go — it keeps the machine and everything on it. While the new On create is pending or running, bitrise_devenv_execute and every other interactive tool are refused ("Session is setting up: On create is still running. Access opens when it finishes."). Refused on warm pool inventory, on device preview sessions and on sessions without lifecycle hooks; a session owned by the workspace is rebuilt the same way.`),
+		mcp.WithString("session_id", mcp.Description("The unique identifier (UUID) of the session to rebuild"), mcp.Required()),
+		mcp.WithDestructiveHintAnnotation(true),
+	),
+	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		sessionID, err := requireUUID(request, "session_id")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
+			Method: http.MethodPost,
+			Path:   devenv.WsPath(ctx, fmt.Sprintf("/sessions/%s/rebuild", sessionID)),
+			Body:   map[string]any{},
+		})
+		if err != nil {
+			return mcp.NewToolResultErrorFromErr("rebuild session", err), nil
+		}
+		return mcp.NewToolResultText(res), nil
+	},
 }

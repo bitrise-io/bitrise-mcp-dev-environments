@@ -25,7 +25,8 @@ func warmPoolSessionInputsSchema(description string) []mcp.PropertyOption {
 			"properties": map[string]any{
 				"key":       map[string]any{"type": "string", "description": "Key name matching a session input on the template"},
 				"value":     map[string]any{"type": "string", "description": "The value every warm session is created with. Saved inputs are personal and cannot be referenced from a pool."},
-				"is_secret": map[string]any{"type": "boolean", "description": "Whether the value is secret (stored encrypted, redacted in responses)"},
+				"is_secret": map[string]any{"type": "boolean", "description": "Mark the typed value secret (stored encrypted, redacted in responses) — the same flag bitrise_devenv_create takes on a direct create and on a claim"},
+				"hook":      map[string]any{"type": "string", "enum": valueScopes, "description": "Optional: the scope this value is for (shared or on_create on a pool); omitted, the value applies to every scope that defines the key, and a scoped value wins over an unscoped one for its scope."},
 			},
 			"required": []string{"key"},
 		}),
@@ -42,7 +43,7 @@ WHEN TO USE THIS: before creating a session, to find a pool that already has you
 
 Every member sees every pool. all=true is the read-only cost view the Usage page uses (requires the workspace's view_billing_data permission). Optionally restrict to one template with template_id.
 
-Each pool carries its configuration (secret input values redacted), pool_size and a status with ready / warming counts, lifetime claimed_total / cold_total (a high cold_total means pool_size is too low for the demand), last_error, config_error (the stored configuration no longer builds — fix it with bitrise_devenv_update_warm_pool) and paused_until. The list view omits the per-session inventory; use bitrise_devenv_get_warm_pool for status.sessions.`),
+Each pool carries its configuration (secret input values redacted), pool_size and a status with ready / warming counts, lifetime claimed_total / cold_total (a high cold_total means pool_size is too low for the demand), last_error, config_error (the stored configuration no longer builds — fix it with bitrise_devenv_update_warm_pool) and paused_until. On a template with lifecycle hooks a pool also carries setup_failed while it is paused after three consecutive On create failures: {session_id, failed_at, exit_code, message} — the pool stopped warming, claims are refused (FAILED_PRECONDITION) and session_id is the last failed machine, kept for inspection with its logs and terminal; fix the template's On create, then bitrise_devenv_retry_warm_pool (any configuration change does the same). The list view omits the per-session inventory; use bitrise_devenv_get_warm_pool for status.sessions.`),
 		mcp.WithString("template_id",
 			mcp.Description("Optional: only list pools created from this template (UUID)."),
 		),
@@ -132,7 +133,7 @@ Sizing: pool_size is how many warm sessions to keep booted — each one is a run
 			mcp.Required(),
 		),
 		mcp.WithArray("session_inputs",
-			warmPoolSessionInputsSchema("Values for the template's session inputs that every warm session is created with. Required inputs must have a value; optional inputs fall back to their default_value.")...,
+			warmPoolSessionInputsSchema("Values for the template's session inputs that every warm session is created with — set once, for everyone who claims from the pool. On a template with lifecycle hooks only the shared and on_create inputs belong here (session_inputs[].hook in bitrise_devenv_get_template); an on_claim or on_restore key is rejected, each claimant supplies those on bitrise_devenv_create. Required inputs must have a value; optional inputs fall back to their default_value. Exposed (\"Also in terminal\") shared and on_create values stay on the pool machine for whoever claims it.")...,
 		),
 		mcp.WithArray("enabled_feature_flag_names",
 			mcp.Description("Names of the template's feature flags to enable on every warm session"),
@@ -347,6 +348,34 @@ WHEN TO USE THIS: the configuration is no longer needed at all. Deleting invalid
 			// The API returns an empty body on success; say what happened so
 			// the model doesn't have to guess from a blank result.
 			return mcp.NewToolResultText(fmt.Sprintf("Warm pool %s deleted. Its unclaimed warm sessions are being terminated and deleted in the background; sessions already claimed from it are untouched.", warmPoolID)), nil
+		}
+		return mcp.NewToolResultText(res), nil
+	},
+}
+
+// RetryWarmPool leaves the setup-failed state: the debug VM is deleted and
+// the pool warms again.
+var RetryWarmPool = devenv.Tool{
+	Definition: mcp.NewTool("bitrise_devenv_retry_warm_pool",
+		mcp.WithTitleAnnotation("Retry a paused warm pool"),
+		mcp.WithDescription(`Resume a warm pool that paused after three consecutive On create failures (setup_failed present on bitrise_devenv_get_warm_pool): the kept failed machine is deleted, the failure streak is cleared and the pool starts warming again.
+
+WHEN TO USE THIS: after fixing what made On create fail — the template's script (bitrise_devenv_update_template) or something outside it (a token, a package mirror). Inspect the kept machine first: setup_failed.session_id is a session you can read the logs of and open a terminal on. Any configuration change to the pool or its template resumes warming the same way, so Retry is for "the script was fine, the world was not". A pool that is not paused this way is left as it is.`),
+		mcp.WithString("warm_pool_id", mcp.Description("The unique identifier (UUID) of the warm pool"), mcp.Required()),
+		mcp.WithDestructiveHintAnnotation(true),
+	),
+	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		warmPoolID, err := requireUUID(request, "warm_pool_id")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
+			Method: http.MethodPost,
+			Path:   devenv.WsPath(ctx, fmt.Sprintf("/warm-pools/%s/retry", warmPoolID)),
+			Body:   map[string]any{},
+		})
+		if err != nil {
+			return mcp.NewToolResultErrorFromErr("retry warm pool", err), nil
 		}
 		return mcp.NewToolResultText(res), nil
 	},

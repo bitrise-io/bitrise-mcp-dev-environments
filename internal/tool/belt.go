@@ -74,6 +74,8 @@ func NewBelt() *Belt {
 			UpdateSession,
 			RestoreSession,
 			TerminateSession,
+			RunSessionHook,
+			RebuildSession,
 			DeleteSession,
 			DeleteTerminatedSessions,
 			CompareSessionTemplate,
@@ -91,6 +93,7 @@ func NewBelt() *Belt {
 			CreateWarmPool,
 			UpdateWarmPool,
 			DeleteWarmPool,
+			RetryWarmPool,
 
 			// Saved Inputs
 			ListSavedInputs,

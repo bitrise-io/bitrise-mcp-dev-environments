@@ -16,7 +16,7 @@ var OpenRemoteAccess = devenv.Tool{
 		mcp.WithDescription(`Open remote access for a running devenv session.
 
 This establishes the remote access tunnel and returns connection details.
-The session must be in "running" status.
+The session must be in "running" status. Refused while On create is pending or running on a session with lifecycle hooks ("Session is setting up: On create is still running. Access opens when it finishes."): poll bitrise_devenv_get until lifecycle.phase is LIFECYCLE_PHASE_READY.
 
 On macOS sessions, this returns SSH and VNC connection details (address, username, password).
 On Linux sessions, this returns SSH connection details only.

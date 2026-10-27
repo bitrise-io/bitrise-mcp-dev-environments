@@ -197,3 +197,128 @@ func TestCreateSessionFromTemplateDeviceOptions(t *testing.T) {
 		}
 	})
 }
+
+const testSessionID = "5e4d3c2b-1a09-4f8e-8d7c-6b5a4f3e2d1c"
+
+// callRequest builds a tool request with the given arguments.
+func callRequest(args map[string]any) mcp.CallToolRequest {
+	req := mcp.CallToolRequest{}
+	req.Params.Arguments = args
+	return req
+}
+
+// Run again: the hook rides in the body and only on_claim / on_restore /
+// personalize pass — On create is refused before any request, in the
+// backend's words; Rebuild: a bodyless POST on /rebuild. Both pass the
+// backend JSON through.
+func TestRunSessionHook(t *testing.T) {
+	response := `{"run":{"id":"r-2","hook":"on_claim","attempt":2,"state":"HOOK_RUN_STATE_PENDING","triggered_by":"run_again"}}`
+	ctx, got := captureRequest(t, response)
+	text := callText(t, RunSessionHook, ctx, map[string]any{"session_id": testSessionID, "hook": "on_claim"})
+	assertRequest(t, got, http.MethodPost, "/v1/workspaces/ws/sessions/"+testSessionID+"/hook-runs")
+	if got.Body["hook"] != "on_claim" {
+		t.Errorf("body hook = %v, want on_claim", got.Body["hook"])
+	}
+	if text != response {
+		t.Errorf("result = %q, want the backend response verbatim", text)
+	}
+	t.Run("refuses On create and points at rebuild", func(t *testing.T) {
+		ctx, got := captureRequest(t, response)
+		res, err := RunSessionHook.Handler(ctx, callRequest(map[string]any{"session_id": testSessionID, "hook": "on_create"}))
+		if err != nil {
+			t.Fatalf("handler error: %v", err)
+		}
+		if !res.IsError {
+			t.Fatal("expected a tool error for on_create")
+		}
+		text := res.Content[0].(mcp.TextContent).Text
+		for _, want := range []string{"On create cannot be run again on this machine. Use Rebuild to run it on a fresh one.", "bitrise_devenv_rebuild"} {
+			if !strings.Contains(text, want) {
+				t.Errorf("error %q should contain %q", text, want)
+			}
+		}
+		if got.Called {
+			t.Errorf("backend was called (%s) for a refused hook", got.Path)
+		}
+	})
+	t.Run("the schema no longer offers on_create", func(t *testing.T) {
+		raw, err := json.Marshal(RunSessionHook.Definition.InputSchema)
+		if err != nil {
+			t.Fatalf("marshal input schema: %v", err)
+		}
+		var schema struct {
+			Properties map[string]struct {
+				Enum []string `json:"enum"`
+			} `json:"properties"`
+		}
+		if err := json.Unmarshal(raw, &schema); err != nil {
+			t.Fatalf("unmarshal input schema: %v", err)
+		}
+		if got := schema.Properties["hook"].Enum; strings.Join(got, ",") != "on_claim,on_restore,personalize" {
+			t.Errorf("hook enum = %v, want on_claim, on_restore, personalize", got)
+		}
+	})
+	t.Run("rejects an unknown hook", func(t *testing.T) {
+		ctx, got := captureRequest(t, response)
+		res, err := RunSessionHook.Handler(ctx, callRequest(map[string]any{"session_id": testSessionID, "hook": "on_boot"}))
+		if err != nil {
+			t.Fatalf("handler error: %v", err)
+		}
+		if !res.IsError {
+			t.Fatal("expected a tool error for an unknown hook")
+		}
+		if got.Path != "" {
+			t.Errorf("backend was called (%s) for an invalid request", got.Path)
+		}
+	})
+}
+
+func TestRebuildSession(t *testing.T) {
+	response := `{"session":{"id":"` + testSessionID + `","name":"dev","status":"SESSION_STATUS_STARTING"}}`
+	ctx, got := captureRequest(t, response)
+	text := callText(t, RebuildSession, ctx, map[string]any{"session_id": testSessionID})
+	assertRequest(t, got, http.MethodPost, "/v1/workspaces/ws/sessions/"+testSessionID+"/rebuild")
+	if text != response {
+		t.Errorf("result = %q, want the backend response verbatim", text)
+	}
+}
+
+// A claim may now carry the personal inputs: they reach the body alongside
+// warm_pool_id, while an environment field is still refused locally.
+func TestCreateSession_ClaimCarriesPersonalInputs(t *testing.T) {
+	response := `{"session":{"id":"` + testSessionID + `","name":"dev","warm_state":"claimed"}}`
+	ctx, got := captureRequest(t, response)
+	callText(t, CreateSession, ctx, map[string]any{
+		"name":                        "dev",
+		"warm_pool_id":                testWarmPoolID,
+		"session_inputs":              []any{map[string]any{"key": "GIT_TOKEN", "value": "t", "hook": "on_claim"}, map[string]any{"key": "GIT_TOKEN", "value": "r", "hook": "on_restore"}},
+		"map_saved_to_session_inputs": true,
+		"ai_prompt":                   "hello",
+	})
+	assertRequest(t, got, http.MethodPost, "/v1/workspaces/ws/sessions")
+	if got.Body["warm_pool_id"] != testWarmPoolID {
+		t.Errorf("body warm_pool_id = %v", got.Body["warm_pool_id"])
+	}
+	// The values reach the backend as given, scope included: the same key
+	// on two scopes is two entries, not one.
+	wantInputs := []any{map[string]any{"key": "GIT_TOKEN", "value": "t", "hook": "on_claim"}, map[string]any{"key": "GIT_TOKEN", "value": "r", "hook": "on_restore"}}
+	if !reflect.DeepEqual(got.Body["session_inputs"], wantInputs) {
+		t.Errorf("session_inputs = %v, want %v (they must reach the backend on a claim, which restricts them to on_claim and on_restore keys)", got.Body["session_inputs"], wantInputs)
+	}
+	if got.Body["map_saved_to_session_inputs"] != true || got.Body["ai_prompt"] != "hello" {
+		t.Errorf("personal fields missing from the claim body: %v", got.Body)
+	}
+	t.Run("an environment field is still refused", func(t *testing.T) {
+		ctx, got := captureRequest(t, response)
+		res, err := CreateSession.Handler(ctx, callRequest(map[string]any{"name": "dev", "warm_pool_id": testWarmPoolID, "stack_id": "osx-27"}))
+		if err != nil {
+			t.Fatalf("handler error: %v", err)
+		}
+		if !res.IsError {
+			t.Fatal("expected a tool error for stack_id with warm_pool_id")
+		}
+		if got.Path != "" {
+			t.Errorf("backend was called (%s) for an invalid request", got.Path)
+		}
+	})
+}

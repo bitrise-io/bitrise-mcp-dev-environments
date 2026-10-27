@@ -49,6 +49,35 @@ type sessionSSHFields struct {
 	SSHAddress        string `json:"sshAddress"`
 	SSHPassword       string `json:"sshPassword"`
 	SSHConnectionOpen bool   `json:"sshConnectionOpen"`
+	// Lifecycle is set on a session that runs lifecycle hooks; only the runs'
+	// hook and state are read, for the On create access gate.
+	Lifecycle *struct {
+		Runs []struct {
+			Hook  string `json:"hook"`
+			State string `json:"state"`
+		} `json:"runs"`
+	} `json:"lifecycle"`
+}
+
+// errSessionSettingUp is the backend's answer (FAILED_PRECONDITION) to any
+// interactive action while the session's On create run is pending or
+// running. Execute dials the machine itself, so it applies the same gate
+// client-side and says the same thing.
+const errSessionSettingUp = "Session is setting up: On create is still running. Access opens when it finishes."
+
+// onCreateInFlight reports whether the session's On create run is pending or
+// running. It reads the runs, not the phase, so warm pool inventory and a
+// legacy session (no lifecycle) both read as not gated.
+func (s sessionSSHFields) onCreateInFlight() bool {
+	if s.Lifecycle == nil {
+		return false
+	}
+	for _, r := range s.Lifecycle.Runs {
+		if r.Hook == "on_create" && (r.State == "HOOK_RUN_STATE_PENDING" || r.State == "HOOK_RUN_STATE_RUNNING") {
+			return true
+		}
+	}
+	return false
 }
 
 // Execute runs a bash command on a session's machine over a direct SSH
@@ -86,6 +115,16 @@ IMPORTANT:
 - The session must be in "running" status with SSH remote access available.
   SSH remote access is provisioned automatically; if credentials aren't populated
   yet, the session is likely still starting up — wait briefly and retry.
+- On a session that runs lifecycle hooks (bitrise_devenv_get returns a lifecycle
+  field) "running" means the machine is up, NOT that its setup finished: On create
+  (the clone, installs, builds) runs on the machine AFTER it is running, and this
+  tool is REFUSED while an On create run is pending or running — "Session is
+  setting up: On create is still running. Access opens when it finishes." (so are
+  screenshot, click/type/scroll/mouse_drag, upload, download and
+  open_remote_access). Do not retry blindly: poll bitrise_devenv_get until
+  lifecycle.phase is LIFECYCLE_PHASE_READY; a *_FAILED phase means a hook failed
+  (the machine is then reachable for debugging — read lifecycle.runs and the
+  session logs).
 - Time cap per call: about 30 seconds on the hosted server, 2 minutes on a
   locally-run one. Past it the call fails and the command is cancelled. Chunk
   work to the cap; background anything longer and poll its log (see next
@@ -165,6 +204,12 @@ short timeout so you fail fast and can fall back to the GUI tools:
 				"session is not running (status: %q); start the session before running commands",
 				s.Status,
 			)), nil
+		}
+		// The backend refuses every interactive action while On create is
+		// pending or running; this tool dials the machine directly, so the same
+		// gate applies here, in the backend's words.
+		if s.onCreateInFlight() {
+			return mcp.NewToolResultError(errSessionSettingUp + " Poll bitrise_devenv_get until lifecycle.phase is LIFECYCLE_PHASE_READY."), nil
 		}
 		if !s.SSHConnectionOpen || s.SSHAddress == "" || s.SSHPassword == "" {
 			return mcp.NewToolResultError(

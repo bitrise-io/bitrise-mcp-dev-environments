@@ -76,6 +76,7 @@ func NewBelt() *Belt {
 			TerminateSession,
 			RunSessionHook,
 			RebuildSession,
+			GetSessionLogs,
 			DeleteSession,
 			DeleteTerminatedSessions,
 			CompareSessionTemplate,

@@ -84,8 +84,9 @@ The server runs over **stdio** (above) for local use. It can also run over **HTT
 | `bitrise_devenv_update` | Update a session's name, description, or labels |
 | `bitrise_devenv_restore` | Restore a terminated (or failed/drained) session |
 | `bitrise_devenv_terminate` | Terminate a running session but keep it for a later restore (stops the VM, preserves its disk; the session stays listed as terminated) |
-| `bitrise_devenv_run_hook` | On a session that runs lifecycle hooks, queue one hook (`on_create`, `on_claim`, `on_restore`, or the platform's `personalize` system setup step) to run again after a failure, keeping the machine |
+| `bitrise_devenv_run_hook` | On a session that runs lifecycle hooks, queue one hook (`on_claim`, `on_restore`, or the platform's `personalize` system setup step) to run again after a failure, keeping the machine. On create can't run again on the same machine: use `bitrise_devenv_rebuild` |
 | `bitrise_devenv_rebuild` | Replace a session's machine and run its whole lifecycle again from On create with the same creation-time configuration (the old VM and its disk are discarded) |
+| `bitrise_devenv_get_logs` | Read a session's setup log: one lifecycle hook's output (`on_create`, `on_claim`, `on_restore`), the platform's `personalize` system setup step or its `system` output, or a legacy session's `warmup` / `startup` script. Returns what the log holds so far (the last 64 KB), and works while On create is still running |
 | `bitrise_devenv_delete` | Permanently delete a session in any state — running sessions are stopped and discarded, no terminate needed; preferred over terminate unless you plan to restore |
 | `bitrise_devenv_delete_terminated` | Delete all terminated sessions in the chosen scope (your own by default, or workspace-owned) |
 | `bitrise_devenv_list_session_notifications` | List notifications for a session (e.g., agent stopped, permission prompt). Supports pagination and polling via timestamp cursors. |

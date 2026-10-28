@@ -64,3 +64,30 @@ func TestSessionSSHFields_OnCreateInFlight(t *testing.T) {
 		}
 	}
 }
+
+// An unclaimed warm session never shows its connection details. Execute
+// says it has to be claimed first, in the backend's words, instead of
+// "SSH is not ready yet", which would have the agent poll forever.
+func TestExecute_RefusedOnUnclaimedWarmSession(t *testing.T) {
+	for _, state := range []string{"warming", "ready", "retiring"} {
+		t.Run(state, func(t *testing.T) {
+			warm := `{"session":{"id":"` + testSessionID + `","status":"SESSION_STATUS_RUNNING",
+				"sshAddress":"","sshPassword":"","sshConnectionOpen":false,
+				"warmState":"` + state + `","warmPoolId":"pool-1"}}`
+			ctx, _ := captureRequest(t, warm)
+			res, err := Execute.Handler(ctx, callRequest(map[string]any{"session_id": testSessionID, "command": "true"}))
+			if err != nil {
+				t.Fatalf("handler error: %v", err)
+			}
+			if !res.IsError {
+				t.Fatal("expected execute to be refused on an unclaimed warm session")
+			}
+			text := res.Content[0].(mcp.TextContent).Text
+			for _, want := range []string{"warm session held by warm pool pool-1", "warm_pool_id"} {
+				if !strings.Contains(text, want) {
+					t.Errorf("error %q should contain %q", text, want)
+				}
+			}
+		})
+	}
+}

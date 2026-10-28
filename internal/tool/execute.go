@@ -49,6 +49,10 @@ type sessionSSHFields struct {
 	SSHAddress        string `json:"sshAddress"`
 	SSHPassword       string `json:"sshPassword"`
 	SSHConnectionOpen bool   `json:"sshConnectionOpen"`
+	// WarmState is set on a session that belongs to a warm pool; "warming",
+	// "ready" and "retiring" mean it is unclaimed pool inventory.
+	WarmState  string `json:"warmState"`
+	WarmPoolID string `json:"warmPoolId"`
 	// Lifecycle is set on a session that runs lifecycle hooks; only the runs'
 	// hook and state are read, for the On create access gate.
 	Lifecycle *struct {
@@ -208,6 +212,15 @@ short timeout so you fail fast and can fall back to the GUI tools:
 		// The backend refuses every interactive action while On create is
 		// pending or running; this tool dials the machine directly, so the same
 		// gate applies here, in the backend's words.
+		// Unclaimed pool inventory never has its connection details shown;
+		// say why, in the backend's words, instead of "SSH is not ready yet".
+		switch s.WarmState {
+		case "warming", "ready", "retiring":
+			return mcp.NewToolResultError(fmt.Sprintf(
+				"This session is a warm session held by warm pool %s and cannot be used or changed until it is claimed — create a session with warm_pool_id to claim it.",
+				s.WarmPoolID,
+			)), nil
+		}
 		if s.onCreateInFlight() {
 			return mcp.NewToolResultError(errSessionSettingUp + " Poll bitrise_devenv_get until lifecycle.phase is LIFECYCLE_PHASE_READY."), nil
 		}

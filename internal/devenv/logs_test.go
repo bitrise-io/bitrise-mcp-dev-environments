@@ -84,6 +84,17 @@ func TestReadLogStream_KeepsTheEnd(t *testing.T) {
 	assert.True(t, strings.HasSuffix(read.Text, "the error\n"))
 }
 
+// A frame over 1 MiB (a finished stage replayed in one piece) is read whole
+// and trimmed to its end, not refused with "token too long".
+func TestReadLogStream_FrameLargerThanOneMiB(t *testing.T) {
+	logServer(t, []string{content(strings.Repeat("a", 3<<20) + "the error\n")}, 0)
+	read, err := ReadLogStream(patCtx(), readParams())
+	require.NoError(t, err)
+	assert.True(t, read.Truncated)
+	assert.Len(t, read.Text, 1024)
+	assert.True(t, strings.HasSuffix(read.Text, "the error\n"))
+}
+
 // A cut inside a multi-byte character never leaves invalid UTF-8 behind.
 func TestReadLogStream_TruncatesOnCharacterBoundary(t *testing.T) {
 	logServer(t, []string{content(strings.Repeat("é", 600))}, 0)

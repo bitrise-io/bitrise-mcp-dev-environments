@@ -1,7 +1,6 @@
 package devenv
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -125,16 +124,23 @@ func ReadLogStream(ctx context.Context, p LogReadParams) (LogRead, error) {
 				return false
 			}
 		}
-		scanner := bufio.NewScanner(resp.Body)
-		scanner.Buffer(make([]byte, 0, 64*1024), 1<<20)
-		for scanner.Scan() {
-			line := strings.TrimSpace(scanner.Text())
-			if line == "" {
-				continue
-			}
+		// A json.Decoder rather than a line scanner: a frame has no size
+		// cap, and the replay of a finished stage can arrive as one frame
+		// far larger than any line limit. MaxBytes trims it afterwards.
+		dec := json.NewDecoder(resp.Body)
+		for {
 			var f logFrame
-			if err := json.Unmarshal([]byte(line), &f); err != nil {
-				send(frame{err: fmt.Errorf("decode log frame: %w", err)})
+			if err := dec.Decode(&f); err != nil {
+				if errors.Is(err, io.EOF) {
+					send(frame{done: true})
+					return
+				}
+				var syntaxErr *json.SyntaxError
+				var typeErr *json.UnmarshalTypeError
+				if errors.As(err, &syntaxErr) || errors.As(err, &typeErr) {
+					err = fmt.Errorf("decode log frame: %w", err)
+				}
+				send(frame{err: err})
 				return
 			}
 			if f.Error != nil {
@@ -148,11 +154,6 @@ func ReadLogStream(ctx context.Context, p LogReadParams) (LogRead, error) {
 				return
 			}
 		}
-		if err := scanner.Err(); err != nil {
-			send(frame{err: err})
-			return
-		}
-		send(frame{done: true})
 	}()
 
 	var out LogRead

@@ -724,7 +724,9 @@ hook is "on_claim" or "on_restore" (only hooks the session was created with), or
 			mcp.Enum("on_claim", "on_restore", "personalize"),
 			mcp.Required(),
 		),
-		mcp.WithDestructiveHintAnnotation(false),
+		// The hook is the template's own script, run again on a machine with
+		// work on it: it can overwrite or delete files like any command.
+		mcp.WithDestructiveHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		sessionID, err := requireUUID(request, "session_id")

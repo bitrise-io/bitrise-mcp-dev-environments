@@ -34,6 +34,24 @@ type CallAPIParams struct {
 
 var httpClient = &http.Client{Timeout: 30 * time.Second}
 
+// encodeParams builds a query string, leaving out empty values.
+func encodeParams(single map[string]string, repeated map[string][]string) string {
+	params := url.Values{}
+	for k, v := range single {
+		if v != "" {
+			params.Set(k, v)
+		}
+	}
+	for k, vs := range repeated {
+		for _, v := range vs {
+			if v != "" {
+				params.Add(k, v)
+			}
+		}
+	}
+	return params.Encode()
+}
+
 // CallAPI makes an authenticated HTTP request to the Dev Environments backend.
 func CallAPI(ctx context.Context, p CallAPIParams) (string, error) {
 	authHeader, authValue, err := AuthFromCtx(ctx)
@@ -42,23 +60,8 @@ func CallAPI(ctx context.Context, p CallAPIParams) (string, error) {
 	}
 
 	fullURL := BaseURL + p.Path
-	if len(p.Params) > 0 || len(p.RepeatedParams) > 0 {
-		params := url.Values{}
-		for k, v := range p.Params {
-			if v != "" {
-				params.Set(k, v)
-			}
-		}
-		for k, vs := range p.RepeatedParams {
-			for _, v := range vs {
-				if v != "" {
-					params.Add(k, v)
-				}
-			}
-		}
-		if encoded := params.Encode(); encoded != "" {
-			fullURL += "?" + encoded
-		}
+	if encoded := encodeParams(p.Params, p.RepeatedParams); encoded != "" {
+		fullURL += "?" + encoded
 	}
 
 	var reqBody io.Reader

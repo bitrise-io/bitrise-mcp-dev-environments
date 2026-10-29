@@ -99,6 +99,7 @@ func TestWarmPoolToolsRegistered(t *testing.T) {
 		"bitrise_devenv_create_warm_pool",
 		"bitrise_devenv_update_warm_pool",
 		"bitrise_devenv_delete_warm_pool",
+		"bitrise_devenv_retry_warm_pool",
 	} {
 		if !names[name] {
 			t.Errorf("%s is not registered in the belt", name)
@@ -214,9 +215,12 @@ func TestCreateWarmPool(t *testing.T) {
 
 	t.Run("full configuration", func(t *testing.T) {
 		ctx, got := captureRequest(t, response)
+		// The same key on two scopes, each with its own value (hook), and
+		// an unscoped one: all three reach the backend as given.
 		inputs := []any{
 			map[string]any{"key": "GITHUB_TOKEN", "value": "ghp_x", "is_secret": true},
-			map[string]any{"key": "REPO", "value": "org/app"},
+			map[string]any{"key": "REPO", "value": "org/app", "hook": "shared"},
+			map[string]any{"key": "REPO", "value": "org/app-setup", "hook": "on_create"},
 		}
 		flags := []any{"install_deps", "start_agent"}
 		text := callText(t, CreateWarmPool, ctx, map[string]any{
@@ -508,6 +512,9 @@ func TestCreateSessionClaimsFromWarmPool(t *testing.T) {
 			t.Errorf("body = %v, want %v", got.Body, want)
 		}
 	})
+	// The personal inputs (session_inputs, map_saved_to_session_inputs,
+	// ai_prompt) are not configuration: a claim carries them (see
+	// TestCreateSession_ClaimCarriesPersonalInputs).
 	t.Run("configuration fields are rejected before the API call", func(t *testing.T) {
 		cases := []struct {
 			name string
@@ -516,13 +523,10 @@ func TestCreateSessionClaimsFromWarmPool(t *testing.T) {
 		}{
 			{"template_id", map[string]any{"template_id": testTemplateID}, "template_id"},
 			{"stack and machine", map[string]any{"stack_id": "s", "machine_type": "m"}, "stack_id, machine_type"},
-			{"session_inputs", map[string]any{"session_inputs": []any{map[string]any{"key": "k", "value": "v"}}}, "session_inputs"},
-			{"map_saved_to_session_inputs", map[string]any{"map_saved_to_session_inputs": true}, "map_saved_to_session_inputs"},
 			{"feature flags", map[string]any{"enabled_feature_flag_names": []any{"x"}}, "enabled_feature_flag_names"},
 			{"cluster", map[string]any{"cluster": "c"}, "cluster"},
 			{"device_spec", map[string]any{"device_spec": map[string]any{"platform": "ios"}}, "device_spec"},
 			{"no_device", map[string]any{"no_device": true}, "no_device"},
-			{"ai_prompt", map[string]any{"ai_prompt": "do things"}, "ai_prompt"},
 		}
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
@@ -605,4 +609,69 @@ func TestCreatePreviewLinkFromWarmPool(t *testing.T) {
 			t.Errorf("unexpected error %q", msg)
 		}
 	})
+}
+
+// Retry is a bodyless POST on the pool's /retry; the backend's pool JSON
+// (with setup_failed cleared) is passed through verbatim.
+func TestRetryWarmPool(t *testing.T) {
+	response := `{"warm_pool":{"id":"` + testWarmPoolID + `","name":"ios lab","pool_size":2,"status":{"ready":0,"warming":1}}}`
+	ctx, got := captureRequest(t, response)
+	text := callText(t, RetryWarmPool, ctx, map[string]any{"warm_pool_id": testWarmPoolID})
+	assertRequest(t, got, http.MethodPost, "/v1/workspaces/ws/warm-pools/"+testWarmPoolID+"/retry")
+	if text != response {
+		t.Errorf("result = %q, want the backend response verbatim", text)
+	}
+	t.Run("rejects a malformed id", func(t *testing.T) {
+		ctx, got := captureRequest(t, response)
+		res, err := RetryWarmPool.Handler(ctx, callRequest(map[string]any{"warm_pool_id": "not-a-uuid"}))
+		if err != nil {
+			t.Fatalf("handler error: %v", err)
+		}
+		if !res.IsError {
+			t.Fatal("expected a tool error for a malformed warm_pool_id")
+		}
+		if got.Path != "" {
+			t.Errorf("backend was called (%s) for an invalid request", got.Path)
+		}
+	})
+}
+
+// Every tool that takes session input values — a direct create and a claim
+// (bitrise_devenv_create), a pool's stored values (create / update warm
+// pool) — lets a value name its scope (hook), with the same four-value enum
+// the template tools use, so a key defined on several scopes can be given
+// a different value per scope.
+func TestSessionInputValueSchemasCarryHook(t *testing.T) {
+	for _, tl := range []devenv.Tool{CreateSession, CreateWarmPool, UpdateWarmPool} {
+		raw, err := json.Marshal(tl.Definition.InputSchema)
+		if err != nil {
+			t.Fatalf("%s: marshal input schema: %v", tl.Definition.Name, err)
+		}
+		var schema struct {
+			Properties map[string]struct {
+				Items struct {
+					Properties map[string]struct {
+						Type string   `json:"type"`
+						Enum []string `json:"enum"`
+					} `json:"properties"`
+					Required []string `json:"required"`
+				} `json:"items"`
+			} `json:"properties"`
+		}
+		if err := json.Unmarshal(raw, &schema); err != nil {
+			t.Fatalf("%s: unmarshal input schema: %v", tl.Definition.Name, err)
+		}
+		items := schema.Properties["session_inputs"].Items
+		hook, ok := items.Properties["hook"]
+		if !ok {
+			t.Errorf("%s: session_inputs[].hook missing", tl.Definition.Name)
+			continue
+		}
+		if hook.Type != "string" || !reflect.DeepEqual(hook.Enum, []string{"shared", "on_create", "on_claim", "on_restore"}) {
+			t.Errorf("%s: session_inputs[].hook = %+v, want a string enum of the four scopes", tl.Definition.Name, hook)
+		}
+		if !reflect.DeepEqual(items.Required, []string{"key"}) {
+			t.Errorf("%s: session_inputs[] required = %v, want [key] (hook stays optional)", tl.Definition.Name, items.Required)
+		}
+	}
 }

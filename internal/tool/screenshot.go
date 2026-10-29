@@ -49,7 +49,8 @@ than to screenshot and visually inspect. Examples:
 Use screenshots when you genuinely need to see pixels (visual regression, a
 third-party app's custom canvas, verifying a click landed).
 
-NOTE: This tool only works on macOS sessions. Linux sessions do not have a graphical display.`),
+NOTE: This tool only works on macOS sessions. Linux sessions do not have a graphical display.
+Refused while On create is pending or running on a session with lifecycle hooks ("Session is setting up: On create is still running. Access opens when it finishes."): poll bitrise_devenv_get until lifecycle.phase is LIFECYCLE_PHASE_READY.`),
 		mcp.WithString("session_id",
 			mcp.Description("The unique identifier of the running session"),
 			mcp.Required(),

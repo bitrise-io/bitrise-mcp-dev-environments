@@ -33,7 +33,7 @@ then extracted on the remote machine INTO destination_folder, which must be a di
 (created if missing). A directory source lands as its contents inside destination_folder;
 a single file lands as destination_folder/<basename>. To replace one remote file, upload
 it into its parent directory — a destination that is an existing file is rejected.
-Extracted files are owned by the session user.
+Extracted files are owned by the session user. Refused while On create is pending or running on a session with lifecycle hooks ("Session is setting up: On create is still running. Access opens when it finishes."): poll bitrise_devenv_get until lifecycle.phase is LIFECYCLE_PHASE_READY.
 
 Example: Upload a local project directory to the VM:
   source_path: /Users/me/project

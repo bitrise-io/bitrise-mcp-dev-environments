@@ -35,6 +35,7 @@ Response shape (zero-valued fields and empty objects may be omitted from the JSO
   - displayName: the family's human-readable name, e.g. "M2 Pro".
   - usedVcpu: vCPUs held right now by the workspace's machines in the family, warm pool sessions included. Counted from machines rather than sessions, so it can briefly differ from the session totals.
   - quotaVcpu: the family's vCPU quota from the workspace's plan. 0 means the plan does not include the family.
+  - os: "linux" or "macos", the operating system of the family's machines. Empty when it could not be determined. Most plans have one family per OS.
   A new session cannot start on a family once usedVcpu plus the new machine's vCPUs would exceed quotaVcpu.`),
 		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithDestructiveHintAnnotation(false),

@@ -94,8 +94,8 @@ var Execute = devenv.Tool{
 The command runs over a direct SSH connection from the MCP server to the session VM,
 inside a forced-interactive login bash shell (bash -i -l -c). This ensures the full
 shell environment is available — PATH, brew-installed binaries, git-lfs, language
-version managers (nvm, pyenv, rbenv, asdf), and anything the template's warmup
-script writes to ~/.bashrc, ~/.bash_profile, ~/.profile, or /etc/profile are all
+version managers (nvm, pyenv, rbenv, asdf), and anything the template's setup
+scripts write to ~/.bashrc, ~/.bash_profile, ~/.profile, or /etc/profile are all
 loaded.
 
 Output is returned as a JSON object with three fields:

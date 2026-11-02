@@ -116,7 +116,7 @@ var CreateWarmPool = devenv.Tool{
 		mcp.WithTitleAnnotation("Create warm pool"),
 		mcp.WithDescription(`Create a warm pool. `+warmPoolConceptDoc+`
 
-WHEN TO USE THIS: the same session configuration is created over and over and the boot time (machine + warmup script + device) is in the way — for example a team's daily dev sessions, an agent fleet that spins up a session per task, or a device configuration that preview links should open instantly. Create the pool once; afterwards every bitrise_devenv_create with warm_pool_id is handed a booted session.
+WHEN TO USE THIS: the same session configuration is created over and over and the boot time (machine + On create + device) is in the way — for example a team's daily dev sessions, an agent fleet that spins up a session per task, or a device configuration that preview links should open instantly. Create the pool once; afterwards every bitrise_devenv_create with warm_pool_id is handed a booted session.
 
 The configuration fields are those of bitrise_devenv_create, validated the same way (a pool can only store what a session request could send): template_id (required — a pool is always template-based), session_inputs (required inputs must be given; secret values are stored encrypted and redacted in responses), enabled_feature_flag_names, optional stack_id / machine_type / cluster overrides of the template's values, and the device every warm session boots: omit device_spec to boot the template's declared device as is, pass one to tweak it per field (no platform) or replace it whole (with a platform), or no_device=true to boot none. Per-session fields (name, description, labels, auto_terminate_minutes, artifact) are NOT part of the pool — they are given at claim time.
 

@@ -203,7 +203,7 @@ func (c *sshClient) Close() error {
 // session, without allocating a PTY. stdout and stderr are captured separately.
 // Context cancellation propagates by closing the session mid-run.
 //
-// The `-i -l` combination is required because RDE warmup scripts commonly write
+// The `-i -l` combination is required because RDE template setup scripts commonly write
 // PATH to ~/.bashrc, and .bashrc short-circuits on its `case $- in *i*)` guard
 // when the shell is non-interactive. `-i` forces $- to contain 'i' so the guard
 // passes; `-l` ensures /etc/profile and ~/.bash_profile/~/.profile are sourced.

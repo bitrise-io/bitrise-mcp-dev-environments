@@ -12,7 +12,7 @@ import (
 var GetWorkspaceUsage = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_get_workspace_usage",
 		mcp.WithTitleAnnotation("Get workspace usage"),
-		mcp.WithDescription(`Get a point-in-time snapshot of the workspace's active devenv sessions: session counts and vCPU/memory totals split by OS, workspace-wide and per user.
+		mcp.WithDescription(`Get a point-in-time snapshot of the workspace's active devenv sessions: session counts and vCPU/memory totals split by OS, workspace-wide and per user, plus the workspace's vCPU quota per machine family.
 
 This reports sessions currently consuming resources (starting, running, terminating, or draining). It is NOT a historical or billing-period report — poll it over time if you need trends.
 
@@ -29,7 +29,13 @@ Response shape (zero-valued fields and empty objects may be omitted from the JSO
   - userId: internal identifier; prefer userSlug for cross-referencing.
   - isWorkspace: true for the single aggregate row of sessions owned by the workspace itself rather than by an individual user (for example sessions spawned by a preview link); that row has no userSlug/email.
   - totals: this row's usage, same linux/macos/unknown bucket shape as the workspace-wide totals.
-- unknownMachineTypeCount: number of active sessions whose machine type had no resolvable vCPU/RAM spec. Those sessions are counted in sessionCount but contribute 0 to the vcpu/memory sums, so totals undercount when this is non-zero — mention that caveat when presenting the numbers.`),
+- unknownMachineTypeCount: number of active sessions whose machine type had no resolvable vCPU/RAM spec. Those sessions are counted in sessionCount but contribute 0 to the vcpu/memory sums, so totals undercount when this is non-zero — mention that caveat when presenting the numbers.
+- computeQuotas: the workspace's vCPU quota per machine family, sorted by displayName. Empty when the quota could not be read; say so rather than reporting no quota. Each row has:
+  - family: the machine family id, e.g. "m2pro".
+  - displayName: the family's human-readable name, e.g. "M2 Pro".
+  - usedVcpu: vCPUs held right now by the workspace's machines in the family, warm pool sessions included. Counted from machines rather than sessions, so it can briefly differ from the session totals.
+  - quotaVcpu: the family's vCPU quota from the workspace's plan. 0 means the plan does not include the family.
+  A new session cannot start on a family once usedVcpu plus the new machine's vCPUs would exceed quotaVcpu.`),
 		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithDestructiveHintAnnotation(false),
 	),

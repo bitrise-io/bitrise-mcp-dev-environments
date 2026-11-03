@@ -94,7 +94,7 @@ func CallAPI(ctx context.Context, p CallAPIParams) (string, error) {
 	}
 
 	if resp.StatusCode >= 400 {
-		return "", fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+		return "", newAPIError(resp.StatusCode, body)
 	}
 
 	return string(body), nil
@@ -140,7 +140,7 @@ func CallAPILongTimeout(ctx context.Context, p CallAPIParams) (string, error) {
 	}
 
 	if resp.StatusCode >= 400 {
-		return "", fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+		return "", newAPIError(resp.StatusCode, body)
 	}
 
 	return string(body), nil

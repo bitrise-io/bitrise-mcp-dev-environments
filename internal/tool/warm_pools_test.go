@@ -675,3 +675,43 @@ func TestSessionInputValueSchemasCarryHook(t *testing.T) {
 		}
 	}
 }
+
+// max_sessions rides along on create and update when given, as a JSON
+// number, and is validated like pool_size.
+func TestWarmPoolMaxSessions(t *testing.T) {
+	response := `{"warm_pool":{"id":"` + testWarmPoolID + `","name":"ios lab","pool_size":3,"max_sessions":10}}`
+
+	t.Run("create sends it when given", func(t *testing.T) {
+		ctx, got := captureRequest(t, response)
+		callText(t, CreateWarmPool, ctx, map[string]any{
+			"name": "ios lab", "template_id": testTemplateID, "pool_size": float64(3), "max_sessions": float64(10),
+		})
+		assertRequest(t, got, http.MethodPost, "/v1/workspaces/ws/warm-pools")
+		if got.Body["max_sessions"] != float64(10) {
+			t.Errorf("max_sessions = %v, want 10 (body %v)", got.Body["max_sessions"], got.Body)
+		}
+	})
+	t.Run("create omits it by default", func(t *testing.T) {
+		ctx, got := captureRequest(t, response)
+		callText(t, CreateWarmPool, ctx, map[string]any{"name": "ios lab", "template_id": testTemplateID, "pool_size": float64(0)})
+		if _, present := got.Body["max_sessions"]; present {
+			t.Errorf("max_sessions present in body %v, want absent (no limit is the backend default)", got.Body)
+		}
+	})
+	t.Run("update sends it alone, 0 included", func(t *testing.T) {
+		ctx, got := captureRequest(t, response)
+		callText(t, UpdateWarmPool, ctx, map[string]any{"warm_pool_id": testWarmPoolID, "max_sessions": float64(0)})
+		want := map[string]any{"max_sessions": float64(0)}
+		if !reflect.DeepEqual(got.Body, want) {
+			t.Errorf("body = %v, want %v (0 removes the limit and must be sent)", got.Body, want)
+		}
+	})
+	t.Run("negative is rejected before the API call", func(t *testing.T) {
+		for _, tool := range []devenv.Tool{CreateWarmPool, UpdateWarmPool} {
+			args := map[string]any{"warm_pool_id": testWarmPoolID, "name": "x", "template_id": testTemplateID, "pool_size": float64(0), "max_sessions": float64(-1)}
+			if msg := callErr(t, tool, args); !strings.Contains(msg, "max_sessions must be >= 0") {
+				t.Errorf("%s: error %q should reject a negative max_sessions", tool.Definition.Name, msg)
+			}
+		}
+	})
+}

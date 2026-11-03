@@ -49,7 +49,7 @@ type sessionSSHFields struct {
 	SSHAddress        string `json:"sshAddress"`
 	SSHPassword       string `json:"sshPassword"`
 	SSHConnectionOpen bool   `json:"sshConnectionOpen"`
-	// WarmState is set on a session that belongs to a warm pool; "warming",
+	// WarmState is set on a session that belongs to a pool; "warming",
 	// "ready" and "retiring" mean it is unclaimed pool inventory.
 	WarmState  string `json:"warmState"`
 	WarmPoolID string `json:"warmPoolId"`
@@ -70,7 +70,7 @@ type sessionSSHFields struct {
 const errSessionSettingUp = "Session is setting up: On create is still running. Access opens when it finishes."
 
 // onCreateInFlight reports whether the session's On create run is pending or
-// running. It reads the runs, not the phase, so warm pool inventory and a
+// running. It reads the runs, not the phase, so pool inventory and a
 // legacy session (no lifecycle) both read as not gated.
 func (s sessionSSHFields) onCreateInFlight() bool {
 	if s.Lifecycle == nil {
@@ -217,7 +217,7 @@ short timeout so you fail fast and can fall back to the GUI tools:
 		switch s.WarmState {
 		case "warming", "ready", "retiring":
 			return mcp.NewToolResultError(fmt.Sprintf(
-				"This session is a warm session held by warm pool %s and cannot be used or changed until it is claimed — create a session with warm_pool_id to claim it.",
+				"This session is a warm session held by pool %s and cannot be used or changed until it is claimed — create a session with warm_pool_id to claim it.",
 				s.WarmPoolID,
 			)), nil
 		}

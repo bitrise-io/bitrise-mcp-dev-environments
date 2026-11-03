@@ -83,7 +83,7 @@ func TestExecute_RefusedOnUnclaimedWarmSession(t *testing.T) {
 				t.Fatal("expected execute to be refused on an unclaimed warm session")
 			}
 			text := res.Content[0].(mcp.TextContent).Text
-			for _, want := range []string{"warm session held by warm pool pool-1", "warm_pool_id"} {
+			for _, want := range []string{"warm session held by pool pool-1", "warm_pool_id"} {
 				if !strings.Contains(text, want) {
 					t.Errorf("error %q should contain %q", text, want)
 				}

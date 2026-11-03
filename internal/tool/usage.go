@@ -33,7 +33,7 @@ Response shape (zero-valued fields and empty objects may be omitted from the JSO
 - computeQuotas: the workspace's vCPU quota per machine family its plan includes, sorted by displayName. Empty when the quota could not be read; say so rather than reporting no quota. Each row has:
   - family: the machine family id, e.g. "m2pro".
   - displayName: the family's human-readable name, e.g. "M2 Pro".
-  - usedVcpu: vCPUs held right now by the workspace's machines in the family, warm pool sessions included. Counted from machines rather than sessions, so it can briefly differ from the session totals.
+  - usedVcpu: vCPUs held right now by the workspace's machines in the family, pool sessions included. Counted from machines rather than sessions, so it can briefly differ from the session totals.
   - quotaVcpu: the family's vCPU quota from the workspace's plan. Families the plan does not include are not listed.
   - os: "linux" or "macos", the operating system of the family's machines. Empty when it could not be determined. Most plans have one family per OS.
   A new session cannot start on a family once usedVcpu plus the new machine's vCPUs would exceed quotaVcpu.`),

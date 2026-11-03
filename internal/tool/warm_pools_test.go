@@ -88,7 +88,7 @@ func assertRequest(t *testing.T, got *capturedRequest, method, path string) {
 	}
 }
 
-// The five warm pool tools are registered and classified workspace-scoped:
+// The five pool tools are registered and classified workspace-scoped:
 // every one of them hits /v1/workspaces/{id}/warm-pools.
 func TestWarmPoolToolsRegistered(t *testing.T) {
 	b := NewBelt()
@@ -548,7 +548,7 @@ func TestCreateSessionClaimsFromWarmPool(t *testing.T) {
 	})
 }
 
-// A preview link served from a warm pool: warm_pool_id goes on the wire, the
+// A preview link served from a pool: warm_pool_id goes on the wire, the
 // device_spec requirement is lifted (the pool names the device), and the
 // machine knobs the backend rejects alongside a pool are caught first.
 func TestCreatePreviewLinkFromWarmPool(t *testing.T) {

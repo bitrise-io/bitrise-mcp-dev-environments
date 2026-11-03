@@ -88,7 +88,7 @@ func NewBelt() *Belt {
 			UpdateTemplate,
 			DeleteTemplate,
 
-			// Warm Pools
+			// Pools
 			ListWarmPools,
 			GetWarmPool,
 			CreateWarmPool,

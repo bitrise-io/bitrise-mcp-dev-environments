@@ -231,6 +231,9 @@ Rules:
 			mcp.Description(`Who owns the session. "user" (default): a personal session of the authenticated user. "workspace": owned by the workspace itself — shared with every member, listed under bitrise_devenv_list scope="workspace"; session inputs must then be plain values (no saved_input_id, no map_saved_to_session_inputs) and ai_prompt is unavailable. Required to be omitted or "workspace" when the server runs with a Workspace API Token.`),
 			mcp.Enum("user", "workspace"),
 		),
+		mcp.WithBoolean("workspace_script_test",
+			mcp.Description(`Make this a test session for the workspace script: it runs the script even while it is disabled (a draft), so a change can be tried before it is enabled for everyone (see bitrise_devenv_update_workspace_script; the output is in the session's System log, bitrise_devenv_get_logs stage "system"). Allowed only for a caller who may edit the workspace script, when the feature is enabled for the workspace, on a personal session (owner "user") and without warm_pool_id. Defaults to false.`),
+		),
 		mcp.WithObject("labels",
 			mcp.Description(`Optional key/value string labels to attach to the session, e.g. {"team": "mobile", "branch": "main"}. At most 32 labels; keys are 1-63 characters of [a-zA-Z0-9._/-] starting and ending alphanumeric; values are 1-255 bytes of [a-zA-Z0-9._/:+-] with no positional rules (timestamps with offsets, branch names, paths, and semver all fit; spaces, '@', '=', newlines, and non-ASCII are rejected). The "bitrise.io/" key prefix is reserved for system-owned labels and rejected. Labels are returned on session reads and filterable in bitrise_devenv_list via label_selectors.`),
 			mcp.AdditionalProperties(map[string]any{"type": "string"}),
@@ -369,6 +372,18 @@ Rules:
 		}
 		if hasArtifact {
 			body["artifact"] = artifact
+		}
+		// A test session runs the workspace script's draft; the backend only
+		// allows it on a personal, non-pool session, so refuse the
+		// combinations that are certain to fail before the round trip.
+		if request.GetBool("workspace_script_test", false) {
+			if claim {
+				return mcp.NewToolResultError("workspace_script_test cannot be combined with warm_pool_id — a test session must be created directly"), nil
+			}
+			if request.GetString("owner", "") == "workspace" {
+				return mcp.NewToolResultError(`workspace_script_test needs a personal session — omit owner or set it to "user"`), nil
+			}
+			body["workspace_script_test"] = true
 		}
 
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{

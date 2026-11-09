@@ -18,6 +18,7 @@ bitrise-mcp-dev-environments/
         ├── templates.go       # Template CRUD
         ├── warm_pools.go      # Warm pool CRUD (pre-booted session inventory)
         ├── saved_inputs.go     # Saved input/credential CRUD
+        ├── workspace_script.go # Workspace script get / partial update (read-modify-write)
         ├── stacks.go          # List stacks + machine types
         ├── execute.go         # Remote command execution
         ├── screenshot.go      # Session screenshot capture

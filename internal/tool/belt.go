@@ -110,6 +110,10 @@ func NewBelt() *Belt {
 			// Workspace Usage
 			GetWorkspaceUsage,
 
+			// Workspace Script
+			GetWorkspaceScript,
+			UpdateWorkspaceScript,
+
 			// Session Notifications
 			ListSessionNotifications,
 

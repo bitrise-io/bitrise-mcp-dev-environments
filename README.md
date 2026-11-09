@@ -80,7 +80,7 @@ The server runs over **stdio** (above) for local use. It can also run over **HTT
 |------|-------------|
 | `bitrise_devenv_list` | List sessions with their status, name, labels, owner, and template info; filterable server-side by `key=value` label selectors, and scopeable to your own sessions (default) or workspace-owned sessions |
 | `bitrise_devenv_get` | Get details of a specific session including status, machine info, SSH/VNC credentials and, on a session that runs lifecycle hooks, `lifecycle` (the setup phase and every hook run) |
-| `bitrise_devenv_create` | Create a new session, either from a template (with template ID, session inputs, and feature flags) or without one by supplying a stack and machine type directly; optionally boot a virtual device with it (`device_spec`: iOS simulator / Android emulator, optional `artifact` to pre-install) and attach key/value labels. A template that declares a device boots it by default — pass `device_spec` to override it or `no_device` to skip it. `owner="workspace"` creates a session owned by the workspace (shared with every member; session inputs as plain values only) — the only kind a Workspace API Token creates. `warm_pool_id` claims a booted session from a warm pool instead (the pool fixes template, flags, machine and device; a claim adds only the personal inputs — the template's On claim and On restore inputs, saved-input mapping and `ai_prompt` — and is yours unless `owner="workspace"`). A typed input value may be marked `is_secret` on a direct create and on a claim |
+| `bitrise_devenv_create` | Create a new session, either from a template (with template ID, session inputs, and feature flags) or without one by supplying a stack and machine type directly; optionally boot a virtual device with it (`device_spec`: iOS simulator / Android emulator, optional `artifact` to pre-install) and attach key/value labels. A template that declares a device boots it by default — pass `device_spec` to override it or `no_device` to skip it. `owner="workspace"` creates a session owned by the workspace (shared with every member; session inputs as plain values only) — the only kind a Workspace API Token creates. `warm_pool_id` claims a booted session from a warm pool instead (the pool fixes template, flags, machine and device; a claim adds only the personal inputs — the template's On claim and On restore inputs, saved-input mapping and `ai_prompt` — and is yours unless `owner="workspace"`). A typed input value may be marked `is_secret` on a direct create and on a claim. `workspace_script_test: true` makes a personal test session that runs the workspace script even while it is disabled |
 | `bitrise_devenv_update` | Update a session's name, description, or labels |
 | `bitrise_devenv_restore` | Restore a terminated (or failed/drained) session |
 | `bitrise_devenv_terminate` | Terminate a running session but keep it for a later restore (stops the VM, preserves its disk; the session stays listed as terminated) |
@@ -136,6 +136,15 @@ A warm pool is a stored session configuration (template, session input values, f
 | Tool | Description |
 |------|-------------|
 | `bitrise_devenv_get_workspace_usage` | Snapshot of active sessions and vCPU/memory totals, split by OS, workspace-wide and per user (requires billing-view permission) |
+
+### Workspace Script
+
+A workspace script is one bash script per workspace that runs first on every session boot (every kind of session and every boot, restore and rebuild included; macOS and Linux), as the session user from `$HOME` via `bash -l`. The template's lifecycle hooks / startup script wait for it up to 10 minutes (`# rde: no-wait-limit` in the script lifts the limit; it is never killed). Its output goes to the session's System log prefixed `[workspace] ` and to `~/.rde/workspace.log`. A disabled script is a draft that runs only on test sessions (`bitrise_devenv_create` with `workspace_script_test: true`). Admin only: reading and editing need the workspace's Usage permission (owners, billing managers) and a personal access token; the feature must be enabled for the workspace by Bitrise.
+
+| Tool | Description |
+|------|-------------|
+| `bitrise_devenv_get_workspace_script` | Get the workspace script, whether it is enabled, and its variables (plain values returned; secret values only with `include_secrets: true`; protected values never) |
+| `bitrise_devenv_update_workspace_script` | Change only the given parts: `script`, `enabled`, `set_variables` (add or replace by key, with `visibility` plain / secret / protected), `remove_variables`. Everything else, protected values included, is kept. Saving changes what every session runs at its next boot — test with a test session before enabling |
 
 ### Command & File Operations
 

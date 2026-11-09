@@ -12,7 +12,7 @@ import (
 
 // warmPoolConceptDoc explains what a pool is. It is shared by the tool
 // descriptions so an agent reads the same model wherever a pool is mentioned.
-const warmPoolConceptDoc = `A pool is a stored session configuration — a template, its session input values, feature flags and optional stack / machine type / cluster overrides — plus warm_sessions and max_sessions, owned by the workspace (the API spells it warm_pool for historical reasons: warm_pool_id, the /warm-pools endpoints and the bitrise_devenv_*_warm_pool tool names). The RDE backend keeps warm_sessions sessions of that configuration booted and idle ("warm sessions", status.ready / status.warming). Creating a session with bitrise_devenv_create warm_pool_id hands out a warm session instantly (Session.warm_state "claimed") or, when none is available, builds one from the pool's configuration (warm_state "cold") — so a pool with warm_sessions 0 still works as a configuration preset. max_sessions caps how many of the pool's handed-out sessions (claimed or cold) may be in use at once; 0 means no limit. A full pool refuses claims that find no warm session, restores and starts with reason POOL_FULL until one of its sessions ends (status.in_use, status.limit_state). Every member and Workspace API Token sees, claims from and manages every pool. A session claimed from a pool is the claimant's (bitrise_devenv_create owner); it is the workspace's only while it waits in the pool.`
+const warmPoolConceptDoc = `A pool is a stored session configuration — a template, its session input values, feature flags and optional stack / machine type / cluster overrides — plus a pool_size (the warm sessions kept booted) and a max_sessions, owned by the workspace (the API spells it warm_pool for historical reasons: warm_pool_id, the /warm-pools endpoints and the bitrise_devenv_*_warm_pool tool names). The RDE backend keeps pool_size sessions of that configuration booted and idle ("warm sessions", status.ready / status.warming). Creating a session with bitrise_devenv_create warm_pool_id hands out a warm session instantly (Session.warm_state "claimed") or, when none is available, builds one from the pool's configuration (warm_state "cold") — so a pool with pool_size 0 still works as a configuration preset. max_sessions caps how many of the pool's handed-out sessions (claimed or cold) may be in use at once; 0 means no limit. A full pool refuses claims that find no warm session, restores and starts with reason POOL_FULL until one of its sessions ends (status.in_use, status.limit_state). Every member and Workspace API Token sees, claims from and manages every pool. A session claimed from a pool is the claimant's (bitrise_devenv_create owner); it is the workspace's only while it waits in the pool.`
 
 // warmPoolSessionInputsSchema is the session_inputs array a pool stores — the
 // same shape bitrise_devenv_create takes, since a pool is a stored session
@@ -43,7 +43,7 @@ WHEN TO USE THIS: before creating a session, to find a pool that already has you
 
 Every member sees every pool. all=true is the read-only cost view the Usage page uses (requires the workspace's view_billing_data permission). Optionally restrict to one template with template_id.
 
-Each pool carries its configuration (secret input values redacted), warm_sessions, max_sessions (0 = no limit) and a status with ready / warming counts, lifetime claimed_total / cold_total (a high cold_total means warm_sessions is too low for the demand), in_use (the pool's handed-out sessions in use right now — what max_sessions caps), limit_state ("no_limit"; "under_max"; "full": claims that find no warm session, restores and starts are refused with reason POOL_FULL; "over_max": the max was lowered below the number in use, nothing is terminated, claims are refused until enough sessions end), refused_7d (claims, restores and starts refused in the last 7 days — a growing number means the max is too low for the demand), last_error, config_error (the stored configuration no longer builds — fix it with bitrise_devenv_update_warm_pool) and paused_until. On a template with lifecycle hooks a pool also carries setup_failed while it is paused after three consecutive On create failures: {session_id, failed_at, exit_code, message} — the pool stopped warming, claims are refused (FAILED_PRECONDITION) and session_id is the last failed machine, kept for inspection with its logs and terminal; fix the template's On create, then bitrise_devenv_retry_warm_pool (any configuration change does the same). The list view omits the per-session inventory; use bitrise_devenv_get_warm_pool for status.sessions.`),
+Each pool carries its configuration (secret input values redacted), pool_size, max_sessions (0 = no limit) and a status with ready / warming counts, lifetime claimed_total / cold_total (a high cold_total means pool_size is too low for the demand), in_use (the pool's handed-out sessions in use right now — what max_sessions caps), limit_state ("no_limit"; "under_max"; "full": claims that find no warm session, restores and starts are refused with reason POOL_FULL — also what a max lowered below the number in use reads as; nothing is terminated), refused_7d (claims, restores and starts refused in the last 7 days — a growing number means the max is too low for the demand), last_error, config_error (the stored configuration no longer builds — fix it with bitrise_devenv_update_warm_pool) and paused_until. On a template with lifecycle hooks a pool also carries setup_failed while it is paused after three consecutive On create failures: {session_id, failed_at, exit_code, message} — the pool stopped warming, claims are refused (FAILED_PRECONDITION) and session_id is the last failed machine, kept for inspection with its logs and terminal; fix the template's On create, then bitrise_devenv_retry_warm_pool (any configuration change does the same). The list view omits the per-session inventory; use bitrise_devenv_get_warm_pool for status.sessions.`),
 		mcp.WithString("template_id",
 			mcp.Description("Optional: only list pools created from this template (UUID)."),
 		),
@@ -83,7 +83,7 @@ var GetWarmPool = devenv.Tool{
 		mcp.WithTitleAnnotation("Get pool"),
 		mcp.WithDescription(`Get one pool with its full live status. `+warmPoolConceptDoc+`
 
-WHEN TO USE THIS: to check whether a pool has a session ready before claiming from it (status.ready > 0 means bitrise_devenv_create with warm_pool_id returns instantly; status.limit_state "full" or "over_max" means a claim that finds no warm session is refused with reason POOL_FULL — the claim itself stays the authoritative check), to diagnose a pool that is not filling (status.last_error, status.config_error, status.paused_until), to see how close it is to its max (status.in_use of max_sessions, status.refused_7d), or to see its inventory — status.sessions lists every warming / ready session with session_id, state, created_at and ready_at, oldest first (this call only; the list view omits it).
+WHEN TO USE THIS: to check whether a pool has a session ready before claiming from it (status.ready > 0 means bitrise_devenv_create with warm_pool_id returns instantly; status.limit_state "full" means a claim that finds no warm session is refused with reason POOL_FULL — the claim itself stays the authoritative check), to diagnose a pool that is not filling (status.last_error, status.config_error, status.paused_until), to see how close it is to its max (status.in_use of max_sessions, status.refused_7d), or to see its inventory — status.sessions lists every warming / ready session with session_id, state, created_at and ready_at, oldest first (this call only; the list view omits it).
 
 Secret session input values are redacted in the response.`),
 		mcp.WithString("warm_pool_id",
@@ -110,7 +110,7 @@ Secret session input values are redacted in the response.`),
 }
 
 // CreateWarmPool creates a pool: a stored session configuration the
-// backend keeps warm_sessions sessions of booted.
+// backend keeps pool_size sessions of booted.
 var CreateWarmPool = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_create_warm_pool",
 		mcp.WithTitleAnnotation("Create pool"),
@@ -122,15 +122,15 @@ The configuration fields are those of bitrise_devenv_create, validated the same 
 
 Ownership: every pool belongs to the workspace — shared with every member and Workspace API Tokens, and the kind a preview link (bitrise_devenv_create_preview_link warm_pool_id) serves from. Session inputs must be plain values: saved inputs are personal and never reach a pool. A session claimed from the pool is the claimant's by default (see bitrise_devenv_create owner).
 
-Sizing: warm_sessions is how many warm sessions to keep booted — each one is a running machine you pay for while idle, so start small and watch status.cold_total (claims that found no warm session) to tune it. 0 creates an inert pool that still serves as a configuration preset for claims.
+Sizing: pool_size is how many warm sessions to keep booted — each one is a running machine you pay for while idle, so start small and watch status.cold_total (claims that found no warm session) to tune it. 0 creates an inert pool that still serves as a configuration preset for claims.
 
-Limit: max_sessions is the most sessions from this pool that may be in use at once (claimed or created cold; a session keeps its origin pool for life). When the pool is full, claims that find no warm session, restores and starts are refused with reason POOL_FULL until a session ends. Warm sessions only fill the room the max leaves, so claiming a warm session at the max always succeeds, and warm_sessions cannot be more than max_sessions. 0 (the default) means no limit. A ceiling, not a reservation: the workspace's CPU quota still applies on top. Use it to keep one group — an agent fleet, preview-link viewers — from taking the CPUs the whole workspace shares.`),
+Limit: max_sessions is the most sessions from this pool that may be in use at once (claimed or created cold; a session keeps its origin pool for life). When the pool is full, claims that find no warm session, restores and starts are refused with reason POOL_FULL until a session ends. Warm sessions only fill the room the max leaves, so claiming a warm session at the max always succeeds, and pool_size cannot be more than max_sessions. 0 (the default) means no limit. A ceiling, not a reservation: the workspace's CPU quota still applies on top. Use it to keep one group — an agent fleet, preview-link viewers — from taking the CPUs the whole workspace shares.`),
 		mcp.WithString("name", mcp.Description("Human-readable name of the pool"), mcp.Required()),
 		mcp.WithString("template_id",
 			mcp.Description("ID (UUID) of the template every warm session is created from. Use bitrise_devenv_list_templates to find one and read its session inputs."),
 			mcp.Required(),
 		),
-		mcp.WithNumber("warm_sessions",
+		mcp.WithNumber("pool_size",
 			mcp.Description("How many warm sessions to keep booted and idle. 0 creates a drained pool that only serves as a configuration preset. Each warm session is a running machine, so keep it to the concurrency you actually need. Cannot be more than max_sessions when one is set."),
 			mcp.Required(),
 		),
@@ -166,18 +166,18 @@ Limit: max_sessions is the most sessions from this pool that may be in use at on
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
-		poolSize, ok, err := getOptionalInt(request, "warm_sessions")
+		poolSize, ok, err := getOptionalInt(request, "pool_size")
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 		if !ok {
-			return mcp.NewToolResultError("warm_sessions is required — how many sessions to keep booted and ready to claim (0 for a drained preset pool)"), nil
+			return mcp.NewToolResultError("pool_size is required — how many sessions to keep booted and ready to claim (0 for a drained preset pool)"), nil
 		}
 
 		body := map[string]any{
-			"name":          request.GetString("name", ""),
-			"template_id":   templateID,
-			"warm_sessions": poolSize,
+			"name":        request.GetString("name", ""),
+			"template_id": templateID,
+			"pool_size":   poolSize,
 		}
 		if maxSessions, ok, err := getOptionalInt(request, "max_sessions"); err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
@@ -230,22 +230,22 @@ var UpdateWarmPool = devenv.Tool{
 		mcp.WithDescription(`Update a pool. Only provided fields change.
 
 WHEN TO USE THIS:
-- Scale a pool: set warm_sessions. Raise it when status.cold_total keeps growing (claims are not finding warm sessions); set it to 0 to drain the pool while keeping it usable as a configuration preset — the natural move for a scheduler that scales up for business hours and down at night. Scaling touches no claimed session.
-- Change the limit: set max_sessions. Raise it when status.refused_7d keeps growing (the pool is full more often than its users can bear); set it to 0 to remove the limit. Lowering it below status.in_use terminates nothing: the pool reads limit_state "over_max" and refuses claims until enough sessions end. warm_sessions cannot be more than max_sessions. Changing warm_sessions or max_sessions requires the workspace's view_billing_data permission (the usage page's gate; a Workspace API Token always may); everything else any member may change.
+- Scale a pool: set pool_size. Raise it when status.cold_total keeps growing (claims are not finding warm sessions); set it to 0 to drain the pool while keeping it usable as a configuration preset — the natural move for a scheduler that scales up for business hours and down at night. Scaling touches no claimed session.
+- Change the limit: set max_sessions. Raise it when status.refused_7d keeps growing (the pool is full more often than its users can bear); set it to 0 to remove the limit. Lowering it below status.in_use terminates nothing: the pool reads limit_state "full" and refuses claims until enough sessions end. pool_size cannot be more than max_sessions. Changing pool_size or max_sessions requires the workspace's view_billing_data permission (the usage page's gate; a Workspace API Token always may); everything else any member may change.
 - Fix a pool whose status.config_error says the stored configuration no longer builds (an input was removed from the template, a saved input was deleted, a stack was retired): correct session_inputs / enabled_feature_flag_names / stack_id / machine_type / cluster / device_spec.
 - Change the device the warm sessions boot: device_spec (a new device, or a per-field tweak of the template's when it has no platform), device_spec {} to drop the pool's device override and boot the template's device as declared, or no_device true/false to skip or restore the template's device.
 - Rename it: name.
 
 Array fields: passing session_inputs or enabled_feature_flag_names replaces ALL existing entries (pass an empty array to clear); omit to leave unchanged. Secrets survive a resend: the session_inputs that bitrise_devenv_get_warm_pool returns has every secret value redacted to "", and sending that list back as is keeps each stored secret — only an input whose key is left out is removed, and a new value or a saved_input_id replaces the stored one. So to change one input, read the pool, edit that entry and send the whole list; nothing needs retyping. Override fields: pass stack_id, machine_type or cluster to set the override, an empty string "" to clear it back to the template's value; omit to leave unchanged.
 
-A configuration change (anything but name, warm_sessions and max_sessions) invalidates the current warm sessions: the backend replaces them with sessions of the new configuration; a limit change never does.`),
+A configuration change (anything but name, pool_size and max_sessions) invalidates the current warm sessions: the backend replaces them with sessions of the new configuration; a limit change never does.`),
 		mcp.WithString("warm_pool_id", mcp.Description("The unique identifier (UUID) of the pool to update"), mcp.Required()),
 		mcp.WithString("name", mcp.Description("New name of the pool")),
-		mcp.WithNumber("warm_sessions",
+		mcp.WithNumber("pool_size",
 			mcp.Description("New number of warm sessions to keep booted. 0 drains the pool but keeps it as a preset. Cannot be more than max_sessions when one is set. Requires view_billing_data (a Workspace API Token always may)."),
 		),
 		mcp.WithNumber("max_sessions",
-			mcp.Description("New max sessions: the most sessions from this pool that may be in use at once. 0 removes the limit. Lowering it below status.in_use terminates nothing — claims are refused until enough sessions end. Requires view_billing_data (a Workspace API Token always may)."),
+			mcp.Description("New max sessions: the most sessions from this pool that may be in use at once. 0 removes the limit. Lowering it below status.in_use terminates nothing — limit_state reads full and claims are refused until enough sessions end. Requires view_billing_data (a Workspace API Token always may)."),
 		),
 		mcp.WithArray("session_inputs",
 			warmPoolSessionInputsSchema("Replace ALL session input values with this list. Omit to leave unchanged. Pass an empty array to clear all. A secret entry sent with an empty value keeps the stored secret (the redacted list from bitrise_devenv_get_warm_pool can be sent back as is); a new value or a saved_input_id replaces it, leaving the key out removes it.")...,
@@ -275,7 +275,7 @@ A configuration change (anything but name, warm_sessions and max_sessions) inval
 		if _, ok := request.GetArguments()["name"]; ok {
 			body["name"] = request.GetString("name", "")
 		}
-		for _, key := range []string{"warm_sessions", "max_sessions"} {
+		for _, key := range []string{"pool_size", "max_sessions"} {
 			if count, ok, err := getOptionalInt(request, key); err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			} else if ok {
@@ -323,7 +323,7 @@ A configuration change (anything but name, warm_sessions and max_sessions) inval
 			return mcp.NewToolResultError("no_device cannot be true together with a device_spec — either boot a device or skip it"), nil
 		}
 		if len(body) == 0 {
-			return mcp.NewToolResultError("nothing to update — pass at least one of name, warm_sessions, max_sessions, session_inputs, enabled_feature_flag_names, stack_id, machine_type, cluster, device_spec or no_device"), nil
+			return mcp.NewToolResultError("nothing to update — pass at least one of name, pool_size, max_sessions, session_inputs, enabled_feature_flag_names, stack_id, machine_type, cluster, device_spec or no_device"), nil
 		}
 
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
@@ -344,7 +344,7 @@ var DeleteWarmPool = devenv.Tool{
 		mcp.WithTitleAnnotation("Delete pool"),
 		mcp.WithDescription(`Delete a pool. Its warm (unclaimed) sessions are terminated and deleted by the backend; sessions already claimed from it are untouched and keep running.
 
-WHEN TO USE THIS: the configuration is no longer needed at all. Deleting invalidates every preview link minted against the pool — later opens fail as an expired link would. To stop paying for idle machines while keeping the configuration (and its links) around as a preset, prefer bitrise_devenv_update_warm_pool with warm_sessions 0 instead.`),
+WHEN TO USE THIS: the configuration is no longer needed at all. Deleting invalidates every preview link minted against the pool — later opens fail as an expired link would. To stop paying for idle machines while keeping the configuration (and its links) around as a preset, prefer bitrise_devenv_update_warm_pool with pool_size 0 instead.`),
 		mcp.WithString("warm_pool_id", mcp.Description("The unique identifier (UUID) of the pool to delete"), mcp.Required()),
 		mcp.WithDestructiveHintAnnotation(true),
 	),

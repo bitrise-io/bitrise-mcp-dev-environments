@@ -29,9 +29,9 @@ func (e *APIError) Error() string {
 type WarmPoolRefusal struct {
 	// Message is the relay sentence, written to be repeated to a person.
 	Message string `json:"-"`
-	// Reason is POOL_FULL or CPU_QUOTA_EXHAUSTED.
+	// Reason is POOL_FULL, CPU_QUOTA_EXHAUSTED or MACHINE_CONCURRENCY_EXHAUSTED.
 	Reason string `json:"reason"`
-	// Action is what was refused: claim, restore or create.
+	// Action is what was refused: create, claim, restore or start.
 	Action       string `json:"action"`
 	WarmPoolID   string `json:"warmPoolId"`
 	WarmPoolName string `json:"warmPoolName"`

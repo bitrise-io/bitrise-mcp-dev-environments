@@ -115,7 +115,7 @@ func TestWarmPoolToolsRegistered(t *testing.T) {
 // neither is sent when not asked. The backend's JSON is passed through.
 func TestListWarmPools(t *testing.T) {
 	const path = "/v1/workspaces/ws/warm-pools"
-	response := `{"warm_pools":[{"id":"` + testWarmPoolID + `","name":"ios lab","warm_sessions":2,"status":{"ready":1,"warming":1}}]}`
+	response := `{"warm_pools":[{"id":"` + testWarmPoolID + `","name":"ios lab","pool_size":2,"status":{"ready":1,"warming":1}}]}`
 
 	t.Run("default lists visible pools", func(t *testing.T) {
 		ctx, got := captureRequest(t, response)
@@ -130,7 +130,7 @@ func TestListWarmPools(t *testing.T) {
 		var decoded struct {
 			WarmPools []struct {
 				ID           string `json:"id"`
-				WarmSessions int    `json:"warm_sessions"`
+				WarmSessions int    `json:"pool_size"`
 				Status       struct {
 					Ready int `json:"ready"`
 				} `json:"status"`
@@ -140,7 +140,7 @@ func TestListWarmPools(t *testing.T) {
 			t.Fatalf("result is not JSON: %v", err)
 		}
 		if len(decoded.WarmPools) != 1 || decoded.WarmPools[0].ID != testWarmPoolID || decoded.WarmPools[0].WarmSessions != 2 || decoded.WarmPools[0].Status.Ready != 1 {
-			t.Errorf("decoded %+v, want one pool %s with warm_sessions 2 and 1 ready", decoded.WarmPools, testWarmPoolID)
+			t.Errorf("decoded %+v, want one pool %s with pool_size 2 and 1 ready", decoded.WarmPools, testWarmPoolID)
 		}
 	})
 	t.Run("template_id and all become query parameters", func(t *testing.T) {
@@ -208,10 +208,10 @@ func TestGetWarmPool(t *testing.T) {
 
 // Create posts the stored configuration: the scalars the backend cannot
 // default are always sent, the optional ones only when given (an absent
-// override is the template's value), and warm_sessions arrives as a JSON number.
+// override is the template's value), and pool_size arrives as a JSON number.
 func TestCreateWarmPool(t *testing.T) {
 	const path = "/v1/workspaces/ws/warm-pools"
-	response := `{"warm_pool":{"id":"` + testWarmPoolID + `","name":"ios lab","owner_type":"workspace","warm_sessions":3}}`
+	response := `{"warm_pool":{"id":"` + testWarmPoolID + `","name":"ios lab","owner_type":"workspace","pool_size":3}}`
 
 	t.Run("full configuration", func(t *testing.T) {
 		ctx, got := captureRequest(t, response)
@@ -226,7 +226,7 @@ func TestCreateWarmPool(t *testing.T) {
 		text := callText(t, CreateWarmPool, ctx, map[string]any{
 			"name":                       "ios lab",
 			"template_id":                testTemplateID,
-			"warm_sessions":              float64(3),
+			"pool_size":                  float64(3),
 			"session_inputs":             inputs,
 			"enabled_feature_flag_names": flags,
 			"stack_id":                   "osx-xcode-26.0.x",
@@ -237,7 +237,7 @@ func TestCreateWarmPool(t *testing.T) {
 		want := map[string]any{
 			"name":                       "ios lab",
 			"template_id":                testTemplateID,
-			"warm_sessions":              float64(3),
+			"pool_size":                  float64(3),
 			"session_inputs":             inputs,
 			"enabled_feature_flag_names": flags,
 			"stack_id":                   "osx-xcode-26.0.x",
@@ -251,26 +251,26 @@ func TestCreateWarmPool(t *testing.T) {
 			WarmPool struct {
 				ID           string `json:"id"`
 				OwnerType    string `json:"owner_type"`
-				WarmSessions int    `json:"warm_sessions"`
+				WarmSessions int    `json:"pool_size"`
 			} `json:"warm_pool"`
 		}
 		if err := json.Unmarshal([]byte(text), &decoded); err != nil {
 			t.Fatalf("result is not JSON: %v", err)
 		}
 		if decoded.WarmPool.ID != testWarmPoolID || decoded.WarmPool.OwnerType != "workspace" || decoded.WarmPool.WarmSessions != 3 {
-			t.Errorf("decoded %+v, want pool %s owned by workspace with warm_sessions 3", decoded.WarmPool, testWarmPoolID)
+			t.Errorf("decoded %+v, want pool %s owned by workspace with pool_size 3", decoded.WarmPool, testWarmPoolID)
 		}
 	})
 	t.Run("device fields are forwarded like a session create's", func(t *testing.T) {
 		ctx, got := captureRequest(t, response)
 		spec := map[string]any{"platform": "ios", "device_model": "iPhone 16"}
-		callText(t, CreateWarmPool, ctx, map[string]any{"name": "ios lab", "template_id": testTemplateID, "warm_sessions": float64(1), "device_spec": spec})
-		want := map[string]any{"name": "ios lab", "template_id": testTemplateID, "warm_sessions": float64(1), "device_spec": spec}
+		callText(t, CreateWarmPool, ctx, map[string]any{"name": "ios lab", "template_id": testTemplateID, "pool_size": float64(1), "device_spec": spec})
+		want := map[string]any{"name": "ios lab", "template_id": testTemplateID, "pool_size": float64(1), "device_spec": spec}
 		if !reflect.DeepEqual(got.Body, want) {
 			t.Errorf("body = %v, want %v", got.Body, want)
 		}
 		ctx, got = captureRequest(t, response)
-		callText(t, CreateWarmPool, ctx, map[string]any{"name": "headless", "template_id": testTemplateID, "warm_sessions": float64(1), "no_device": true})
+		callText(t, CreateWarmPool, ctx, map[string]any{"name": "headless", "template_id": testTemplateID, "pool_size": float64(1), "no_device": true})
 		if got.Body["no_device"] != true {
 			t.Errorf("no_device = %v, want true", got.Body["no_device"])
 		}
@@ -280,11 +280,11 @@ func TestCreateWarmPool(t *testing.T) {
 	})
 	t.Run("minimal pool sends only the required fields", func(t *testing.T) {
 		ctx, got := captureRequest(t, response)
-		callText(t, CreateWarmPool, ctx, map[string]any{"name": "preset", "template_id": testTemplateID, "warm_sessions": float64(0)})
+		callText(t, CreateWarmPool, ctx, map[string]any{"name": "preset", "template_id": testTemplateID, "pool_size": float64(0)})
 		assertRequest(t, got, http.MethodPost, path)
-		want := map[string]any{"name": "preset", "template_id": testTemplateID, "warm_sessions": float64(0)}
+		want := map[string]any{"name": "preset", "template_id": testTemplateID, "pool_size": float64(0)}
 		if !reflect.DeepEqual(got.Body, want) {
-			t.Errorf("body = %v, want %v (warm_sessions 0 is a drained preset pool and must be sent)", got.Body, want)
+			t.Errorf("body = %v, want %v (pool_size 0 is a drained preset pool and must be sent)", got.Body, want)
 		}
 	})
 	t.Run("rejected before the API call", func(t *testing.T) {
@@ -293,13 +293,13 @@ func TestCreateWarmPool(t *testing.T) {
 			args map[string]any
 			want string
 		}{
-			{"missing template_id", map[string]any{"name": "p", "warm_sessions": float64(1)}, "template_id"},
-			{"malformed template_id", map[string]any{"name": "p", "template_id": "tpl", "warm_sessions": float64(1)}, "invalid template_id"},
-			{"missing warm_sessions", map[string]any{"name": "p", "template_id": testTemplateID}, "warm_sessions is required"},
-			{"negative warm_sessions", map[string]any{"name": "p", "template_id": testTemplateID, "warm_sessions": float64(-1)}, "warm_sessions must be >= 0"},
-			{"warm_sessions not a number", map[string]any{"name": "p", "template_id": testTemplateID, "warm_sessions": "2"}, "warm_sessions must be a number"},
-			{"device_spec with no_device", map[string]any{"name": "p", "template_id": testTemplateID, "warm_sessions": float64(1), "device_spec": map[string]any{"platform": "ios"}, "no_device": true}, "no_device cannot be combined"},
-			{"device_spec not an object", map[string]any{"name": "p", "template_id": testTemplateID, "warm_sessions": float64(1), "device_spec": "ios"}, "device_spec must be an object"},
+			{"missing template_id", map[string]any{"name": "p", "pool_size": float64(1)}, "template_id"},
+			{"malformed template_id", map[string]any{"name": "p", "template_id": "tpl", "pool_size": float64(1)}, "invalid template_id"},
+			{"missing pool_size", map[string]any{"name": "p", "template_id": testTemplateID}, "pool_size is required"},
+			{"negative pool_size", map[string]any{"name": "p", "template_id": testTemplateID, "pool_size": float64(-1)}, "pool_size must be >= 0"},
+			{"pool_size not a number", map[string]any{"name": "p", "template_id": testTemplateID, "pool_size": "2"}, "pool_size must be a number"},
+			{"device_spec with no_device", map[string]any{"name": "p", "template_id": testTemplateID, "pool_size": float64(1), "device_spec": map[string]any{"platform": "ios"}, "no_device": true}, "no_device cannot be combined"},
+			{"device_spec not an object", map[string]any{"name": "p", "template_id": testTemplateID, "pool_size": float64(1), "device_spec": "ios"}, "device_spec must be an object"},
 		}
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
@@ -316,13 +316,13 @@ func TestCreateWarmPool(t *testing.T) {
 // including as "" to clear the override — and omitted otherwise.
 func TestUpdateWarmPool(t *testing.T) {
 	path := "/v1/workspaces/ws/warm-pools/" + testWarmPoolID
-	response := `{"warm_pool":{"id":"` + testWarmPoolID + `","warm_sessions":0}}`
+	response := `{"warm_pool":{"id":"` + testWarmPoolID + `","pool_size":0}}`
 
-	t.Run("scale to zero sends warm_sessions alone", func(t *testing.T) {
+	t.Run("scale to zero sends pool_size alone", func(t *testing.T) {
 		ctx, got := captureRequest(t, response)
-		text := callText(t, UpdateWarmPool, ctx, map[string]any{"warm_pool_id": testWarmPoolID, "warm_sessions": float64(0)})
+		text := callText(t, UpdateWarmPool, ctx, map[string]any{"warm_pool_id": testWarmPoolID, "pool_size": float64(0)})
 		assertRequest(t, got, http.MethodPatch, path)
-		want := map[string]any{"warm_sessions": float64(0)}
+		want := map[string]any{"pool_size": float64(0)}
 		if !reflect.DeepEqual(got.Body, want) {
 			t.Errorf("body = %v, want %v", got.Body, want)
 		}
@@ -401,7 +401,7 @@ func TestUpdateWarmPool(t *testing.T) {
 			{"device_spec not an object", map[string]any{"warm_pool_id": testWarmPoolID, "device_spec": "ios"}, "device_spec must be an object"},
 			{"malformed id", map[string]any{"warm_pool_id": "pool", "name": "x"}, "invalid warm_pool_id"},
 			{"nothing to update", map[string]any{"warm_pool_id": testWarmPoolID}, "nothing to update"},
-			{"negative warm_sessions", map[string]any{"warm_pool_id": testWarmPoolID, "warm_sessions": float64(-2)}, "warm_sessions must be >= 0"},
+			{"negative pool_size", map[string]any{"warm_pool_id": testWarmPoolID, "pool_size": float64(-2)}, "pool_size must be >= 0"},
 		}
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
@@ -614,7 +614,7 @@ func TestCreatePreviewLinkFromWarmPool(t *testing.T) {
 // Retry is a bodyless POST on the pool's /retry; the backend's pool JSON
 // (with setup_failed cleared) is passed through verbatim.
 func TestRetryWarmPool(t *testing.T) {
-	response := `{"warm_pool":{"id":"` + testWarmPoolID + `","name":"ios lab","warm_sessions":2,"status":{"ready":0,"warming":1}}}`
+	response := `{"warm_pool":{"id":"` + testWarmPoolID + `","name":"ios lab","pool_size":2,"status":{"ready":0,"warming":1}}}`
 	ctx, got := captureRequest(t, response)
 	text := callText(t, RetryWarmPool, ctx, map[string]any{"warm_pool_id": testWarmPoolID})
 	assertRequest(t, got, http.MethodPost, "/v1/workspaces/ws/warm-pools/"+testWarmPoolID+"/retry")
@@ -677,14 +677,14 @@ func TestSessionInputValueSchemasCarryHook(t *testing.T) {
 }
 
 // max_sessions rides along on create and update when given, as a JSON
-// number, and is validated like warm_sessions.
+// number, and is validated like pool_size.
 func TestWarmPoolMaxSessions(t *testing.T) {
-	response := `{"warm_pool":{"id":"` + testWarmPoolID + `","name":"ios lab","warm_sessions":3,"max_sessions":10}}`
+	response := `{"warm_pool":{"id":"` + testWarmPoolID + `","name":"ios lab","pool_size":3,"max_sessions":10}}`
 
 	t.Run("create sends it when given", func(t *testing.T) {
 		ctx, got := captureRequest(t, response)
 		callText(t, CreateWarmPool, ctx, map[string]any{
-			"name": "ios lab", "template_id": testTemplateID, "warm_sessions": float64(3), "max_sessions": float64(10),
+			"name": "ios lab", "template_id": testTemplateID, "pool_size": float64(3), "max_sessions": float64(10),
 		})
 		assertRequest(t, got, http.MethodPost, "/v1/workspaces/ws/warm-pools")
 		if got.Body["max_sessions"] != float64(10) {
@@ -693,7 +693,7 @@ func TestWarmPoolMaxSessions(t *testing.T) {
 	})
 	t.Run("create omits it by default", func(t *testing.T) {
 		ctx, got := captureRequest(t, response)
-		callText(t, CreateWarmPool, ctx, map[string]any{"name": "ios lab", "template_id": testTemplateID, "warm_sessions": float64(0)})
+		callText(t, CreateWarmPool, ctx, map[string]any{"name": "ios lab", "template_id": testTemplateID, "pool_size": float64(0)})
 		if _, present := got.Body["max_sessions"]; present {
 			t.Errorf("max_sessions present in body %v, want absent (no limit is the backend default)", got.Body)
 		}
@@ -708,7 +708,7 @@ func TestWarmPoolMaxSessions(t *testing.T) {
 	})
 	t.Run("negative is rejected before the API call", func(t *testing.T) {
 		for _, tool := range []devenv.Tool{CreateWarmPool, UpdateWarmPool} {
-			args := map[string]any{"warm_pool_id": testWarmPoolID, "name": "x", "template_id": testTemplateID, "warm_sessions": float64(0), "max_sessions": float64(-1)}
+			args := map[string]any{"warm_pool_id": testWarmPoolID, "name": "x", "template_id": testTemplateID, "pool_size": float64(0), "max_sessions": float64(-1)}
 			if msg := callErr(t, tool, args); !strings.Contains(msg, "max_sessions must be >= 0") {
 				t.Errorf("%s: error %q should reject a negative max_sessions", tool.Definition.Name, msg)
 			}

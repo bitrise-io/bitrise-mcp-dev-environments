@@ -166,7 +166,7 @@ The session will start provisioning immediately after creation.`),
 			mcp.Description("ID of the template to use. Optional: omit to create a session without a template, in which case either device_spec (platform defaults pick the machine) or both stack_id and machine_type are required, and no setup scripts run. Not allowed with warm_pool_id (the pool fixes the template)."),
 		),
 		mcp.WithString("warm_pool_id",
-			mcp.Description("Claim a warm session from this pool (UUID, from bitrise_devenv_list_warm_pools) instead of building one — see 4 above. A full pool (status.limit_state \"full\" / \"over_max\") refuses the claim with reason POOL_FULL when no warm session is available; never create a session outside the pool to get around it. When set, do not pass template_id, enabled_feature_flag_names, stack_id, machine_type, cluster, device_spec or no_device: the pool fixes them and the request is rejected otherwise. session_inputs (on_claim and on_restore keys only), map_saved_to_session_inputs and ai_prompt are the personal additions a claim accepts. name, description, labels, auto_terminate_minutes and artifact still apply to the claimed session."),
+			mcp.Description("Claim a warm session from this pool (UUID, from bitrise_devenv_list_warm_pools) instead of building one — see 4 above. A full pool (status.limit_state \"full\") refuses the claim with reason POOL_FULL when no warm session is available; never create a session outside the pool to get around it. When set, do not pass template_id, enabled_feature_flag_names, stack_id, machine_type, cluster, device_spec or no_device: the pool fixes them and the request is rejected otherwise. session_inputs (on_claim and on_restore keys only), map_saved_to_session_inputs and ai_prompt are the personal additions a claim accepts. name, description, labels, auto_terminate_minutes and artifact still apply to the claimed session."),
 		),
 		mcp.WithString("stack_id",
 			mcp.Description("Stack ID (e.g. 'osx-xcode-16.0.x-edge'). Required when template_id is omitted — unless device_spec is set, then omit it (and machine_type) for the platform defaults. When a template is given, optionally overrides the template's stack for this session. Use bitrise_devenv_list_stacks to find valid IDs."),
@@ -397,7 +397,7 @@ A session in SESSION_STATUS_UNKNOWN (the backend can't currently determine the m
 
 Only sessions that were terminated (not deleted) can be restored: bitrise_devenv_delete discards the VM and its disk for good.
 
-A session from a pool with max_sessions takes a place in the pool again: while the pool is full the restore is refused with reason POOL_FULL (the error lists your sessions in use from the pool and what to do next) and the session stays terminated and intact. A workspace out of CPUs refuses the same way with reason CPU_QUOTA_EXHAUSTED.`),
+A session from a pool with max_sessions takes a place in the pool again: while the pool is full the restore is refused with reason POOL_FULL (the error lists your sessions in use from the pool and what to do next) and the session stays terminated and intact. A workspace out of CPUs refuses the same way with reason CPU_QUOTA_EXHAUSTED, and one at its machine limit with MACHINE_CONCURRENCY_EXHAUSTED.`),
 		mcp.WithString("session_id",
 			mcp.Description("The unique identifier (UUID) of the session to restore"),
 			mcp.Required(),

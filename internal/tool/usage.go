@@ -29,6 +29,15 @@ Response shape (zero-valued fields and empty objects may be omitted from the JSO
   - userId: internal identifier; prefer userSlug for cross-referencing.
   - isWorkspace: true for the single aggregate row of sessions owned by the workspace itself rather than by an individual user (for example sessions spawned by a preview link); that row has no userSlug/email.
   - totals: this row's usage, same linux/macos/unknown bucket shape as the workspace-wide totals.
+  - sessions: the active sessions behind this row's totals, oldest first. Filled ONLY when terminating any session is enabled for the workspace (a per-workspace capability, enabled on request); otherwise empty or missing, and the rest of the report is the same. The ids feed bitrise_devenv_terminate, which with that capability and this permission stops any of these sessions, whoever owns it: read this report, pick ids, terminate. Each session has:
+    - id: the session's UUID, the session_id bitrise_devenv_terminate takes.
+    - name: the session's name.
+    - os: "linux" or "macos"; empty when it could not be determined (the session is counted in the unknown bucket).
+    - machineType: the machine type the session runs on.
+    - vcpu / memoryGb: the machine's vCPUs and memory in GB; 0 when the machine type's spec is unknown.
+    - status: SESSION_STATUS_STARTING, SESSION_STATUS_RUNNING, SESSION_STATUS_TERMINATING or SESSION_STATUS_DRAINING.
+    - createdAt: when the session was created, i.e. its age. A session terminated and restored since keeps its original creation time.
+    - heldByWarmPoolId: non-empty when a warm pool holds the session rather than anyone using it (an unclaimed warm session, or the machine a pool keeps after its setup failed); the value is that pool's id. bitrise_devenv_terminate refuses such a session: lower the pool's pool_size with bitrise_devenv_update_warm_pool instead (0 empties it), or bitrise_devenv_retry_warm_pool for a pool paused after a failed setup. Empty for every other session, including one already claimed from a pool.
 - unknownMachineTypeCount: number of active sessions whose machine type had no resolvable vCPU/RAM spec. Those sessions are counted in sessionCount but contribute 0 to the vcpu/memory sums, so totals undercount when this is non-zero — mention that caveat when presenting the numbers.
 - computeQuotas: the workspace's vCPU quota per machine family its plan includes, sorted by displayName. Empty when the quota could not be read; say so rather than reporting no quota. Each row has:
   - family: the machine family id, e.g. "m2pro".

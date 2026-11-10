@@ -448,7 +448,7 @@ Whose sessions: normally only the ones you can manage — your own and workspace
 - Not found (HTTP 404): you do not hold the permission, or the workspace has no such session — the same answer as before.
 A Workspace API Token never gets this wider reach. Only terminate is widened: the session is never deleted, and bitrise_devenv_get, bitrise_devenv_delete, bitrise_devenv_restore, bitrise_devenv_execute, the log tools and the rest still answer not found for another member's session. The session returned for one has its connection details (SSH / VNC addresses and credentials, device page URL) blank. A warm session still held by a pool (heldByWarmPoolId in the usage report) is refused with a precondition error: lower the pool's pool_size with bitrise_devenv_update_warm_pool instead (0 empties the pool).
 
-Asynchronous: returns while the session is still SESSION_STATUS_TERMINATING; poll bitrise_devenv_get if you need to observe it reach SESSION_STATUS_TERMINATED.`),
+Asynchronous: returns while the session is still SESSION_STATUS_TERMINATING; poll bitrise_devenv_get if you need to observe it reach SESSION_STATUS_TERMINATED. For another member's session, which bitrise_devenv_get does not return, poll bitrise_devenv_get_workspace_usage instead: the session is listed as SESSION_STATUS_TERMINATING and leaves users[].sessions once it has terminated.`),
 		mcp.WithString("session_id",
 			mcp.Description("The unique identifier (UUID) of the session to terminate"),
 			mcp.Required(),

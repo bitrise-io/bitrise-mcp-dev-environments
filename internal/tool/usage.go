@@ -16,7 +16,7 @@ var GetWorkspaceUsage = devenv.Tool{
 
 This reports sessions currently consuming resources (starting, running, terminating, or draining). It is NOT a historical or billing-period report — poll it over time if you need trends.
 
-Requires the workspace's billing-view permission (workspace owners and billing-managing custom roles); other members get a permission-denied error. A Workspace API Token is refused by default; if your automation needs the report with one, contact Bitrise.
+Requires the workspace's billing-view permission (workspace owners and billing-managing custom roles); other members get a permission-denied error. Also readable with a Workspace API Token (bitwat_) created with Remote Dev Environments access and a workspace role that can manage the workspace (Manager, or a custom role with "Modify workspace settings"); any other Workspace API Token is refused.
 
 Response shape (zero-valued fields and empty objects may be omitted from the JSON — treat a missing field as 0/false/empty):
 - totals: workspace-wide usage, split into linux, macos, and unknown (OS could not be determined) buckets. Each bucket has:
@@ -29,7 +29,7 @@ Response shape (zero-valued fields and empty objects may be omitted from the JSO
   - userId: internal identifier; prefer userSlug for cross-referencing.
   - isWorkspace: true for the single aggregate row of sessions owned by the workspace itself rather than by an individual user (for example sessions spawned by a preview link); that row has no userSlug/email.
   - totals: this row's usage, same linux/macos/unknown bucket shape as the workspace-wide totals.
-  - sessions: the active sessions behind this row's totals, oldest first. Filled ONLY when terminating any session is enabled for the workspace (a per-workspace capability, enabled on request); otherwise empty or missing, and the rest of the report is the same. The ids feed bitrise_devenv_terminate, which with that capability and this permission stops any of these sessions, whoever owns it: read this report, pick ids, terminate. Each session has:
+  - sessions: the active sessions behind this row's totals, oldest first. Filled ONLY when terminating any session is enabled for the workspace (a per-workspace capability, enabled on request); otherwise empty or missing, and the rest of the report is the same. The ids feed bitrise_devenv_terminate, which with that capability stops any of these sessions for whoever can read this report, whoever owns it: read this report, pick ids, terminate. Each session has:
     - id: the session's UUID, the session_id bitrise_devenv_terminate takes.
     - name: the session's name.
     - os: "linux" or "macos"; empty when it could not be determined (the session is counted in the unknown bucket).

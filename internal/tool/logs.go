@@ -36,16 +36,16 @@ var (
 var GetSessionLogs = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_get_logs",
 		mcp.WithTitleAnnotation("Get session logs"),
-		mcp.WithDescription(`Read a session's setup log: what one lifecycle hook (or, on a legacy session, the warmup or startup script) printed so far. Returns the log text: every run of the hook in order, or only one run with attempt.
+		mcp.WithDescription(`Read a session's setup log: what one lifecycle hook (or, on a session created before lifecycle hooks, its deprecated warmup or startup script) printed so far. Returns the log text: every run of the hook in order, or only one run with attempt.
 
 WHEN TO USE THIS: a hook failed (a run in lifecycle.runs of bitrise_devenv_get has state HOOK_RUN_STATE_FAILED, or lifecycle.phase is LIFECYCLE_PHASE_SETUP_FAILED / PERSONALIZATION_FAILED / RESTORE_FAILED) and you need to know why, or setup is slow and you want to see where it is. It works while On create is still running, when the terminal and bitrise_devenv_execute are refused. Read the log before deciding between bitrise_devenv_run_hook (transient cause) and fixing the template (script bug).
 
-stage: on_create, on_claim, on_restore — that hook's output; personalize — the platform's system setup step; system — the platform's own boot output, system setup included. On a session without lifecycle hooks (lifecycle.mode "legacy"): warmup or startup.
+stage: on_create, on_claim, on_restore — that hook's output; personalize — the platform's system setup step; system — the platform's own boot output, system setup included. warmup, startup — only on a session created before lifecycle hooks (lifecycle.mode "legacy"): the output of its deprecated warmup or startup script.
 
 The read returns once the log has been quiet for a moment, so output written after that is not included; call again to see more. Only the last 64 KB are returned, with a note when earlier output was cut.`),
 		mcp.WithString("session_id", mcp.Description("The unique identifier (UUID) of the session"), mcp.Required()),
 		mcp.WithString("stage",
-			mcp.Description("Which log to read: on_create, on_claim, on_restore, personalize or system on a session with lifecycle hooks; warmup or startup on a legacy session."),
+			mcp.Description("Which log to read: on_create, on_claim, on_restore, personalize or system. warmup and startup exist only on a session created before lifecycle hooks (lifecycle.mode \"legacy\")."),
 			mcp.Enum("on_create", "on_claim", "on_restore", "personalize", "system", "warmup", "startup"),
 			mcp.Required(),
 		),

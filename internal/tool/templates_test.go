@@ -427,3 +427,39 @@ func TestTemplateTools_ScopedAndProtectedVariables(t *testing.T) {
 		}
 	}
 }
+
+// The template tools still accept startup_script and warmup_script, but both
+// must read as deprecated to a client: the JSON Schema keyword and the
+// description prefix.
+func TestTemplateToolsMarkLegacyScriptsDeprecated(t *testing.T) {
+	for _, tool := range []devenv.Tool{CreateTemplate, UpdateTemplate} {
+		raw, err := json.Marshal(tool.Definition.InputSchema)
+		if err != nil {
+			t.Fatalf("marshal input schema: %v", err)
+		}
+		var schema struct {
+			Properties map[string]struct {
+				Description string `json:"description"`
+				Deprecated  bool   `json:"deprecated"`
+			} `json:"properties"`
+		}
+		if err := json.Unmarshal(raw, &schema); err != nil {
+			t.Fatalf("unmarshal input schema: %v", err)
+		}
+		for _, name := range []string{"startup_script", "warmup_script"} {
+			p, ok := schema.Properties[name]
+			if !ok {
+				t.Fatalf("%s: %s missing from schema (it must stay accepted)", tool.Definition.Name, name)
+			}
+			if !p.Deprecated {
+				t.Errorf("%s: %s is not marked deprecated in the schema", tool.Definition.Name, name)
+			}
+			if !strings.HasPrefix(p.Description, "Deprecated: use hooks instead.") {
+				t.Errorf("%s: %s description = %q, want the Deprecated prefix", tool.Definition.Name, name, p.Description)
+			}
+		}
+		if schema.Properties["hooks"].Deprecated {
+			t.Errorf("%s: hooks must not be deprecated", tool.Definition.Name)
+		}
+	}
+}

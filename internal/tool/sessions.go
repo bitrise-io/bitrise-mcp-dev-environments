@@ -90,13 +90,10 @@ Also includes:
 
 For sessions created without a template, template_id is empty and the snapshot is minimal: only stack_id and machine_type are populated, has_warmup_script/has_startup_script are false, and there is no template_name, session_inputs, feature_flags, or workspace_links. template_outdated is always false for such sessions.
 
-By default, secret session input values are redacted from the snapshot; set include_secrets=true to receive plaintext values.`),
+Secrets are write-only: a secret session input's value is always "" and masked_value shows "****", its last 4 characters when it is longer than 16 characters, and its length (e.g. "****5678 (20)" or "**** (12)"), so you can tell which key is stored without reading it. masked_value is also "" on a supplied_by_pool entry.`),
 		mcp.WithString("session_id",
 			mcp.Description("The unique identifier (UUID) of the session"),
 			mcp.Required(),
-		),
-		mcp.WithBoolean("include_secrets",
-			mcp.Description("When true, secret session input values are returned in plaintext. Defaults to false (secret values are redacted)."),
 		),
 		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithDestructiveHintAnnotation(false),
@@ -106,14 +103,9 @@ By default, secret session input values are redacted from the snapshot; set incl
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
-		params := map[string]string{}
-		if request.GetBool("include_secrets", false) {
-			params["include_secrets"] = "true"
-		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodGet,
 			Path:   devenv.WsPath(ctx, fmt.Sprintf("/sessions/%s", sessionID)),
-			Params: params,
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("get session", err), nil
@@ -181,7 +173,7 @@ The session will start provisioning immediately after creation.`),
 				"properties": map[string]any{
 					"key":            map[string]any{"type": "string", "description": "Key name matching a session input on the template (on every scope that defines it, unless hook narrows it)"},
 					"value":          map[string]any{"type": "string", "description": "Direct value (ignored if saved_input_id is set)"},
-					"is_secret":      map[string]any{"type": "boolean", "description": "Mark the typed value secret: encrypted at rest and redacted in responses (ignored if saved_input_id is set — a saved input brings its own flag). Works on a direct create and on a claim."},
+					"is_secret":      map[string]any{"type": "boolean", "description": "Mark the typed value secret: encrypted at rest and write-only, never returned (reads give masked_value) (ignored if saved_input_id is set — a saved input brings its own flag). Works on a direct create and on a claim."},
 					"saved_input_id": map[string]any{"type": "string", "description": "Optional: ID of a saved input to use instead of a direct value"},
 					"hook":           map[string]any{"type": "string", "enum": valueScopes, "description": "Optional: the scope this value is for; omitted, the value applies to every scope that defines the key, and a scoped value wins over an unscoped one for its scope."},
 				},

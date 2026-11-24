@@ -13,22 +13,14 @@ import (
 var ListSavedInputs = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_list_saved_inputs",
 		mcp.WithTitleAnnotation("List saved inputs"),
-		mcp.WithDescription("List all saved inputs (credentials/values) for the current user. Saved inputs can be referenced when creating sessions to provide values for template session inputs. By default, secret values are redacted from the response; set include_secrets=true to receive plaintext values."),
-		mcp.WithBoolean("include_secrets",
-			mcp.Description("When true, secret values are returned in plaintext. Defaults to false (secret values are redacted)."),
-		),
+		mcp.WithDescription("List all saved inputs (credentials/values) for the current user. Saved inputs can be referenced when creating sessions to provide values for template session inputs. Secrets are write-only: a secret's value is always \"\" and masked_value shows \"****\", its last 4 characters when it is longer than 16 characters, and its length (e.g. \"****5678 (20)\" or \"**** (12)\"), so you can tell which key is stored without reading it."),
 		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		params := map[string]string{}
-		if request.GetBool("include_secrets", false) {
-			params["include_secrets"] = "true"
-		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodGet,
 			Path:   "/v1/saved-inputs",
-			Params: params,
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("list saved inputs", err), nil
@@ -41,11 +33,8 @@ var ListSavedInputs = devenv.Tool{
 var GetSavedInput = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_get_saved_input",
 		mcp.WithTitleAnnotation("Get saved input"),
-		mcp.WithDescription("Get details of a specific saved input. By default, the secret value is redacted from the response; set include_secrets=true to receive the plaintext value."),
+		mcp.WithDescription("Get details of a specific saved input. Secrets are write-only: a secret's value is always \"\" and masked_value shows \"****\", its last 4 characters when it is longer than 16 characters, and its length (e.g. \"****5678 (20)\" or \"**** (12)\"), so you can tell which key is stored without reading it."),
 		mcp.WithString("saved_input_id", mcp.Description("The unique identifier of the saved input"), mcp.Required()),
-		mcp.WithBoolean("include_secrets",
-			mcp.Description("When true, the secret value is returned in plaintext. Defaults to false (secret value is redacted)."),
-		),
 		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithDestructiveHintAnnotation(false),
 	),
@@ -54,14 +43,9 @@ var GetSavedInput = devenv.Tool{
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
-		params := map[string]string{}
-		if request.GetBool("include_secrets", false) {
-			params["include_secrets"] = "true"
-		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodGet,
 			Path:   fmt.Sprintf("/v1/saved-inputs/%s", id),
-			Params: params,
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("get saved input", err), nil
@@ -77,7 +61,7 @@ var CreateSavedInput = devenv.Tool{
 		mcp.WithDescription("Create a new saved input (credential/value). The key should match a template's session input key for automatic pre-fill when creating sessions."),
 		mcp.WithString("key", mcp.Description("Key/name of the input"), mcp.Required()),
 		mcp.WithString("value", mcp.Description("Value of the input"), mcp.Required()),
-		mcp.WithBoolean("is_secret", mcp.Description("Whether this is a secret value (will be encrypted at rest)")),
+		mcp.WithBoolean("is_secret", mcp.Description("Whether this is a secret value: encrypted at rest and write-only, never returned (reads give masked_value instead)")),
 		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -108,7 +92,7 @@ var UpdateSavedInput = devenv.Tool{
 		mcp.WithDescription("Update an existing saved input value."),
 		mcp.WithString("saved_input_id", mcp.Description("The unique identifier of the saved input to update"), mcp.Required()),
 		mcp.WithString("value", mcp.Description("Updated value"), mcp.Required()),
-		mcp.WithBoolean("is_secret", mcp.Description("Updated secret flag")),
+		mcp.WithBoolean("is_secret", mcp.Description("Updated secret flag. Turning a secret into a plain value needs a new value: the stored secret is never revealed.")),
 		mcp.WithDestructiveHintAnnotation(true),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {

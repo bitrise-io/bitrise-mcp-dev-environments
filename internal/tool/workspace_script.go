@@ -18,34 +18,32 @@ const workspaceScriptConceptDoc = `A workspace script is one bash script per wor
 
 A disabled script is a draft: it runs only on test sessions — personal sessions created with bitrise_devenv_create workspace_script_test=true.
 
-Variables have a visibility: plain (value returned), secret (stored encrypted; value returned only with include_secrets=true, otherwise ""), protected (stored encrypted and write-only; the value is never returned, value_stored=true says one is stored). Keys starting with RDE_ are reserved. Limits: script 64 KiB, 64 variables, keys up to 128 characters, script + all keys and values up to 256 KiB, no NUL characters.
+Variables have a visibility: plain (value returned) or secret (stored encrypted and write-only: the value is never returned — value is "", value_stored=true says one is stored, and masked_value shows "****", the last 4 characters of a value longer than 16, and the length, e.g. "****5678 (20)"). Keys starting with RDE_ are reserved. Limits: script 64 KiB, 64 variables, keys up to 128 characters, script + all keys and values up to 256 KiB, no NUL characters.
 
 Admin only: reading and editing need either a personal access token of someone with the workspace's Usage permission (owners, billing managers), or a Workspace API Token (bitwat_) created with Remote Dev Environments access and a workspace role that can manage the workspace (Manager, or a custom role with "Modify workspace settings"); any other Workspace API Token is refused with 403. A save made with a Workspace API Token shows "Workspace API token" as updated_by instead of an email. A Workspace API Token cannot create a test session: those are personal. The feature must be enabled for the workspace by Bitrise; otherwise the API answers 403 "The workspace script is not available for this workspace."`
 
 // Variable visibilities accepted by bitrise_devenv_update_workspace_script.
+// "protected" is still accepted and means secret: every secret is
+// write-only, so the two are the same.
 const (
 	visibilityPlain     = "plain"
 	visibilitySecret    = "secret"
 	visibilityProtected = "protected"
 )
 
-// workspaceScriptVariable is one variable as the API stores it.
+// workspaceScriptVariable is one variable as the API stores it. A secret's
+// value is never returned, so Value is "" for one read back.
 type workspaceScriptVariable struct {
-	Key       string
-	Value     string
-	IsSecret  bool
-	Protected bool
+	Key      string
+	Value    string
+	IsSecret bool
 }
 
 func (v workspaceScriptVariable) visibility() string {
-	switch {
-	case v.Protected:
-		return visibilityProtected
-	case v.IsSecret:
+	if v.IsSecret {
 		return visibilitySecret
-	default:
-		return visibilityPlain
 	}
+	return visibilityPlain
 }
 
 // workspaceScriptState is the script as read back from the API.
@@ -98,10 +96,10 @@ func parseWorkspaceScript(raw string) (workspaceScriptState, error) {
 			return workspaceScriptState{}, fmt.Errorf("decode workspace script: variable is not an object")
 		}
 		state.Variables = append(state.Variables, workspaceScriptVariable{
-			Key:       asString(m["key"]),
-			Value:     asString(m["value"]),
-			IsSecret:  asBool(jsonField(m, "is_secret", "isSecret")),
-			Protected: asBool(m["protected"]),
+			Key:   asString(m["key"]),
+			Value: asString(m["value"]),
+			// A protected variable (older API responses) is a secret.
+			IsSecret: asBool(jsonField(m, "is_secret", "isSecret")) || asBool(m["protected"]),
 		})
 	}
 	return state, nil
@@ -113,22 +111,14 @@ var GetWorkspaceScript = devenv.Tool{
 		mcp.WithTitleAnnotation("Get workspace script"),
 		mcp.WithDescription(`Get the workspace script: its bash script, whether it is enabled, and its variables. `+workspaceScriptConceptDoc+`
 
-Returns {"workspace_script": {configured, enabled, script, variables: [{key, value, is_secret, protected, value_stored}], updated_by, updated_at}}. configured=false means no script was ever saved. Secret values are "" unless include_secrets=true; protected values are always "".`),
-		mcp.WithBoolean("include_secrets",
-			mcp.Description("When true, secret (non-protected) variable values are returned in plaintext. Protected values are never returned. Defaults to false."),
-		),
+Returns {"workspace_script": {configured, enabled, script, variables: [{key, value, is_secret, value_stored, masked_value}], updated_by, updated_at}}. configured=false means no script was ever saved. Secret values are always "": read masked_value instead.`),
 		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		params := map[string]string{}
-		if request.GetBool("include_secrets", false) {
-			params["include_secrets"] = "true"
-		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodGet,
 			Path:   devenv.WsPath(ctx, "/workspace-script"),
-			Params: params,
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("get workspace script", err), nil
@@ -179,10 +169,12 @@ func parseSetVariables(raw any) ([]variableChange, error) {
 		if v, present := m["visibility"]; present && v != nil {
 			s, _ := v.(string)
 			switch s {
-			case visibilityPlain, visibilitySecret, visibilityProtected:
+			case visibilityPlain, visibilitySecret:
 				c.visibility = s
+			case visibilityProtected:
+				c.visibility = visibilitySecret
 			default:
-				return nil, fmt.Errorf("set_variables[%d].visibility must be one of plain, secret, protected", i)
+				return nil, fmt.Errorf("set_variables[%d].visibility must be plain or secret", i)
 			}
 		}
 		changes = append(changes, c)
@@ -208,7 +200,7 @@ func parseRemoveVariables(raw any) ([]string, error) {
 
 // applyWorkspaceScriptChanges applies a partial update to the current state
 // and returns the full variable list to PUT plus whether anything changed.
-// Protected variables are sent with value "" unless a new value is given,
+// Secret variables are sent with value "" unless a new value is given,
 // which keeps their stored value.
 func applyWorkspaceScriptChanges(current workspaceScriptState, set []variableChange, remove []string) ([]workspaceScriptVariable, bool, error) {
 	changed := false
@@ -226,14 +218,14 @@ func applyWorkspaceScriptChanges(current workspaceScriptState, set []variableCha
 		changed = true
 	}
 
-	// Start from the stored variables; a protected value cannot be read, so
+	// Start from the stored variables; a secret value cannot be read, so
 	// "" is what keeps it.
 	vars := make([]workspaceScriptVariable, 0, len(current.Variables)+len(set))
 	for _, v := range current.Variables {
 		if removed[v.Key] {
 			continue
 		}
-		if v.Protected {
+		if v.IsSecret {
 			v.Value = ""
 		}
 		vars = append(vars, v)
@@ -268,16 +260,16 @@ func applyWorkspaceScriptChanges(current workspaceScriptState, set []variableCha
 		}
 		value := c.value
 		if !c.hasValue {
-			if old.Protected && visibility != visibilityProtected {
-				return nil, false, fmt.Errorf("set_variables: %q is protected and its value cannot be read back, so changing its visibility needs a value", c.key)
+			if old.IsSecret && visibility != visibilitySecret {
+				return nil, false, fmt.Errorf("set_variables: %q is a secret and its value cannot be read back, so making it plain needs a value", c.key)
 			}
-			value = old.Value // "" for a protected variable: keeps the stored value
+			value = old.Value // "" for a secret: keeps the stored value
 		}
 		next := newWorkspaceScriptVariable(c.key, value, visibility)
 		switch {
 		case visibility != old.visibility():
 			changed = true
-		case old.Protected:
+		case old.IsSecret:
 			// The stored value is unknown; only a new value changes it.
 			if value != "" {
 				changed = true
@@ -292,19 +284,19 @@ func applyWorkspaceScriptChanges(current workspaceScriptState, set []variableCha
 
 func newWorkspaceScriptVariable(key, value, visibility string) workspaceScriptVariable {
 	return workspaceScriptVariable{
-		Key:       key,
-		Value:     value,
-		IsSecret:  visibility != visibilityPlain,
-		Protected: visibility == visibilityProtected,
+		Key:      key,
+		Value:    value,
+		IsSecret: visibility != visibilityPlain,
 	}
 }
 
 // UpdateWorkspaceScript changes the workspace script: a partial update done as
-// read (with secrets) → apply the changes → write the full script back.
+// read → apply the changes → write the full script back. Secrets are
+// write-only, so each one is sent back empty, which keeps it.
 var UpdateWorkspaceScript = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_update_workspace_script",
 		mcp.WithTitleAnnotation("Update workspace script"),
-		mcp.WithDescription(`Change the workspace script. Only the given fields change: script replaces the whole script, enabled turns it on or off, set_variables adds or replaces variables by key, remove_variables deletes variables. Everything else is kept as stored (protected values included). Returns the saved state, with secret and protected values masked. A call that changes nothing is refused.
+		mcp.WithDescription(`Change the workspace script. Only the given fields change: script replaces the whole script, enabled turns it on or off, set_variables adds or replaces variables by key, remove_variables deletes variables. Everything else is kept as stored (secret values included). Returns the saved state, with secret values masked. A call that changes nothing is refused.
 
 CAUTION — this affects every member of the workspace: saving changes the script that every session runs at its next boot, and enabling it makes it run on all sessions. Test first: save the change with the script disabled, create a test session (bitrise_devenv_create workspace_script_test=true — it runs the draft), read its System log (bitrise_devenv_get_logs stage "system") and ~/.rde/workspace.log, and only then set enabled=true. While the script is enabled, every save goes live for everyone.
 
@@ -321,11 +313,11 @@ CAUTION — this affects every member of the workspace: saving changes the scrip
 				"type": "object",
 				"properties": map[string]any{
 					"key":   map[string]any{"type": "string", "description": "Variable name, exported to the script's environment. Keys starting with RDE_ are reserved."},
-					"value": map[string]any{"type": "string", "description": "The value. Required for a new variable. Omit on an existing variable to keep its value (e.g. to change only its visibility); a protected variable's value cannot be read back, so turning it into plain or secret needs the value."},
+					"value": map[string]any{"type": "string", "description": "The value. Required for a new variable. Omit on an existing variable to keep its value (e.g. to change only its visibility); a secret's value cannot be read back, so making it plain needs the value."},
 					"visibility": map[string]any{
 						"type":        "string",
-						"enum":        []string{visibilityPlain, visibilitySecret, visibilityProtected},
-						"description": "plain: value readable by admins. secret: stored encrypted, readable with include_secrets=true. protected: stored encrypted and write-only, never returned. Omitted: an existing variable keeps its visibility, a new one is plain.",
+						"enum":        []string{visibilityPlain, visibilitySecret},
+						"description": "plain: value readable by admins. secret: stored encrypted and write-only, never returned (reads give masked_value). Omitted: an existing variable keeps its visibility, a new one is plain.",
 					},
 				},
 				"required": []string{"key"},
@@ -368,12 +360,11 @@ CAUTION — this affects every member of the workspace: saving changes the scrip
 			return mcp.NewToolResultError("nothing to update — pass at least one of script, enabled, set_variables or remove_variables"), nil
 		}
 
-		// Read with secrets: the write is a full replacement, so every
-		// secret value has to be sent back as it is.
+		// The write is a full replacement; a secret sent back empty keeps
+		// its stored value.
 		raw, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodGet,
 			Path:   devenv.WsPath(ctx, "/workspace-script"),
-			Params: map[string]string{"include_secrets": "true"},
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("read workspace script", err), nil
@@ -406,7 +397,6 @@ CAUTION — this affects every member of the workspace: saving changes the scrip
 				"key":       v.Key,
 				"value":     v.Value,
 				"is_secret": v.IsSecret,
-				"protected": v.Protected,
 			})
 		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{

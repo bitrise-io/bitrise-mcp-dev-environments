@@ -316,8 +316,8 @@ CAUTION — this affects every member of the workspace: saving changes the scrip
 					"value": map[string]any{"type": "string", "description": "The value. Required for a new variable. Omit on an existing variable to keep its value (e.g. to change only its visibility); a secret's value cannot be read back, so making it plain needs the value."},
 					"visibility": map[string]any{
 						"type":        "string",
-						"enum":        []string{visibilityPlain, visibilitySecret},
-						"description": "plain: value readable by admins. secret: stored encrypted and write-only, never returned (reads give masked_value). Omitted: an existing variable keeps its visibility, a new one is plain.",
+						"enum":        []string{visibilityPlain, visibilitySecret, visibilityProtected},
+						"description": "plain: value readable by admins. secret: stored encrypted and write-only, never returned (reads give masked_value). protected: deprecated synonym of secret, kept so existing callers stay valid. Omitted: an existing variable keeps its visibility, a new one is plain.",
 					},
 				},
 				"required": []string{"key"},

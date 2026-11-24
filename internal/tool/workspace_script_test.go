@@ -97,6 +97,29 @@ func TestWorkspaceScriptToolsRegistered(t *testing.T) {
 	}
 }
 
+// The published schema must accept every visibility the handler accepts:
+// a client that validates arguments against it would otherwise reject the
+// "protected" alias before the handler could map it to secret.
+func TestUpdateWorkspaceScriptSchemaVisibilities(t *testing.T) {
+	items, ok := UpdateWorkspaceScript.Definition.InputSchema.Properties["set_variables"].(map[string]any)["items"].(map[string]any)
+	if !ok {
+		t.Fatal("set_variables has no items schema")
+	}
+	visibility := items["properties"].(map[string]any)["visibility"].(map[string]any)
+	enum, _ := visibility["enum"].([]string)
+	for _, want := range []string{visibilityPlain, visibilitySecret, visibilityProtected} {
+		found := false
+		for _, got := range enum {
+			if got == want {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("visibility enum %v is missing %q", enum, want)
+		}
+	}
+}
+
 func TestGetWorkspaceScript(t *testing.T) {
 	t.Run("masked by default", func(t *testing.T) {
 		ctx, got := captureRequest(t, storedScript)

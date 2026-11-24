@@ -68,23 +68,20 @@ func callToolErr(t *testing.T, tool devenv.Tool, ctx context.Context, args map[s
 // storedScript is the include_secrets=true read the update starts from: one
 // variable of each visibility (the protected value is never returned).
 const storedScript = `{"workspace_script":{"configured":true,"enabled":true,"script":"echo hi\n","variables":[` +
-	`{"key":"REGION","value":"eu","is_secret":false,"protected":false},` +
-	`{"key":"API_TOKEN","value":"tok-123","is_secret":true,"protected":false},` +
-	`{"key":"SIGNING_KEY","value":"","is_secret":true,"protected":true,"value_stored":true}` +
+	`{"key":"REGION","value":"eu","is_secret":false,"protected":false,"value_stored":true},` +
+	`{"key":"API_TOKEN","value":"","is_secret":true,"protected":true,"value_stored":true,"masked_value":"****"},` +
+	`{"key":"SIGNING_KEY","value":"","is_secret":true,"protected":true,"value_stored":true,"masked_value":"****wxyz"}` +
 	`],"updated_by":"someone@example.com","updated_at":"2026-11-01T10:00:00Z"}}`
 
 const savedResponse = `{"workspace_script":{"configured":true,"enabled":true}}`
 
 func plainVar(key, value string) map[string]any {
-	return map[string]any{"key": key, "value": value, "is_secret": false, "protected": false}
+	return map[string]any{"key": key, "value": value, "is_secret": false}
 }
 
+// secretVar is a secret as the PUT sends it: "" keeps the stored value.
 func secretVar(key, value string) map[string]any {
-	return map[string]any{"key": key, "value": value, "is_secret": true, "protected": false}
-}
-
-func protectedVar(key, value string) map[string]any {
-	return map[string]any{"key": key, "value": value, "is_secret": true, "protected": true}
+	return map[string]any{"key": key, "value": value, "is_secret": true}
 }
 
 func TestWorkspaceScriptToolsRegistered(t *testing.T) {
@@ -96,6 +93,29 @@ func TestWorkspaceScriptToolsRegistered(t *testing.T) {
 		}
 		if b.userScoped[name] {
 			t.Errorf("%s is classified user-scoped, want workspace-scoped", name)
+		}
+	}
+}
+
+// The published schema must accept every visibility the handler accepts:
+// a client that validates arguments against it would otherwise reject the
+// "protected" alias before the handler could map it to secret.
+func TestUpdateWorkspaceScriptSchemaVisibilities(t *testing.T) {
+	items, ok := UpdateWorkspaceScript.Definition.InputSchema.Properties["set_variables"].(map[string]any)["items"].(map[string]any)
+	if !ok {
+		t.Fatal("set_variables has no items schema")
+	}
+	visibility := items["properties"].(map[string]any)["visibility"].(map[string]any)
+	enum, _ := visibility["enum"].([]string)
+	for _, want := range []string{visibilityPlain, visibilitySecret, visibilityProtected} {
+		found := false
+		for _, got := range enum {
+			if got == want {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("visibility enum %v is missing %q", enum, want)
 		}
 	}
 }
@@ -112,19 +132,19 @@ func TestGetWorkspaceScript(t *testing.T) {
 			t.Errorf("result = %q, want the backend response verbatim", text)
 		}
 	})
-	t.Run("include_secrets is passed through", func(t *testing.T) {
+	t.Run("include_secrets is no longer sent: secrets are write-only", func(t *testing.T) {
 		ctx, got := captureRequest(t, storedScript)
 		callText(t, GetWorkspaceScript, ctx, map[string]any{"include_secrets": true})
 		assertRequest(t, got, http.MethodGet, workspaceScriptPath)
-		want := map[string][]string{"include_secrets": {"true"}}
-		if !reflect.DeepEqual(got.Query, want) {
-			t.Errorf("query = %v, want %v", got.Query, want)
+		if len(got.Query) != 0 {
+			t.Errorf("query = %v, want none", got.Query)
 		}
 	})
 }
 
-// Every update reads the script with secrets, applies only the given
-// changes and PUTs the full state back.
+// Every update reads the script, applies only the given changes and PUTs the
+// full state back. Secrets are write-only, so each one goes back empty, which
+// keeps its stored value.
 func TestUpdateWorkspaceScript(t *testing.T) {
 	cases := []struct {
 		name string
@@ -139,8 +159,8 @@ func TestUpdateWorkspaceScript(t *testing.T) {
 				"script":  "echo new\n",
 				"variables": []any{
 					plainVar("REGION", "eu"),
-					secretVar("API_TOKEN", "tok-123"),
-					protectedVar("SIGNING_KEY", ""),
+					secretVar("API_TOKEN", ""),
+					secretVar("SIGNING_KEY", ""),
 				},
 			},
 		},
@@ -152,8 +172,8 @@ func TestUpdateWorkspaceScript(t *testing.T) {
 				"script":  "echo hi\n",
 				"variables": []any{
 					plainVar("REGION", "eu"),
-					secretVar("API_TOKEN", "tok-123"),
-					protectedVar("SIGNING_KEY", ""),
+					secretVar("API_TOKEN", ""),
+					secretVar("SIGNING_KEY", ""),
 				},
 			},
 		},
@@ -173,23 +193,23 @@ func TestUpdateWorkspaceScript(t *testing.T) {
 				"script":  "echo hi\n",
 				"variables": []any{
 					plainVar("REGION", "us"),
-					protectedVar("SIGNING_KEY", ""),
+					secretVar("SIGNING_KEY", ""),
 					secretVar("NEW_SECRET", "s3cret"),
-					protectedVar("NEW_PROTECTED", "p"),
+					secretVar("NEW_PROTECTED", "p"),
 					plainVar("NEW_PLAIN", "x"),
 				},
 			},
 		},
 		{
-			name: "new value for a protected variable is sent",
+			name: "new value for a secret is sent",
 			args: map[string]any{"set_variables": []any{map[string]any{"key": "SIGNING_KEY", "value": "rotated"}}},
 			want: map[string]any{
 				"enabled": true,
 				"script":  "echo hi\n",
 				"variables": []any{
 					plainVar("REGION", "eu"),
-					secretVar("API_TOKEN", "tok-123"),
-					protectedVar("SIGNING_KEY", "rotated"),
+					secretVar("API_TOKEN", ""),
+					secretVar("SIGNING_KEY", "rotated"),
 				},
 			},
 		},
@@ -204,20 +224,20 @@ func TestUpdateWorkspaceScript(t *testing.T) {
 				"script":  "echo hi\n",
 				"variables": []any{
 					secretVar("REGION", "eu"),
-					protectedVar("API_TOKEN", "tok-123"),
-					protectedVar("SIGNING_KEY", ""),
+					secretVar("API_TOKEN", ""),
+					secretVar("SIGNING_KEY", ""),
 				},
 			},
 		},
 		{
-			name: "protected to plain with a value",
+			name: "secret to plain with a value",
 			args: map[string]any{"set_variables": []any{map[string]any{"key": "SIGNING_KEY", "value": "now-visible", "visibility": "plain"}}},
 			want: map[string]any{
 				"enabled": true,
 				"script":  "echo hi\n",
 				"variables": []any{
 					plainVar("REGION", "eu"),
-					secretVar("API_TOKEN", "tok-123"),
+					secretVar("API_TOKEN", ""),
 					plainVar("SIGNING_KEY", "now-visible"),
 				},
 			},
@@ -232,8 +252,8 @@ func TestUpdateWorkspaceScript(t *testing.T) {
 			}
 			read, write := (*got)[0], (*got)[1]
 			assertRequest(t, &read, http.MethodGet, workspaceScriptPath)
-			if !reflect.DeepEqual(read.Query, map[string][]string{"include_secrets": {"true"}}) {
-				t.Errorf("read query = %v, want include_secrets=true", read.Query)
+			if len(read.Query) != 0 {
+				t.Errorf("read query = %v, want none", read.Query)
 			}
 			assertRequest(t, &write, http.MethodPut, workspaceScriptPath)
 			if !reflect.DeepEqual(write.Body, tc.want) {
@@ -264,11 +284,22 @@ func TestUpdateWorkspaceScriptFromUnconfigured(t *testing.T) {
 	})
 	t.Run("camelCase", func(t *testing.T) {
 		ctx, got := captureRequests(t, map[string]string{
-			http.MethodGet: `{"workspaceScript":{"enabled":true,"script":"x","variables":[{"key":"A","value":"v","isSecret":true}]}}`,
+			http.MethodGet: `{"workspaceScript":{"enabled":true,"script":"x","variables":[{"key":"A","value":"","isSecret":true}]}}`,
 			http.MethodPut: savedResponse,
 		})
 		callText(t, UpdateWorkspaceScript, ctx, map[string]any{"script": "y"})
-		want := map[string]any{"enabled": true, "script": "y", "variables": []any{secretVar("A", "v")}}
+		want := map[string]any{"enabled": true, "script": "y", "variables": []any{secretVar("A", "")}}
+		if len(*got) != 2 || !reflect.DeepEqual((*got)[1].Body, want) {
+			t.Errorf("requests = %+v, want a PUT with %v", *got, want)
+		}
+	})
+	t.Run("a protected variable reads as a secret", func(t *testing.T) {
+		ctx, got := captureRequests(t, map[string]string{
+			http.MethodGet: `{"workspace_script":{"enabled":true,"script":"x","variables":[{"key":"A","value":"","protected":true}]}}`,
+			http.MethodPut: savedResponse,
+		})
+		callText(t, UpdateWorkspaceScript, ctx, map[string]any{"script": "y"})
+		want := map[string]any{"enabled": true, "script": "y", "variables": []any{secretVar("A", "")}}
 		if len(*got) != 2 || !reflect.DeepEqual((*got)[1].Body, want) {
 			t.Errorf("requests = %+v, want a PUT with %v", *got, want)
 		}
@@ -289,7 +320,7 @@ func TestUpdateWorkspaceScriptRefusals(t *testing.T) {
 		{name: "same enabled", args: map[string]any{"enabled": true}, wantErr: "nothing to update", wantGet: true},
 		{
 			name:    "same variable values",
-			args:    map[string]any{"set_variables": []any{map[string]any{"key": "REGION", "value": "eu"}, map[string]any{"key": "API_TOKEN", "value": "tok-123", "visibility": "secret"}}},
+			args:    map[string]any{"set_variables": []any{map[string]any{"key": "REGION", "value": "eu"}, map[string]any{"key": "API_TOKEN", "visibility": "secret"}}},
 			wantErr: "nothing to update", wantGet: true,
 		},
 		{
@@ -304,8 +335,8 @@ func TestUpdateWorkspaceScriptRefusals(t *testing.T) {
 			wantErr: "value is required", wantGet: true,
 		},
 		{
-			name:    "protected to secret without value",
-			args:    map[string]any{"set_variables": []any{map[string]any{"key": "SIGNING_KEY", "visibility": "secret"}}},
+			name:    "secret to plain without value",
+			args:    map[string]any{"set_variables": []any{map[string]any{"key": "SIGNING_KEY", "visibility": "plain"}}},
 			wantErr: "cannot be read back", wantGet: true,
 		},
 		{
@@ -317,7 +348,7 @@ func TestUpdateWorkspaceScriptRefusals(t *testing.T) {
 			wantErr: "both set_variables and remove_variables", wantGet: true,
 		},
 		{name: "reserved key", args: map[string]any{"set_variables": []any{map[string]any{"key": "RDE_OS", "value": "x"}}}, wantErr: "reserved"},
-		{name: "bad visibility", args: map[string]any{"set_variables": []any{map[string]any{"key": "A", "value": "x", "visibility": "hidden"}}}, wantErr: "visibility must be one of"},
+		{name: "bad visibility", args: map[string]any{"set_variables": []any{map[string]any{"key": "A", "value": "x", "visibility": "hidden"}}}, wantErr: "visibility must be plain or secret"},
 		{name: "duplicate key", args: map[string]any{"set_variables": []any{map[string]any{"key": "A", "value": "1"}, map[string]any{"key": "A", "value": "2"}}}, wantErr: "more than once"},
 	}
 	for _, tc := range cases {

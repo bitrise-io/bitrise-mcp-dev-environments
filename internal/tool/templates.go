@@ -15,7 +15,7 @@ const templateHooksDoc = `Lifecycle hooks are how a template defines its scripts
 
 SCOPES: every template variable and session input has a hook — its scope. "shared" (the default when omitted) reaches every hook; "on_create", "on_claim" or "on_restore" reach that hook only and are accepted only on a template with hooks. A hook receives the shared values plus its own, nothing else: on_restore does NOT see the claim values — give it its own on_restore inputs, or make them shared. The hook's own value wins over a shared value of the same key. Keys are unique within a scope; the same key may exist on several scopes, and one supplied value (or one saved input) fills all of them. Who supplies inputs: bitrise_devenv_create with template_id needs every required input of every scope; bitrise_devenv_create_warm_pool takes the shared and on_create inputs; a claim (bitrise_devenv_create with warm_pool_id) supplies the on_claim and on_restore inputs. A template that still has the deprecated startup_script / warmup_script keeps every value shared.
 
-VARIABLES: is_secret encrypts the value at rest and omits it from responses (include_secrets reveals it to members). protected is secret plus write-only: the API never returns the value (reads give value "" with protected true, even with include_secrets), it can be replaced but never viewed, and an empty value on update keeps the stored one — so a round-trip from bitrise_devenv_get_template keeps it. Use protected for secrets every warm pool of the template reuses, such as a registry credential. A protected value is never written to the machine, so expose_as_env_var is refused with it.
+VARIABLES: is_secret encrypts the value at rest and makes it write-only: the API never returns it (reads give value "" plus masked_value: "****" followed by the last 4 characters when the value is longer than 16, e.g. "****5678"; never the length), it can be replaced but never viewed, and on update a secret resent with an empty value keeps the one stored under the same hook and key — so a round-trip from bitrise_devenv_get_template keeps it. protected is no longer needed: every secret is write-only, reads report protected equal to is_secret, and sending protected=true just means is_secret=true. Any variable, secret or not, may set expose_as_env_var.
 
 "ALSO IN TERMINAL" (expose_as_env_var, on every variable and input, any scope): hooks always receive this value. Also in terminal additionally writes it to the session's shell profile when this step runs, so it is available in SSH and terminal sessions afterwards. Later steps override earlier ones for the same name. Exposed Shared and On create values stay on a pool machine for whoever claims it. A hook with no script but with exposed values still gets a run, so the values are applied.
 
@@ -39,10 +39,10 @@ var templateVariableItemSchema = map[string]any{
 	"type": "object",
 	"properties": map[string]any{
 		"key":               map[string]any{"type": "string", "description": "Key/name of the variable. Unique within its scope; the same key may exist on another scope."},
-		"value":             map[string]any{"type": "string", "description": "Value of the variable. For a protected variable an empty value on update keeps the stored one."},
-		"is_secret":         map[string]any{"type": "boolean", "description": "Whether this is a secret value (encrypted at rest, omitted from responses unless include_secrets)"},
-		"protected":         map[string]any{"type": "boolean", "description": "Write-only: secret, never returned by the API (reads give value \"\"), replaced but never viewed; an empty value on update keeps the stored one. Implies is_secret. Any scope, hooks templates only. For secrets every warm pool of the template reuses. expose_as_env_var is refused with it."},
-		"expose_as_env_var": map[string]any{"type": "boolean", "description": "\"Also in terminal\": hooks always receive the value; this additionally writes it to the session's shell profile when its scope's step runs, so it is available in SSH and terminal sessions afterwards (later steps override earlier ones for the same name; exposed shared and on_create values stay on a pool machine for whoever claims it). Refused with protected."},
+		"value":             map[string]any{"type": "string", "description": "Value of the variable. For a secret already stored under the same hook and key, an empty value on update keeps the stored one."},
+		"is_secret":         map[string]any{"type": "boolean", "description": "Whether this is a secret value: encrypted at rest and write-only (reads give value \"\" and masked_value)"},
+		"protected":         map[string]any{"type": "boolean", "description": "No longer needed: every secret is write-only. Reads report it equal to is_secret; sending true just means is_secret=true."},
+		"expose_as_env_var": map[string]any{"type": "boolean", "description": "\"Also in terminal\": hooks always receive the value; this additionally writes it to the session's shell profile when its scope's step runs, so it is available in SSH and terminal sessions afterwards (later steps override earlier ones for the same name; exposed shared and on_create values stay on a pool machine for whoever claims it). Works for secrets too."},
 		"hook":              map[string]any{"type": "string", "enum": valueScopes, "description": `The scope that receives the variable: "shared" (the default when omitted) reaches every hook; "on_create", "on_claim" or "on_restore" reach that hook only (hooks templates only). The hook's own value wins over a shared one of the same key.`},
 	},
 	"required": []string{"key", "value"},
@@ -79,22 +79,14 @@ var templateSessionInputItemSchema = map[string]any{
 var ListTemplates = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_list_templates",
 		mcp.WithTitleAnnotation("List templates"),
-		mcp.WithDescription("List all available devenv templates. Each template defines the stack, its setup scripts (lifecycle hooks; a template created before lifecycle hooks has the deprecated startup_script / warmup_script instead), template variables, session inputs (required and optional), feature flags, workspace links, and optionally a device_spec — the iOS simulator / Android emulator every session created from it boots unless the create request overrides it with its own device_spec or no_device. lifecycle_mode says how its scripts run: \"hooks\" (the hooks object: on_create, on_claim, on_restore — see bitrise_devenv_create_template; on such a template startup_script is a generated read-only equivalent) or \"legacy\" (the deprecated startup_script / warmup_script). By default, secret template variable values are omitted from the response; set include_secrets=true to include them."),
-		mcp.WithBoolean("include_secrets",
-			mcp.Description("When true, secret template variable values are included in the response. Defaults to false (secret values are omitted)."),
-		),
+		mcp.WithDescription("List all available devenv templates. Each template defines the stack, its setup scripts (lifecycle hooks; a template created before lifecycle hooks has the deprecated startup_script / warmup_script instead), template variables, session inputs (required and optional), feature flags, workspace links, and optionally a device_spec — the iOS simulator / Android emulator every session created from it boots unless the create request overrides it with its own device_spec or no_device. lifecycle_mode says how its scripts run: \"hooks\" (the hooks object: on_create, on_claim, on_restore — see bitrise_devenv_create_template; on such a template startup_script is a generated read-only equivalent) or \"legacy\" (the deprecated startup_script / warmup_script). Secret template variable values are never returned: value is \"\" and masked_value shows \"****\" followed by the last 4 characters of a value longer than 16, e.g. \"****5678\" (never the length)."),
 		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithDestructiveHintAnnotation(false),
 	),
 	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		params := map[string]string{}
-		if request.GetBool("include_secrets", false) {
-			params["include_secrets"] = "true"
-		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodGet,
 			Path:   devenv.WsPath(ctx, "/templates"),
-			Params: params,
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("list templates", err), nil
@@ -107,13 +99,10 @@ var ListTemplates = devenv.Tool{
 var GetTemplate = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_get_template",
 		mcp.WithTitleAnnotation("Get template"),
-		mcp.WithDescription("Get details of a specific template including its setup scripts (lifecycle hooks; a template created before lifecycle hooks has the deprecated startup_script / warmup_script instead), stack, working directory, template variables, session inputs (with required/default_value/expose_as_env_var fields), feature flags, workspace links, and device_spec (the virtual device sessions created from it boot by default; absent when the template declares none — see bitrise_devenv_create for how a create request inherits, overrides or skips it). lifecycle_mode is \"hooks\": the template's scripts are the hooks object (on_create, on_claim, on_restore — see bitrise_devenv_create_template for what each one is) and startup_script is a generated, read-only equivalent of them — edit hooks, never that; or \"legacy\": the template still has the deprecated startup_script / warmup_script. Each session input and template variable carries hook — its scope: \"shared\" reaches every hook, \"on_create\" / \"on_claim\" / \"on_restore\" that hook only (see bitrise_devenv_create_template) — and a variable may be protected (write-only: its value is always \"\"). By default, secret template variable values are omitted from the response; set include_secrets=true to include them (a protected value stays \"\" regardless)."),
+		mcp.WithDescription("Get details of a specific template including its setup scripts (lifecycle hooks; a template created before lifecycle hooks has the deprecated startup_script / warmup_script instead), stack, working directory, template variables, session inputs (with required/default_value/expose_as_env_var fields), feature flags, workspace links, and device_spec (the virtual device sessions created from it boot by default; absent when the template declares none — see bitrise_devenv_create for how a create request inherits, overrides or skips it). lifecycle_mode is \"hooks\": the template's scripts are the hooks object (on_create, on_claim, on_restore — see bitrise_devenv_create_template for what each one is) and startup_script is a generated, read-only equivalent of them — edit hooks, never that; or \"legacy\": the template still has the deprecated startup_script / warmup_script. Each session input and template variable carries hook — its scope: \"shared\" reaches every hook, \"on_create\" / \"on_claim\" / \"on_restore\" that hook only (see bitrise_devenv_create_template). Secret template variable values are never returned: value is \"\" and masked_value shows \"****\" followed by the last 4 characters of a value longer than 16, e.g. \"****5678\" (never the length)."),
 		mcp.WithString("template_id",
 			mcp.Description("The unique identifier (UUID) of the template"),
 			mcp.Required(),
-		),
-		mcp.WithBoolean("include_secrets",
-			mcp.Description("When true, secret template variable values are included in the response. Defaults to false (secret values are omitted)."),
 		),
 		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithDestructiveHintAnnotation(false),
@@ -123,14 +112,9 @@ var GetTemplate = devenv.Tool{
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
-		params := map[string]string{}
-		if request.GetBool("include_secrets", false) {
-			params["include_secrets"] = "true"
-		}
 		res, err := devenv.CallAPI(ctx, devenv.CallAPIParams{
 			Method: http.MethodGet,
 			Path:   devenv.WsPath(ctx, fmt.Sprintf("/templates/%s", templateID)),
-			Params: params,
 		})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("get template", err), nil
@@ -159,7 +143,7 @@ Every session input and template variable carries hook — its scope (shared, on
 		mcp.WithString("machine_type", mcp.Description("Machine type name (use bitrise_devenv_list_machine_types to find the name, e.g. 'g2.mac.m2pro.4c')"), mcp.Required()),
 		mcp.WithString("working_directory", mcp.Description("Working directory for terminal sessions (absolute path)")),
 		mcp.WithArray("template_variables",
-			mcp.Description("Template variables baked into this template (delivered to the lifecycle hooks of their scope). Each has a hook (its scope; omitted = shared) and may be is_secret or protected (write-only); hooks templates only for the per-hook scopes and protected."),
+			mcp.Description("Template variables baked into this template (delivered to the lifecycle hooks of their scope). Each has a hook (its scope; omitted = shared) and may be is_secret (write-only); hooks templates only for the per-hook scopes."),
 			mcp.Items(templateVariableItemSchema),
 		),
 		mcp.WithArray("session_inputs",
@@ -251,7 +235,7 @@ var UpdateTemplate = devenv.Tool{
 		mcp.WithString("machine_type", mcp.Description("Updated machine type name (use bitrise_devenv_list_machine_types to find the name)")),
 		mcp.WithString("working_directory", mcp.Description("Updated working directory")),
 		mcp.WithArray("template_variables",
-			mcp.Description("Replace ALL template variables with this list. Omit to leave unchanged. Pass empty array to clear all. A protected variable resent with an empty value keeps its stored value (reads never return it), so a round-trip from bitrise_devenv_get_template keeps it; changing a protected variable's key needs a value again. An entry without hook is shared."),
+			mcp.Description("Replace ALL template variables with this list. Omit to leave unchanged. Pass empty array to clear all. A secret resent as a secret with an empty value keeps its stored value (reads never return it), so a round-trip from bitrise_devenv_get_template keeps it; changing a secret's key or hook, or turning it plain, needs a value again. An entry without hook is shared."),
 			mcp.Items(templateVariableItemSchema),
 		),
 		mcp.WithArray("session_inputs",

@@ -90,7 +90,7 @@ Also includes:
 
 For sessions created without a template, template_id is empty and the snapshot is minimal: only stack_id and machine_type are populated, has_warmup_script/has_startup_script are false, and there is no template_name, session_inputs, feature_flags, or workspace_links. template_outdated is always false for such sessions.
 
-Secrets are write-only: a secret session input's value is always "" and masked_value shows "****", its last 4 characters when it is longer than 16 characters, and its length (e.g. "****5678 (20)" or "**** (12)"), so you can tell which key is stored without reading it. masked_value is also "" on a supplied_by_pool entry.`),
+Secrets are write-only: a secret session input's value is always "" and masked_value shows "****" followed by its last 4 characters when it is longer than 16 characters (e.g. "****5678", or just "****"; never the length), so you can tell which key is stored without reading it. masked_value is also "" on a supplied_by_pool entry.`),
 		mcp.WithString("session_id",
 			mcp.Description("The unique identifier (UUID) of the session"),
 			mcp.Required(),

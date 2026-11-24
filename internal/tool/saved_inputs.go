@@ -13,7 +13,7 @@ import (
 var ListSavedInputs = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_list_saved_inputs",
 		mcp.WithTitleAnnotation("List saved inputs"),
-		mcp.WithDescription("List all saved inputs (credentials/values) for the current user. Saved inputs can be referenced when creating sessions to provide values for template session inputs. Secrets are write-only: a secret's value is always \"\" and masked_value shows \"****\", its last 4 characters when it is longer than 16 characters, and its length (e.g. \"****5678 (20)\" or \"**** (12)\"), so you can tell which key is stored without reading it."),
+		mcp.WithDescription("List all saved inputs (credentials/values) for the current user. Saved inputs can be referenced when creating sessions to provide values for template session inputs. Secrets are write-only: a secret's value is always \"\" and masked_value shows \"****\" followed by its last 4 characters when it is longer than 16 characters (e.g. \"****5678\", or just \"****\"; never the length), so you can tell which key is stored without reading it."),
 		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithDestructiveHintAnnotation(false),
 	),
@@ -33,7 +33,7 @@ var ListSavedInputs = devenv.Tool{
 var GetSavedInput = devenv.Tool{
 	Definition: mcp.NewTool("bitrise_devenv_get_saved_input",
 		mcp.WithTitleAnnotation("Get saved input"),
-		mcp.WithDescription("Get details of a specific saved input. Secrets are write-only: a secret's value is always \"\" and masked_value shows \"****\", its last 4 characters when it is longer than 16 characters, and its length (e.g. \"****5678 (20)\" or \"**** (12)\"), so you can tell which key is stored without reading it."),
+		mcp.WithDescription("Get details of a specific saved input. Secrets are write-only: a secret's value is always \"\" and masked_value shows \"****\" followed by its last 4 characters when it is longer than 16 characters (e.g. \"****5678\", or just \"****\"; never the length), so you can tell which key is stored without reading it."),
 		mcp.WithString("saved_input_id", mcp.Description("The unique identifier of the saved input"), mcp.Required()),
 		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithDestructiveHintAnnotation(false),

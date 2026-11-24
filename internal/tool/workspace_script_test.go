@@ -69,8 +69,8 @@ func callToolErr(t *testing.T, tool devenv.Tool, ctx context.Context, args map[s
 // variable of each visibility (the protected value is never returned).
 const storedScript = `{"workspace_script":{"configured":true,"enabled":true,"script":"echo hi\n","variables":[` +
 	`{"key":"REGION","value":"eu","is_secret":false,"protected":false,"value_stored":true},` +
-	`{"key":"API_TOKEN","value":"","is_secret":true,"protected":true,"value_stored":true,"masked_value":"**** (7)"},` +
-	`{"key":"SIGNING_KEY","value":"","is_secret":true,"protected":true,"value_stored":true,"masked_value":"****wxyz (20)"}` +
+	`{"key":"API_TOKEN","value":"","is_secret":true,"protected":true,"value_stored":true,"masked_value":"****"},` +
+	`{"key":"SIGNING_KEY","value":"","is_secret":true,"protected":true,"value_stored":true,"masked_value":"****wxyz"}` +
 	`],"updated_by":"someone@example.com","updated_at":"2026-11-01T10:00:00Z"}}`
 
 const savedResponse = `{"workspace_script":{"configured":true,"enabled":true}}`

@@ -85,7 +85,7 @@ var GetWarmPool = devenv.Tool{
 
 WHEN TO USE THIS: to check whether a pool has a session ready before claiming from it (status.ready > 0 means bitrise_devenv_create with warm_pool_id returns instantly), to diagnose a pool that is not filling (status.last_error, status.config_error, status.paused_until), or to see its inventory — status.sessions lists every warming / ready session with session_id, state, created_at and ready_at, oldest first (this call only; the list view omits it). status.oldest_warm_session_created_at is when the longest-waiting of them was created (unset while the pool holds none; the list view has it too).
 
-Secret session input values are write-only: value is "" and masked_value shows "****", the last 4 characters of a value longer than 16, and the length, e.g. "****5678 (20)".`),
+Secret session input values are write-only: value is "" and masked_value shows "****" followed by the last 4 characters of a value longer than 16, e.g. "****5678" (never the length).`),
 		mcp.WithString("warm_pool_id",
 			mcp.Description("The unique identifier (UUID) of the warm pool"),
 			mcp.Required(),
